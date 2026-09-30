@@ -1,0 +1,56 @@
+name: Node.js CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install FFmpeg & ImageMagick
+        run: |
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo apt-get clean
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y --fix-missing ffmpeg imagemagick
+
+      - name: Check SESSION_ID
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
+        run: |
+          if [ -z "$SESSION_ID" ]; then
+            echo "❌ SESSION_ID is missing"
+            exit 1
+          fi
+          echo "✅ SESSION_ID is set"
+
+      - name: Start application
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
+        run: node index.js
