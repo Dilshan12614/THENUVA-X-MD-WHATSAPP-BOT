@@ -6,7 +6,7 @@ cmd(
     pattern: "apk",
     alias: ["playstore", "app", "downloadapk"],
     react: "📦",
-    desc: "Get Google Play Store app details",
+    desc: "Get Google Play Store app information",
     category: "download",
     filename: __filename,
   },
@@ -22,7 +22,7 @@ cmd(
 
       if (!q) {
         return reply(
-          "⚠️ *Google Play Store link එකක් හෝ App name එකක් දෙන්න!*\n\n" +
+          "⚠️ *Google Play Store link එකක් දෙන්න!*\n\n" +
           "📌 Example:\n" +
           ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
         );
@@ -31,55 +31,65 @@ cmd(
       let playUrl = q.trim();
       let packageId = "";
 
-      // ─────────────────────────────
-      // Extract package ID
-      // ─────────────────────────────
-      if (playUrl.includes("play.google.com")) {
-        try {
-          const parsed = new URL(playUrl);
+      // Get package ID
+      try {
+        const parsed = new URL(playUrl);
+
+        if (
+          parsed.hostname === "play.google.com" ||
+          parsed.hostname.endsWith(".play.google.com")
+        ) {
           packageId = parsed.searchParams.get("id") || "";
-        } catch {}
+        }
+      } catch (e) {
+        // Invalid URL
       }
 
-      // If user gives package ID directly
-      if (!packageId && /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/.test(playUrl)) {
+      // Package ID directly given
+      if (
+        !packageId &&
+        /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/.test(playUrl)
+      ) {
         packageId = playUrl;
+
         playUrl =
-          `https://play.google.com/store/apps/details?id=${packageId}`;
+          "https://play.google.com/store/apps/details?id=" +
+          packageId;
       }
 
-      // App name only
       if (!packageId) {
         return reply(
-          "❌ *Package ID එක හඳුනාගන්න බැරි වුණා.*\n\n" +
-          "Google Play Store link එකක් දෙන්න:\n\n" +
-          ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
+          "❌ *Invalid Play Store Link!*\n\n" +
+          "මේ වගේ link එකක් භාවිතා කරන්න:\n" +
+          "https://play.google.com/store/apps/details?id=com.whatsapp"
         );
       }
 
       // Loading
-      const loading = await danuwa.sendMessage(
+      const loadingMsg = await danuwa.sendMessage(
         targetJid,
         {
           text:
             "╭────────────────────────╮\n" +
-            "│   ⚡ *THENUVA X MD* ⚡\n" +
+            "│   ⚡ *THENUVA X MD* ⚡   │\n" +
             "╰────────────────────────╯\n\n" +
             "🔎 *PLAY STORE SEARCHING...*\n" +
-            "⏳ Fetching application information..."
+            "⏳ Fetching app information..."
         },
         { quoted: mek }
       );
 
-      // ─────────────────────────────
-      // Fetch Play Store page
-      // ─────────────────────────────
+      // Request Play Store
       const response = await axios.get(playUrl, {
         timeout: 20000,
+
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 10; K) " +
+            "AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) " +
+            "Chrome/151.0.0.0 Mobile Safari/537.36",
+
           "Accept-Language": "en-US,en;q=0.9"
         }
       });
@@ -87,25 +97,25 @@ cmd(
       const html = response.data;
 
       if (!html || typeof html !== "string") {
-        throw new Error("Play Store page unavailable");
+        throw new Error("Play Store response unavailable");
       }
 
-      // ─────────────────────────────
-      // Helper
-      // ─────────────────────────────
-      function getMeta(property) {
+      // Extract meta data
+      function getMeta(name) {
         const regex = new RegExp(
-          `<meta[^>]+(?:property|name)=["']${property}["'][^>]+content=["']([^"']+)["']`,
+          '<meta[^>]+(?:property|name)=["\']' +
+            name +
+            '["\'][^>]+content=["\']([^"\']+)["\']',
           "i"
         );
 
         const match = html.match(regex);
-        return match ? match[1] : null;
+
+        return match ? match[1] : "";
       }
 
       function decode(value) {
-        if (!value) return "";
-        return value
+        return String(value || "")
           .replace(/&amp;/g, "&")
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
@@ -113,34 +123,17 @@ cmd(
           .replace(/&gt;/g, ">");
       }
 
-      // ─────────────────────────────
-      // Get app title
-      // ─────────────────────────────
+      // App name
       let appName =
         getMeta("og:title") ||
         getMeta("twitter:title") ||
         "Google Play Application";
 
-      appName = decode(appName);
-
-      // Remove common Play Store suffix
-      appName = appName
+      appName = decode(appName)
         .replace(/\s*-\s*Apps on Google Play$/i, "")
         .trim();
 
-      // ─────────────────────────────
-      // Get icon
-      // ─────────────────────────────
-      let icon =
-        getMeta("og:image") ||
-        getMeta("twitter:image") ||
-        "";
-
-      icon = decode(icon);
-
-      // ─────────────────────────────
-      // Get description
-      // ─────────────────────────────
+      // Description
       let description =
         getMeta("og:description") ||
         getMeta("description") ||
@@ -151,12 +144,19 @@ cmd(
         .trim();
 
       if (description.length > 300) {
-        description = description.substring(0, 300) + "...";
+        description =
+          description.substring(0, 300) + "...";
       }
 
-      // ─────────────────────────────
-      // Get canonical URL
-      // ─────────────────────────────
+      // App icon
+      let icon =
+        getMeta("og:image") ||
+        getMeta("twitter:image") ||
+        "";
+
+      icon = decode(icon);
+
+      // Canonical URL
       let officialUrl = playUrl;
 
       const canonicalMatch = html.match(
@@ -167,63 +167,90 @@ cmd(
         officialUrl = decode(canonicalMatch[1]);
       }
 
-      // ─────────────────────────────
-      // Success message
-      // ─────────────────────────────
-      let text = "";
+      // Information message
+      let infoText = "";
 
-      text += "╭────────────────────────────╮\n";
-      text += "│     📦 *THENUVA X MD* 📦    │\n";
-      text += "╰────────────────────────────╯\n\n";
+      infoText +=
+        "╭────────────────────────────╮\n";
+      infoText +=
+        "│     📦 *THENUVA X MD* 📦    │\n";
+      infoText +=
+        "╰────────────────────────────╯\n\n";
 
-      text += `👋 *Hello ${pushname || "User"}!*\n\n`;
+      infoText +=
+        `👋 *Hello ${pushname || "User"}!*\n\n`;
 
-      text += "╭────────────────────────────╮\n";
-      text += `│ 📱 *App:* ${appName}\n`;
-      text += `│ 🆔 *Package:* ${packageId}\n`;
-      text += "│ 🏪 *Source:* Google Play Store\n";
-      text += "│ 🔐 *Official:* ✅\n";
-      text += "╰────────────────────────────╯\n\n";
+      infoText +=
+        "╭────────────────────────────╮\n";
 
-      text += `📝 *Description:*\n${description}\n\n`;
+      infoText +=
+        `│ 📱 *App:* ${appName}\n`;
 
-      text += "╭────────────────────────────╮\n";
-      text += "│ 📥 *INSTALL / DOWNLOAD*    │\n";
-      text += "╰────────────────────────────╯\n\n";
+      infoText +=
+        `│ 🆔 *Package:* ${packageId}\n`;
 
-      text += `🔗 ${officialUrl}\n\n`;
+      infoText +=
+        "│ 🏪 *Source:* Google Play Store\n";
 
-      text += "📲 Open the link above to install the app\n";
-      text += "directly from Google Play Store.\n\n";
+      infoText +=
+        "│ 🔐 *Official:* ✅\n";
 
-      text += "⚡ *THENUVA X MD*\n";
-      text += "🚀 *Powered by THENUVA*";
+      infoText +=
+        "╰────────────────────────────╯\n\n";
 
-      // ─────────────────────────────
-      // Send icon if available
-      // ─────────────────────────────
+      infoText +=
+        `📝 *Description:*\n${description}\n\n`;
+
+      infoText +=
+        "📲 *INSTALL / DOWNLOAD*\n";
+
+      infoText +=
+        "━━━━━━━━━━━━━━━━━━━━\n";
+
+      infoText +=
+        `${officialUrl}\n\n`;
+
+      infoText +=
+        "⚡ *THENUVA X MD*\n";
+
+      infoText +=
+        "🚀 *Powered by THENUVA*";
+
+      // Send icon + information
       if (icon) {
         try {
           await danuwa.sendMessage(
             targetJid,
             {
-              image: { url: icon },
-              caption: text
+              image: {
+                url: icon
+              },
+              caption: infoText
             },
-            { quoted: mek }
+            {
+              quoted: mek
+            }
           );
-        } catch {
+        } catch (imageError) {
           await danuwa.sendMessage(
             targetJid,
-            { text },
-            { quoted: mek }
+            {
+              text: infoText
+            },
+            {
+              quoted: mek
+            }
           );
         }
       } else {
         await danuwa.sendMessage(
           targetJid,
-          { text },
-          { quoted: mek }
+          {
+            text: infoText
+          },
+          {
+            quoted: mek
+          }
         );
       }
 
@@ -233,26 +260,35 @@ cmd(
           targetJid,
           {
             text:
-              `✅ *${appName} FOUND!*\n\n` +
-              "📦 Google Play Store information loaded successfully.\n" +
-              "📲 Official install link has been sent above.",
-            edit: loading.key
+              "╭────────────────────────╮\n" +
+              "│       ✅ *SUCCESS*       │\n" +
+              "╰────────────────────────╯\n\n" +
+              `📱 *${appName}* found successfully!\n\n` +
+              "📲 Official Google Play Store link has been sent.",
+            edit: loadingMsg.key
           },
-          { quoted: mek }
+          {
+            quoted: mek
+          }
         );
-      } catch {}
+      } catch (editError) {
+        console.log(
+          "Loading edit failed:",
+          editError.message
+        );
+      }
 
     } catch (error) {
-      console.error("THENUVA APK ERROR:", error);
+      console.error(
+        "THENUVA APK ERROR:",
+        error
+      );
 
       return reply(
         "❌ *PLAY STORE ERROR*\n\n" +
-        "App එකේ Play Store information ලබාගන්න බැරි වුණා.\n\n" +
-        "• Link එක public ද බලන්න\n" +
-        "• Play Store URL එක නිවැරදිද බලන්න\n" +
-        "• පසුව නැවත try කරන්න."
+        "App information ලබාගන්න බැරි වුණා.\n\n" +
+        "🔗 Link එක check කරලා නැවත try කරන්න."
       );
     }
   }
 );
-```
