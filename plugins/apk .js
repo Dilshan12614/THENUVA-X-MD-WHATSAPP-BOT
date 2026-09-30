@@ -1,85 +1,104 @@
-const { cmd } = require('../command');
-const axios = require('axios'); // node-fetch වෙනුවට වඩාත් ස්ථාවර axios භාවිතය
+const { cmd, commands } = require("../command");
+const yts = require("yt-search");
+const axios = require("axios");
 
-cmd({
+cmd(
+  {
     pattern: "apk",
-    alias: ["app", "apkdl"],
-    react: "📲",
-    desc: "Download APK Android Applications.",
+    alias: ["downloadapk", "playstore"],
+    react: "📦",
+    desc: "Download APK files from Google Play Store links using Apify storage.",
     category: "download",
-    filename: __filename
-},
-async (conn, mek, m, { from, quoted, q, reply, sender }) => {
+    filename: __filename,
+  },
+  async (danuwa, mek, m, { from, quoted, body, args, q, pushname, reply }) => {
     try {
-        // JID එක සඳහා ආරක්ෂිතව String අගයක් ලබා ගැනීම (Crashes වැළැක්වීමට)
-        const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
+      if (!q) return reply("⚠️ *කරුණාකර Google Play Store ඇප් ලින්ක් එකක් හෝ ඇප් එකේ නම ඇතුළත් කරන්න!*");
 
-        if (!q) return reply("⚠️ *Please provide the app name!*\n\n*Example:* `.apk whatsapp` or `.apk temple run`");
+      const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
 
-        // සෙවුම ආරම්භ කළ බව පෙන්වීමට පණිවිඩයක් යැවීම
-        const loadingMsg = await conn.sendMessage(targetJid, { 
-            text: `📲 *DENETH-MD Fetching Your APK:* \`"${q}"\`...` 
-        }, { quoted: mek });
+      // 1. දත්ත ලබා ගන්නා තෙක් 'Loading' පණිවිඩය යැවීම
+      const loadingMsg = await danuwa.sendMessage(targetJid, { 
+        text: `⚡ *CYBER THENUVA FETCHING DATA...*` 
+      }, { quoted: mek });
 
-        // වඩාත් ස්ථාවර නව GiftedTech API එක මඟින් APK දත්ත ලබා ගැනීම
-        const apiUrl = `https://giftedtech.my.id{encodeURIComponent(q)}`;
-        const response = await axios.get(apiUrl);
-        const resData = response.data;
-        
-        // දත්ත ලැබී ඇත්දැයි සහ සාර්ථකදැයි පරීක්ෂා කිරීම
-        if (!resData || !resData.result) {
-            return await conn.sendMessage(targetJid, { 
-                text: "❌ *Failed to fetch APK. Application not found or server is busy!*", 
-                edit: loadingMsg.key 
-            });
+      // ඇප් එකේ නම ලස්සනට පෙනෙන්නට සකස් කර ගැනීම
+      let appName = "Application";
+      if (q.includes("id=")) {
+        let parts = q.split("id=");
+        appName = parts[1].split("&")[0].split(".").pop();
+        appName = appName.charAt(0).toUpperCase() + appName.slice(1);
+      } else {
+        appName = q;
+      }
+
+      // 2. Apify APK ලින්ක් එක (Direct Download Link)
+      const downloadUrl = "https://api.apify.com/v2/key-value-stores/fUlRkg7AITRi5X31R/records/apk.zip?signature=1SlbtAjfqyRe0MTTEMJjf";
+
+      // CYBER X THENULA ස්ටයිල් එකට සකස් කළ විස්තර පත්‍රිකාව
+      let detailsText = `👋 HELLOW ${pushname || "User"} ❤️ Welcome to\n`;
+      detailsText += `CYBER X THENULA\n\n`;
+      detailsText += `✅CYBER THENULA X MD✅\n`;
+      detailsText += `╭───────────────────.★*\n`;
+      detailsText += `│  ◦ 📝 *App Name :* ${appName}\n`;
+      detailsText += `│  ◦ 🌐 *Query/Url :* ${q}\n`;
+      detailsText += `│  ◦ 📦 *Type :* Android Package (APK)\n`;
+      detailsText += `│  ◦ ⚡ *Status :* Found successfully\n`;
+      detailsText += `╰───────────────────.★*\n\n`;
+      detailsText += `╭───────────────╼\n`;
+      detailsText += `│👨‍💻 CYBER-TEAM 🥷\n`;
+      detailsText += `╰───────────────╼\n\n`;
+      detailsText += `📥 *DOWNLOADING APK FILE* 📥\n`;
+      detailsText += `─── ── ─●●●─ ── ───\n\n\n`;
+
+      // විස්තර පණිවිඩය යාවත්කාලීන කිරීම (Newsletter Context සමඟ)
+      await danuwa.sendMessage(targetJid, { 
+        text: detailsText,
+        edit: loadingMsg.key,
+        contextInfo: {
+          forwardingScore: 999,
+          isForwarded: true,
+          forwardedNewsletterMessageInfo: {
+            newsletterJid: "120363403804248705@newsletter", // ඔබේ Newsletter JID එක
+            newsletterName: "CYBER X THENULA", // Newsletter එකේ නම
+            serverMessageId: 143
+          }
         }
+      });
 
-        const appData = resData.result;
-        const apkName = appData.name || q;
-        const downloadLink = appData.downloadUrl || appData.dllink || appData.link;
-        const iconUrl = appData.icon || appData.thumbnail || "https://telegra.ph";
-        const appSize = appData.size || "Unknown Size";
+      // 3. වට්සැප් එකට APK Document එක සමඟ යන Caption එක
+      let apkCaption = `✅ *DOWNLOAD SUCCESS* ✅\n`;
+      apkCaption += `╭───────────────────.★*\n`;
+      apkCaption += `│  ◦ 👤 *User :* ${pushname || "User"}\n`;
+      apkCaption += `│  ◦ 📦 *App :* ${appName}.apk\n`;
+      apkCaption += `│  ◦ 🎞 *Status :* Successfully Sent\n`;
+      apkCaption += `╰───────────────────.★*\n\n`;
+      apkCaption += `> *©⚡ POWERED by CYBER THENUWA* 🚀\n\n\n`;
 
-        let desc = `*🌤️ DENETH-MD APK DOWNLOADER 🌤️*
+      // වට්සැප් එකට APK එක Document එකක් ලෙස සෘජුවම යැවීම (Newsletter Context සමඟ)
+      await danuwa.sendMessage(
+        targetJid,
+        {
+          document: { url: downloadUrl },
+          mimetype: "application/vnd.android.package-archive",
+          fileName: `${appName}.apk`,
+          caption: apkCaption,
+          contextInfo: {
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: "120363403804248705@newsletter", // ඔබේ Newsletter JID එක
+              newsletterName: "CYBER X THENULA", // Newsletter එකේ නම
+              serverMessageId: 143
+            }
+          }
+        },
+        { quoted: mek }
+      );
 
-📦 *App Name:* ${apkName}
-📊 *Size:* ${appSize}
-
-> *Downloading application file... Please wait!* ⏳`;
-
-        // ලෝඩින් මැසේජ් එක යාවත්කාලීන කිරීම
-        await conn.sendMessage(targetJid, { text: `✅ *Application Found! Processing upload...*` }, { edit: loadingMsg.key });
-
-        // App Icon/Thumbnail එක සමඟ විස්තර පත්‍රිකාව යැවීම
-        await conn.sendMessage(
-            targetJid, 
-            { 
-                image: { url: iconUrl }, 
-                caption: desc
-            }, 
-            { quoted: mek }
-        );
-        
-        // වට්සැප් එකට Document එකක් ලෙස APK ගොනුව සෘජුවම යැවීම
-        await conn.sendMessage(
-            targetJid, 
-            { 
-                document: { url: downloadLink }, 
-                mimetype: "application/vnd.android.package-archive", 
-                fileName: `${apkName}.apk`, 
-                caption: `✅ *${apkName} Uploaded Successfully!*\n\n> *Generated by DENETH-MD* 🚀`
-            }, 
-            { quoted: mek }
-        );
-
-        // ක්‍රියාවලිය අවසන් වූ පසු අවසාන පණිවිඩය යාවත්කාලීන කිරීම
-        return await conn.sendMessage(targetJid, { 
-            text: "✅ *Application successfully delivered!*" 
-        }, { edit: loadingMsg.key });
-        
-    } catch (e) {
-        console.error(e);
-        const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
-        await conn.sendMessage(targetJid, { text: "❌ *An error occurred while fetching the APK. Please try again later.*" }, { quoted: mek });
+    } catch (error) {
+      console.log("APK Downloader Error:", error);
+      reply(`❌ *Error:* ${error.message} 😞`);
     }
-});
+  }
+);
