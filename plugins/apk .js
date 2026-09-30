@@ -1,28 +1,12 @@
 const { cmd } = require("../command");
 const axios = require("axios");
 
-/*
- * THENUVA X MD - APK Downloader
- *
- * Your API must return:
- * {
- *   success: true,
- *   name: "App Name",
- *   version: "1.0.0",
- *   size: "25 MB",
- *   downloadUrl: "https://your-authorized-server/app.apk"
- * }
- *
- * Set your API endpoint here.
- */
-const APK_API = process.env.APK_API || "https://YOUR-APK-API.example.com/api/apk";
-
 cmd(
   {
     pattern: "apk",
-    alias: ["downloadapk", "playstore"],
+    alias: ["playstore", "app", "downloadapk"],
     react: "📦",
-    desc: "Download an authorized APK file",
+    desc: "Get Google Play Store app details",
     category: "download",
     filename: __filename,
   },
@@ -38,141 +22,235 @@ cmd(
 
       if (!q) {
         return reply(
-          "⚠️ *App name එකක් හෝ Play Store URL එකක් දෙන්න!*\n\n" +
+          "⚠️ *Google Play Store link එකක් හෝ App name එකක් දෙන්න!*\n\n" +
           "📌 Example:\n" +
-          ".apk WhatsApp\n\n" +
-          "හෝ\n" +
           ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
         );
       }
 
-      // Loading message
+      let playUrl = q.trim();
+      let packageId = "";
+
+      // ─────────────────────────────
+      // Extract package ID
+      // ─────────────────────────────
+      if (playUrl.includes("play.google.com")) {
+        try {
+          const parsed = new URL(playUrl);
+          packageId = parsed.searchParams.get("id") || "";
+        } catch {}
+      }
+
+      // If user gives package ID directly
+      if (!packageId && /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/.test(playUrl)) {
+        packageId = playUrl;
+        playUrl =
+          `https://play.google.com/store/apps/details?id=${packageId}`;
+      }
+
+      // App name only
+      if (!packageId) {
+        return reply(
+          "❌ *Package ID එක හඳුනාගන්න බැරි වුණා.*\n\n" +
+          "Google Play Store link එකක් දෙන්න:\n\n" +
+          ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
+        );
+      }
+
+      // Loading
       const loading = await danuwa.sendMessage(
         targetJid,
         {
           text:
-            "╭───────────────────╮\n" +
-            "│ ⚡ *THENUVA X MD* ⚡\n" +
-            "╰───────────────────╯\n\n" +
-            "🔎 *Fetching APK information...*\n" +
-            "⏳ Please wait..."
+            "╭────────────────────────╮\n" +
+            "│   ⚡ *THENUVA X MD* ⚡\n" +
+            "╰────────────────────────╯\n\n" +
+            "🔎 *PLAY STORE SEARCHING...*\n" +
+            "⏳ Fetching application information..."
         },
         { quoted: mek }
       );
 
-      /*
-       * Call your authorized APK API.
-       *
-       * API request:
-       * GET /api/apk?q=WhatsApp
-       */
-      const response = await axios.get(APK_API, {
-        params: {
-          q: q.trim()
-        },
-        timeout: 30000,
+      // ─────────────────────────────
+      // Fetch Play Store page
+      // ─────────────────────────────
+      const response = await axios.get(playUrl, {
+        timeout: 20000,
         headers: {
-          "User-Agent": "THENUVA-X-MD/1.0"
+          "User-Agent":
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9"
         }
       });
 
-      const data = response.data || {};
+      const html = response.data;
 
-      if (!data.success || !data.downloadUrl) {
-        return await danuwa.sendMessage(
+      if (!html || typeof html !== "string") {
+        throw new Error("Play Store page unavailable");
+      }
+
+      // ─────────────────────────────
+      // Helper
+      // ─────────────────────────────
+      function getMeta(property) {
+        const regex = new RegExp(
+          `<meta[^>]+(?:property|name)=["']${property}["'][^>]+content=["']([^"']+)["']`,
+          "i"
+        );
+
+        const match = html.match(regex);
+        return match ? match[1] : null;
+      }
+
+      function decode(value) {
+        if (!value) return "";
+        return value
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">");
+      }
+
+      // ─────────────────────────────
+      // Get app title
+      // ─────────────────────────────
+      let appName =
+        getMeta("og:title") ||
+        getMeta("twitter:title") ||
+        "Google Play Application";
+
+      appName = decode(appName);
+
+      // Remove common Play Store suffix
+      appName = appName
+        .replace(/\s*-\s*Apps on Google Play$/i, "")
+        .trim();
+
+      // ─────────────────────────────
+      // Get icon
+      // ─────────────────────────────
+      let icon =
+        getMeta("og:image") ||
+        getMeta("twitter:image") ||
+        "";
+
+      icon = decode(icon);
+
+      // ─────────────────────────────
+      // Get description
+      // ─────────────────────────────
+      let description =
+        getMeta("og:description") ||
+        getMeta("description") ||
+        "No description available.";
+
+      description = decode(description)
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (description.length > 300) {
+        description = description.substring(0, 300) + "...";
+      }
+
+      // ─────────────────────────────
+      // Get canonical URL
+      // ─────────────────────────────
+      let officialUrl = playUrl;
+
+      const canonicalMatch = html.match(
+        /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
+      );
+
+      if (canonicalMatch && canonicalMatch[1]) {
+        officialUrl = decode(canonicalMatch[1]);
+      }
+
+      // ─────────────────────────────
+      // Success message
+      // ─────────────────────────────
+      let text = "";
+
+      text += "╭────────────────────────────╮\n";
+      text += "│     📦 *THENUVA X MD* 📦    │\n";
+      text += "╰────────────────────────────╯\n\n";
+
+      text += `👋 *Hello ${pushname || "User"}!*\n\n`;
+
+      text += "╭────────────────────────────╮\n";
+      text += `│ 📱 *App:* ${appName}\n`;
+      text += `│ 🆔 *Package:* ${packageId}\n`;
+      text += "│ 🏪 *Source:* Google Play Store\n";
+      text += "│ 🔐 *Official:* ✅\n";
+      text += "╰────────────────────────────╯\n\n";
+
+      text += `📝 *Description:*\n${description}\n\n`;
+
+      text += "╭────────────────────────────╮\n";
+      text += "│ 📥 *INSTALL / DOWNLOAD*    │\n";
+      text += "╰────────────────────────────╯\n\n";
+
+      text += `🔗 ${officialUrl}\n\n`;
+
+      text += "📲 Open the link above to install the app\n";
+      text += "directly from Google Play Store.\n\n";
+
+      text += "⚡ *THENUVA X MD*\n";
+      text += "🚀 *Powered by THENUVA*";
+
+      // ─────────────────────────────
+      // Send icon if available
+      // ─────────────────────────────
+      if (icon) {
+        try {
+          await danuwa.sendMessage(
+            targetJid,
+            {
+              image: { url: icon },
+              caption: text
+            },
+            { quoted: mek }
+          );
+        } catch {
+          await danuwa.sendMessage(
+            targetJid,
+            { text },
+            { quoted: mek }
+          );
+        }
+      } else {
+        await danuwa.sendMessage(
           targetJid,
-          {
-            text:
-              "❌ *APK NOT FOUND*\n\n" +
-              "The requested APK is unavailable from the configured source.",
-            edit: loading.key
-          },
+          { text },
           { quoted: mek }
         );
       }
 
-      const appName =
-        data.name ||
-        data.appName ||
-        "Android Application";
-
-      const version =
-        data.version ||
-        "Unknown";
-
-      const size =
-        data.size ||
-        "Unknown";
-
-      const downloadUrl =
-        data.downloadUrl;
-
-      // Information message
-      let info = "";
-
-      info += "╭────────────────────────╮\n";
-      info += "│     ⚡ *THENUVA X MD* ⚡\n";
-      info += "╰────────────────────────╯\n\n";
-
-      info += `👋 *Hello ${pushname || "User"}!*\n\n`;
-
-      info += "╭────────────────────────╮\n";
-      info += `│ 📱 *App :* ${appName}\n`;
-      info += `│ 🔢 *Version :* ${version}\n`;
-      info += `│ 📦 *Size :* ${size}\n`;
-      info += `│ 🔗 *Query :* ${q}\n`;
-      info += "╰────────────────────────╯\n\n";
-
-      info += "📥 *Preparing APK file...*\n";
-      info += "⏳ Please wait...";
-
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          text: info,
-          edit: loading.key
-        },
-        { quoted: mek }
-      );
-
-      /*
-       * Send APK as WhatsApp document.
-       */
-      const caption =
-        "╭────────────────────────╮\n" +
-        "│  ✅ *DOWNLOAD SUCCESS*  │\n" +
-        "╰────────────────────────╯\n\n" +
-        `📱 *App:* ${appName}\n` +
-        `🔢 *Version:* ${version}\n` +
-        `📦 *Size:* ${size}\n` +
-        `👤 *User:* ${pushname || "User"}\n\n` +
-        "⚡ *THENUVA X MD*\n" +
-        "🚀 *Powered by THENUVA*";
-
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          document: {
-            url: downloadUrl
+      // Edit loading message
+      try {
+        await danuwa.sendMessage(
+          targetJid,
+          {
+            text:
+              `✅ *${appName} FOUND!*\n\n` +
+              "📦 Google Play Store information loaded successfully.\n" +
+              "📲 Official install link has been sent above.",
+            edit: loading.key
           },
-
-          mimetype:
-            "application/vnd.android.package-archive",
-
-          fileName:
-            `${appName.replace(/[\\/:*?"<>|]/g, "_")}.apk`,
-
-          caption
-        },
-        { quoted: mek }
-      );
+          { quoted: mek }
+        );
+      } catch {}
 
     } catch (error) {
       console.error("THENUVA APK ERROR:", error);
 
       return reply(
-        "❌ *APK Download Error*\n\n" +
-        `Reason: ${error.message || "Unknown error"}`
+        "❌ *PLAY STORE ERROR*\n\n" +
+        "App එකේ Play Store information ලබාගන්න බැරි වුණා.\n\n" +
+        "• Link එක public ද බලන්න\n" +
+        "• Play Store URL එක නිවැරදිද බලන්න\n" +
+        "• පසුව නැවත try කරන්න."
       );
     }
   }
