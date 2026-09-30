@@ -1,294 +1,201 @@
 const { cmd } = require("../command");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 cmd(
   {
     pattern: "apk",
-    alias: ["playstore", "app", "downloadapk"],
+    alias: ["downloadapk", "apkdl"],
     react: "📦",
-    desc: "Get Google Play Store app information",
+    desc: "Download an APK from a direct APK URL",
     category: "download",
     filename: __filename,
   },
 
-  async (danuwa, mek, m, { from, q, pushname, reply }) => {
+  async (
+    danuwa,
+    mek,
+    m,
+    { from, q, pushname, reply }
+  ) => {
+    let filePath = null;
+
     try {
+      if (!q) {
+        return reply(
+          "❌ *Direct APK link එකක් දෙන්න.*\n\n" +
+          "📌 Example:\n" +
+          ".apk https://example.com/app.apk"
+        );
+      }
+
+      // Only HTTP/HTTPS URLs
+      if (!/^https?:\/\//i.test(q)) {
+        return reply(
+          "❌ *වැරදි APK URL එකක්!*\n\n" +
+          "Direct `.apk` download link එකක් දෙන්න."
+        );
+      }
+
       const targetJid =
         typeof from === "string"
           ? from
           : mek?.key?.remoteJid;
 
-      if (!targetJid) return;
-
-      if (!q) {
-        return reply(
-          "⚠️ *Google Play Store link එකක් දෙන්න!*\n\n" +
-          "📌 Example:\n" +
-          ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
-        );
+      if (!targetJid) {
+        return reply("❌ Chat ID එක හඳුනාගන්න බැරි වුණා.");
       }
 
-      let playUrl = q.trim();
-      let packageId = "";
-
-      // Get package ID
-      try {
-        const parsed = new URL(playUrl);
-
-        if (
-          parsed.hostname === "play.google.com" ||
-          parsed.hostname.endsWith(".play.google.com")
-        ) {
-          packageId = parsed.searchParams.get("id") || "";
-        }
-      } catch (e) {
-        // Invalid URL
-      }
-
-      // Package ID directly given
-      if (
-        !packageId &&
-        /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/.test(playUrl)
-      ) {
-        packageId = playUrl;
-
-        playUrl =
-          "https://play.google.com/store/apps/details?id=" +
-          packageId;
-      }
-
-      if (!packageId) {
-        return reply(
-          "❌ *Invalid Play Store Link!*\n\n" +
-          "මේ වගේ link එකක් භාවිතා කරන්න:\n" +
-          "https://play.google.com/store/apps/details?id=com.whatsapp"
-        );
-      }
-
-      // Loading
-      const loadingMsg = await danuwa.sendMessage(
+      const loading = await danuwa.sendMessage(
         targetJid,
         {
           text:
-            "╭────────────────────────╮\n" +
-            "│   ⚡ *THENUVA X MD* ⚡   │\n" +
-            "╰────────────────────────╯\n\n" +
-            "🔎 *PLAY STORE SEARCHING...*\n" +
-            "⏳ Fetching app information..."
+            `╭────────────────────╮\n` +
+            `│ 📦 *CYBER THENUWA X MD*\n` +
+            `╰────────────────────╯\n\n` +
+            `⏳ *APK එක ලබාගනිමින්...*\n` +
+            `👤 User: ${pushname || "User"}`
         },
         { quoted: mek }
       );
 
-      // Request Play Store
-      const response = await axios.get(playUrl, {
-        timeout: 20000,
+      // Download APK to temporary file
+      const fileName =
+        `cyber-apk-${Date.now()}.apk`;
 
+      filePath = path.join(os.tmpdir(), fileName);
+
+      const response = await axios({
+        method: "GET",
+        url: q,
+        responseType: "stream",
+        timeout: 120000,
+        maxRedirects: 5,
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Linux; Android 10; K) " +
-            "AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) " +
-            "Chrome/151.0.0.0 Mobile Safari/537.36",
-
-          "Accept-Language": "en-US,en;q=0.9"
+            "Mozilla/5.0 (Android) AppleWebKit/537.36 Chrome/151 Safari/537.36"
         }
       });
 
-      const html = response.data;
+      const contentType =
+        String(response.headers["content-type"] || "").toLowerCase();
 
-      if (!html || typeof html !== "string") {
-        throw new Error("Play Store response unavailable");
-      }
+      const totalSize =
+        Number(response.headers["content-length"] || 0);
 
-      // Extract meta data
-      function getMeta(name) {
-        const regex = new RegExp(
-          '<meta[^>]+(?:property|name)=["\']' +
-            name +
-            '["\'][^>]+content=["\']([^"\']+)["\']',
-          "i"
+      // Reject obvious HTML pages
+      if (
+        contentType.includes("text/html") ||
+        contentType.includes("text/plain")
+      ) {
+        throw new Error(
+          "මෙය direct APK file URL එකක් නොවේ. Web page එකක් ලැබුණා."
         );
-
-        const match = html.match(regex);
-
-        return match ? match[1] : "";
       }
 
-      function decode(value) {
-        return String(value || "")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">");
+      const writer = fs.createWriteStream(filePath);
+
+      await new Promise((resolve, reject) => {
+        response.data.pipe(writer);
+
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+
+        response.data.on("error", reject);
+      });
+
+      // Basic file validation
+      const stat = fs.statSync(filePath);
+
+      if (!stat.size || stat.size < 1024) {
+        throw new Error(
+          "APK file එක හිස් හෝ download වීම අසාර්ථකයි."
+        );
       }
 
-      // App name
-      let appName =
-        getMeta("og:title") ||
-        getMeta("twitter:title") ||
-        "Google Play Application";
-
-      appName = decode(appName)
-        .replace(/\s*-\s*Apps on Google Play$/i, "")
-        .trim();
-
-      // Description
-      let description =
-        getMeta("og:description") ||
-        getMeta("description") ||
-        "No description available.";
-
-      description = decode(description)
-        .replace(/\s+/g, " ")
-        .trim();
-
-      if (description.length > 300) {
-        description =
-          description.substring(0, 300) + "...";
-      }
-
-      // App icon
-      let icon =
-        getMeta("og:image") ||
-        getMeta("twitter:image") ||
-        "";
-
-      icon = decode(icon);
-
-      // Canonical URL
-      let officialUrl = playUrl;
-
-      const canonicalMatch = html.match(
-        /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
+      // Update loading message
+      await danuwa.sendMessage(
+        targetJid,
+        {
+          text:
+            `╭────────────────────╮\n` +
+            `│ 📦 *CYBER THENUWA X MD*\n` +
+            `╰────────────────────╯\n\n` +
+            `✅ *APK Download Complete!*\n\n` +
+            `📁 Size: ${formatBytes(stat.size)}\n` +
+            `📤 WhatsApp වෙත upload කරමින්...`,
+          edit: loading.key
+        }
       );
 
-      if (canonicalMatch && canonicalMatch[1]) {
-        officialUrl = decode(canonicalMatch[1]);
-      }
+      const caption =
+        `╭────────────────────╮\n` +
+        `│ 📦 *APK DOWNLOAD* \n` +
+        `╰────────────────────╯\n\n` +
+        `👤 *User:* ${pushname || "User"}\n` +
+        `📦 *File:* ${fileName}\n` +
+        `💾 *Size:* ${formatBytes(stat.size)}\n` +
+        `✅ *Status:* Downloaded Successfully\n\n` +
+        `> ⚡ *POWERED BY CYBER THENUWA X MD*`;
 
-      // Information message
-      let infoText = "";
-
-      infoText +=
-        "╭────────────────────────────╮\n";
-      infoText +=
-        "│     📦 *THENUVA X MD* 📦    │\n";
-      infoText +=
-        "╰────────────────────────────╯\n\n";
-
-      infoText +=
-        `👋 *Hello ${pushname || "User"}!*\n\n`;
-
-      infoText +=
-        "╭────────────────────────────╮\n";
-
-      infoText +=
-        `│ 📱 *App:* ${appName}\n`;
-
-      infoText +=
-        `│ 🆔 *Package:* ${packageId}\n`;
-
-      infoText +=
-        "│ 🏪 *Source:* Google Play Store\n";
-
-      infoText +=
-        "│ 🔐 *Official:* ✅\n";
-
-      infoText +=
-        "╰────────────────────────────╯\n\n";
-
-      infoText +=
-        `📝 *Description:*\n${description}\n\n`;
-
-      infoText +=
-        "📲 *INSTALL / DOWNLOAD*\n";
-
-      infoText +=
-        "━━━━━━━━━━━━━━━━━━━━\n";
-
-      infoText +=
-        `${officialUrl}\n\n`;
-
-      infoText +=
-        "⚡ *THENUVA X MD*\n";
-
-      infoText +=
-        "🚀 *Powered by THENUVA*";
-
-      // Send icon + information
-      if (icon) {
-        try {
-          await danuwa.sendMessage(
-            targetJid,
-            {
-              image: {
-                url: icon
-              },
-              caption: infoText
-            },
-            {
-              quoted: mek
-            }
-          );
-        } catch (imageError) {
-          await danuwa.sendMessage(
-            targetJid,
-            {
-              text: infoText
-            },
-            {
-              quoted: mek
-            }
-          );
-        }
-      } else {
-        await danuwa.sendMessage(
-          targetJid,
-          {
-            text: infoText
+      // Send ACTUAL APK FILE
+      await danuwa.sendMessage(
+        targetJid,
+        {
+          document: {
+            url: filePath
           },
-          {
-            quoted: mek
-          }
-        );
-      }
+          mimetype:
+            "application/vnd.android.package-archive",
+          fileName: fileName,
+          caption: caption
+        },
+        { quoted: mek }
+      );
 
-      // Edit loading message
+      // Delete temporary file
       try {
-        await danuwa.sendMessage(
-          targetJid,
-          {
-            text:
-              "╭────────────────────────╮\n" +
-              "│       ✅ *SUCCESS*       │\n" +
-              "╰────────────────────────╯\n\n" +
-              `📱 *${appName}* found successfully!\n\n` +
-              "📲 Official Google Play Store link has been sent.",
-            edit: loadingMsg.key
-          },
-          {
-            quoted: mek
-          }
-        );
-      } catch (editError) {
-        console.log(
-          "Loading edit failed:",
-          editError.message
-        );
-      }
+        fs.unlinkSync(filePath);
+        filePath = null;
+      } catch {}
 
     } catch (error) {
-      console.error(
-        "THENUVA APK ERROR:",
-        error
-      );
+      console.error("APK Downloader Error:", error);
 
-      return reply(
-        "❌ *PLAY STORE ERROR*\n\n" +
-        "App information ලබාගන්න බැරි වුණා.\n\n" +
-        "🔗 Link එක check කරලා නැවත try කරන්න."
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {}
+      }
+
+      const message =
+        error?.response?.status
+          ? `HTTP ${error.response.status}`
+          : error?.message || "Unknown error";
+
+      await reply(
+        `❌ *APK Download Failed!*\n\n` +
+        `⚠️ ${message}\n\n` +
+        `📌 Direct APK URL එකක් භාවිතා කරන්න.`
       );
     }
   }
 );
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return "Unknown";
+
+  const units = ["B", "KB", "MB", "GB"];
+
+  let i = 0;
+  let size = bytes;
+
+  while (size >= 1024 && i < units.length - 1) {
+    size /= 1024;
+    i++;
+  }
+
+  return `${size.toFixed(2)} ${units[i]}`;
+}
