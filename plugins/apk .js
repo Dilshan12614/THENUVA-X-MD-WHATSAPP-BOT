@@ -1,104 +1,180 @@
-const { cmd, commands } = require("../command");
-const yts = require("yt-search");
+const { cmd } = require("../command");
 const axios = require("axios");
+
+/*
+ * THENUVA X MD - APK Downloader
+ *
+ * Your API must return:
+ * {
+ *   success: true,
+ *   name: "App Name",
+ *   version: "1.0.0",
+ *   size: "25 MB",
+ *   downloadUrl: "https://your-authorized-server/app.apk"
+ * }
+ *
+ * Set your API endpoint here.
+ */
+const APK_API = process.env.APK_API || "https://YOUR-APK-API.example.com/api/apk";
 
 cmd(
   {
     pattern: "apk",
     alias: ["downloadapk", "playstore"],
     react: "📦",
-    desc: "Download APK files from Google Play Store links using Apify storage.",
+    desc: "Download an authorized APK file",
     category: "download",
     filename: __filename,
   },
-  async (danuwa, mek, m, { from, quoted, body, args, q, pushname, reply }) => {
+
+  async (danuwa, mek, m, { from, q, pushname, reply }) => {
     try {
-      if (!q) return reply("⚠️ *කරුණාකර Google Play Store ඇප් ලින්ක් එකක් හෝ ඇප් එකේ නම ඇතුළත් කරන්න!*");
+      const targetJid =
+        typeof from === "string"
+          ? from
+          : mek?.key?.remoteJid;
 
-      const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
+      if (!targetJid) return;
 
-      // 1. දත්ත ලබා ගන්නා තෙක් 'Loading' පණිවිඩය යැවීම
-      const loadingMsg = await danuwa.sendMessage(targetJid, { 
-        text: `⚡ *CYBER THENUVA FETCHING DATA...*` 
-      }, { quoted: mek });
-
-      // ඇප් එකේ නම ලස්සනට පෙනෙන්නට සකස් කර ගැනීම
-      let appName = "Application";
-      if (q.includes("id=")) {
-        let parts = q.split("id=");
-        appName = parts[1].split("&")[0].split(".").pop();
-        appName = appName.charAt(0).toUpperCase() + appName.slice(1);
-      } else {
-        appName = q;
+      if (!q) {
+        return reply(
+          "⚠️ *App name එකක් හෝ Play Store URL එකක් දෙන්න!*\n\n" +
+          "📌 Example:\n" +
+          ".apk WhatsApp\n\n" +
+          "හෝ\n" +
+          ".apk https://play.google.com/store/apps/details?id=com.whatsapp"
+        );
       }
 
-      // 2. Apify APK ලින්ක් එක (Direct Download Link)
-      const downloadUrl = "https://api.apify.com/v2/key-value-stores/fUlRkg7AITRi5X31R/records/apk.zip?signature=1SlbtAjfqyRe0MTTEMJjf";
+      // Loading message
+      const loading = await danuwa.sendMessage(
+        targetJid,
+        {
+          text:
+            "╭───────────────────╮\n" +
+            "│ ⚡ *THENUVA X MD* ⚡\n" +
+            "╰───────────────────╯\n\n" +
+            "🔎 *Fetching APK information...*\n" +
+            "⏳ Please wait..."
+        },
+        { quoted: mek }
+      );
 
-      // CYBER X THENULA ස්ටයිල් එකට සකස් කළ විස්තර පත්‍රිකාව
-      let detailsText = `👋 HELLOW ${pushname || "User"} ❤️ Welcome to\n`;
-      detailsText += `CYBER X THENULA\n\n`;
-      detailsText += `✅CYBER THENULA X MD✅\n`;
-      detailsText += `╭───────────────────.★*\n`;
-      detailsText += `│  ◦ 📝 *App Name :* ${appName}\n`;
-      detailsText += `│  ◦ 🌐 *Query/Url :* ${q}\n`;
-      detailsText += `│  ◦ 📦 *Type :* Android Package (APK)\n`;
-      detailsText += `│  ◦ ⚡ *Status :* Found successfully\n`;
-      detailsText += `╰───────────────────.★*\n\n`;
-      detailsText += `╭───────────────╼\n`;
-      detailsText += `│👨‍💻 CYBER-TEAM 🥷\n`;
-      detailsText += `╰───────────────╼\n\n`;
-      detailsText += `📥 *DOWNLOADING APK FILE* 📥\n`;
-      detailsText += `─── ── ─●●●─ ── ───\n\n\n`;
-
-      // විස්තර පණිවිඩය යාවත්කාලීන කිරීම (Newsletter Context සමඟ)
-      await danuwa.sendMessage(targetJid, { 
-        text: detailsText,
-        edit: loadingMsg.key,
-        contextInfo: {
-          forwardingScore: 999,
-          isForwarded: true,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: "120363403804248705@newsletter", // ඔබේ Newsletter JID එක
-            newsletterName: "CYBER X THENULA", // Newsletter එකේ නම
-            serverMessageId: 143
-          }
+      /*
+       * Call your authorized APK API.
+       *
+       * API request:
+       * GET /api/apk?q=WhatsApp
+       */
+      const response = await axios.get(APK_API, {
+        params: {
+          q: q.trim()
+        },
+        timeout: 30000,
+        headers: {
+          "User-Agent": "THENUVA-X-MD/1.0"
         }
       });
 
-      // 3. වට්සැප් එකට APK Document එක සමඟ යන Caption එක
-      let apkCaption = `✅ *DOWNLOAD SUCCESS* ✅\n`;
-      apkCaption += `╭───────────────────.★*\n`;
-      apkCaption += `│  ◦ 👤 *User :* ${pushname || "User"}\n`;
-      apkCaption += `│  ◦ 📦 *App :* ${appName}.apk\n`;
-      apkCaption += `│  ◦ 🎞 *Status :* Successfully Sent\n`;
-      apkCaption += `╰───────────────────.★*\n\n`;
-      apkCaption += `> *©⚡ POWERED by CYBER THENUWA* 🚀\n\n\n`;
+      const data = response.data || {};
 
-      // වට්සැප් එකට APK එක Document එකක් ලෙස සෘජුවම යැවීම (Newsletter Context සමඟ)
+      if (!data.success || !data.downloadUrl) {
+        return await danuwa.sendMessage(
+          targetJid,
+          {
+            text:
+              "❌ *APK NOT FOUND*\n\n" +
+              "The requested APK is unavailable from the configured source.",
+            edit: loading.key
+          },
+          { quoted: mek }
+        );
+      }
+
+      const appName =
+        data.name ||
+        data.appName ||
+        "Android Application";
+
+      const version =
+        data.version ||
+        "Unknown";
+
+      const size =
+        data.size ||
+        "Unknown";
+
+      const downloadUrl =
+        data.downloadUrl;
+
+      // Information message
+      let info = "";
+
+      info += "╭────────────────────────╮\n";
+      info += "│     ⚡ *THENUVA X MD* ⚡\n";
+      info += "╰────────────────────────╯\n\n";
+
+      info += `👋 *Hello ${pushname || "User"}!*\n\n`;
+
+      info += "╭────────────────────────╮\n";
+      info += `│ 📱 *App :* ${appName}\n`;
+      info += `│ 🔢 *Version :* ${version}\n`;
+      info += `│ 📦 *Size :* ${size}\n`;
+      info += `│ 🔗 *Query :* ${q}\n`;
+      info += "╰────────────────────────╯\n\n";
+
+      info += "📥 *Preparing APK file...*\n";
+      info += "⏳ Please wait...";
+
       await danuwa.sendMessage(
         targetJid,
         {
-          document: { url: downloadUrl },
-          mimetype: "application/vnd.android.package-archive",
-          fileName: `${appName}.apk`,
-          caption: apkCaption,
-          contextInfo: {
-            forwardingScore: 999,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-              newsletterJid: "120363403804248705@newsletter", // ඔබේ Newsletter JID එක
-              newsletterName: "CYBER X THENULA", // Newsletter එකේ නම
-              serverMessageId: 143
-            }
-          }
+          text: info,
+          edit: loading.key
+        },
+        { quoted: mek }
+      );
+
+      /*
+       * Send APK as WhatsApp document.
+       */
+      const caption =
+        "╭────────────────────────╮\n" +
+        "│  ✅ *DOWNLOAD SUCCESS*  │\n" +
+        "╰────────────────────────╯\n\n" +
+        `📱 *App:* ${appName}\n` +
+        `🔢 *Version:* ${version}\n` +
+        `📦 *Size:* ${size}\n` +
+        `👤 *User:* ${pushname || "User"}\n\n` +
+        "⚡ *THENUVA X MD*\n" +
+        "🚀 *Powered by THENUVA*";
+
+      await danuwa.sendMessage(
+        targetJid,
+        {
+          document: {
+            url: downloadUrl
+          },
+
+          mimetype:
+            "application/vnd.android.package-archive",
+
+          fileName:
+            `${appName.replace(/[\\/:*?"<>|]/g, "_")}.apk`,
+
+          caption
         },
         { quoted: mek }
       );
 
     } catch (error) {
-      console.log("APK Downloader Error:", error);
-      reply(`❌ *Error:* ${error.message} 😞`);
+      console.error("THENUVA APK ERROR:", error);
+
+      return reply(
+        "❌ *APK Download Error*\n\n" +
+        `Reason: ${error.message || "Unknown error"}`
+      );
     }
   }
 );
+```
