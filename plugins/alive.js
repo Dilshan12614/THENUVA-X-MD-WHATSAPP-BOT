@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const config = require('../config')
 const { cmd, commands } = require('../command')
 const os = require("os")
@@ -49,6 +50,8 @@ await conn.sendMessage(
     },
     { quoted: mek }
 );
+
+await sendPluginButtons(conn, from, 'alive', mek);
 
 } catch (e) {
     console.log(e);

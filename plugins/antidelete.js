@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const axios = require('axios');
 const config = require('../config');
 const { cmd, commands } = require('../command');
@@ -84,6 +85,7 @@ async (conn, mek, m, { from, reply, q, sender, isCreator }) => {
         }
 
         await reply(responseMessage);
+        await sendPluginButtons(conn, from, 'antidelete', mek);
 
         // Define the newsletter JID (Replace with actual newsletter JID)
         const newsletterJid = "120363292876277898@newsletter"; // Replace with actual JID

@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd } = require('../command');
 
 cmd({
@@ -48,6 +49,8 @@ async (conn, mek, m, { from, q, sender, reply }) => {
                 }
             }
         }, { quoted: mek });
+
+        await sendPluginButtons(conn, from, 'calendar', mek);
 
     } catch (e) {
         console.error("Calendar command error:", e);
