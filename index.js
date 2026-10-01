@@ -672,14 +672,81 @@ if (!isReact && senderNumber === botNumber) {
 
         throw error;
     }
+conn.sendButtonText = async (
+    jid,
+    buttons = [],
+    text = '',
+    footer = '',
+    quoted = null,
+    options = {}
+) => {
+    try {
+        const message = {
+            text,
+            footer,
+            buttons,
+            headerType: 1,
+            ...options
+        };
+
+        const sendOptions = {};
+
+        if (quoted) {
+            sendOptions.quoted = quoted;
+        }
+
+        return await conn.sendMessage(
+            jid,
+            message,
+            sendOptions
+        );
+
+    } catch (error) {
+        console.error(
+            '❌ sendButtonText Error:',
+            error
+        );
+
+        throw error;
+    }
 };
-      let buttonMessage = {
-              text,
-              footer,
-              buttons,
-              headerType: 2,
-              ...options
-          }
+
+//=====================================================
+conn.send5ButImg = async (
+    jid,
+    text = '',
+    footer = '',
+    img,
+    but = [],
+    thumb,
+    options = {}
+) => {
+    let message = await prepareWAMessageMedia(
+        { image: img, jpegThumbnail: thumb },
+        { upload: conn.waUploadToServer }
+    );
+
+    var template = generateWAMessageFromContent(
+        jid,
+        proto.Message.fromObject({
+            templateMessage: {
+                hydratedTemplate: {
+                    imageMessage: message.imageMessage,
+                    hydratedContentText: text,
+                    hydratedFooterText: footer,
+                    hydratedButtons: but
+                }
+            }
+        }),
+        options
+    );
+
+    conn.relayMessage(
+        jid,
+        template.message,
+        { messageId: template.key.id }
+    );
+}
           //========================================================================================================================================
       conn.sendMessage(jid, buttonMessage, { quoted, ...options })
     }
