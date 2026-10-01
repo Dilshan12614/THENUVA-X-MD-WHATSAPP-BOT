@@ -873,6 +873,7 @@ conn.send5ButImg = async (
             return status;
         };
     conn.serializeM = mek => sms(conn, mek, store);
+  }
   
   
   app.get("/", (req, res) => {
