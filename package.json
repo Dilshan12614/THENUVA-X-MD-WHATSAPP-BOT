@@ -59,7 +59,8 @@
     "@vreden/youtube_scraper": "^1.2.9",
     "form-data": "^4.0.0",
     "@xaviabot/fb-downloader": "^1.0.14",
-    "darksadasyt-anime": "^1.0.0"
+    "darksadasyt-anime": "^1.0.0",
+    "chess.js": "^1.4.0"
 
   }
 }
