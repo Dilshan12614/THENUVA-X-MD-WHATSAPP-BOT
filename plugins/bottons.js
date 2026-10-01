@@ -10,13 +10,17 @@ cmd(
     filename: __filename,
   },
 
-  async (conn, mek, m, {
-    from,
-    quoted,
-    pushname,
-    reply
-  }) => {
-
+  async (
+    conn,
+    mek,
+    m,
+    {
+      from,
+      quoted,
+      pushname,
+      reply
+    }
+  ) => {
     try {
 
       const buttons = [
@@ -43,27 +47,51 @@ cmd(
         }
       ];
 
-      await conn.sendButtonText(
-        from,
-        buttons,
-        `╭──────────────●●►
+      const text = `╭──────────────●●►
 │ 🤖 *CYBER THENUVA X MD*
 │
 │ 👋 Hello *${pushname || "User"}*
 │
-│ 🔘 Select an option below
-╰──────────────●●►`,
-        "⚡ POWERED BY THENULA",
-        quoted
+│ 🔘 Select an option
+╰──────────────●●►`;
+
+      const footer = "⚡ POWERED BY THENULA";
+
+      /*
+       * IMPORTANT:
+       * quoted undefined නම් quoted option එක
+       * කිසිම විදිහකට sendMessage එකට නොදෙන්න.
+       */
+
+      const options = {};
+
+      if (quoted) {
+        options.quoted = quoted;
+      }
+
+      await conn.sendMessage(
+        from,
+        {
+          text: text,
+          footer: footer,
+          buttons: buttons,
+          headerType: 1
+        },
+        options
       );
 
     } catch (error) {
 
-      console.error("BUTTON ERROR:", error);
+      console.error("❌ BUTTON ERROR:", error);
 
-      await reply(
-        "❌ Button message එක send කරන්න බැරි වුණා."
-      );
+      try {
+        await reply(
+          "❌ Button message එක send කරන්න බැරි වුණා.\n\n" +
+          "Error: " + error.message
+        );
+      } catch (e) {
+        console.error("Reply error:", e);
+      }
     }
   }
 );
