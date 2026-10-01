@@ -632,7 +632,47 @@ if (!isReact && senderNumber === botNumber) {
      * @returns
      */
     //=====================================================
-    conn.sendButtonText = (jid, buttons = [], text, footer, quoted = '', options = {}) => {
+    conn.sendButtonText = async (
+    jid,
+    buttons = [],
+    text = '',
+    footer = '',
+    quoted = null,
+    options = {}
+) => {
+
+    try {
+
+        const message = {
+            text,
+            footer,
+            buttons,
+            headerType: 1,
+            ...options
+        };
+
+        const sendOptions = {};
+
+        if (quoted) {
+            sendOptions.quoted = quoted;
+        }
+
+        return await conn.sendMessage(
+            jid,
+            message,
+            sendOptions
+        );
+
+    } catch (error) {
+
+        console.error(
+            '❌ sendButtonText Error:',
+            error
+        );
+
+        throw error;
+    }
+};
       let buttonMessage = {
               text,
               footer,
