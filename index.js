@@ -805,7 +805,7 @@ if (!isReact && senderNumber === botNumber) {
             return status;
         };
     conn.serializeM = mek => sms(conn, mek, store);
-  }
+  
   
   app.get("/", (req, res) => {
   res.send("DARK SHADOW MD STARTED ✅");
