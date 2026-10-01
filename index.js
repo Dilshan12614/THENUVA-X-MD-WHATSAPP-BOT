@@ -90,7 +90,7 @@ const port = process.env.PORT || 8000;
   const conn = makeWASocket({
           logger: P({ level: 'silent' }),
           printQRInTerminal: false,
-          browser: Browsers.macOS("Firefox"),
+          browser: Browsers.macOS("THENUVA X MD"),
           syncFullHistory: true,
           auth: state,
           version
@@ -633,14 +633,121 @@ if (!isReact && senderNumber === botNumber) {
      * @returns
      */
     //=====================================================
-    conn.sendButtonText = (jid, buttons = [], text, footer, quoted = '', options = {}) => {
-      let buttonMessage = {
-              text,
-              footer,
-              buttons,
-              headerType: 2,
-              ...options
-          }
+    conn.sendButtonText = async (
+    jid,
+    buttons = [],
+    text = '',
+    footer = '',
+    quoted = null,
+    options = {}
+) => {
+
+    try {
+
+        const message = {
+            text,
+            footer,
+            buttons,
+            headerType: 1,
+            ...options
+        };
+
+        const sendOptions = {};
+
+        if (quoted) {
+            sendOptions.quoted = quoted;
+        }
+
+        return await conn.sendMessage(
+            jid,
+            message,
+            sendOptions
+        );
+
+    } catch (error) {
+
+        console.error(
+            '❌ sendButtonText Error:',
+            error
+        );
+
+        throw error;
+    }
+conn.sendButtonText = async (
+    jid,
+    buttons = [],
+    text = '',
+    footer = '',
+    quoted = null,
+    options = {}
+) => {
+    try {
+        const message = {
+            text,
+            footer,
+            buttons,
+            headerType: 1,
+            ...options
+        };
+
+        const sendOptions = {};
+
+        if (quoted) {
+            sendOptions.quoted = quoted;
+        }
+
+        return await conn.sendMessage(
+            jid,
+            message,
+            sendOptions
+        );
+
+    } catch (error) {
+        console.error(
+            '❌ sendButtonText Error:',
+            error
+        );
+
+        throw error;
+    }
+};
+
+//=====================================================
+conn.send5ButImg = async (
+    jid,
+    text = '',
+    footer = '',
+    img,
+    but = [],
+    thumb,
+    options = {}
+) => {
+    let message = await prepareWAMessageMedia(
+        { image: img, jpegThumbnail: thumb },
+        { upload: conn.waUploadToServer }
+    );
+
+    var template = generateWAMessageFromContent(
+        jid,
+        proto.Message.fromObject({
+            templateMessage: {
+                hydratedTemplate: {
+                    imageMessage: message.imageMessage,
+                    hydratedContentText: text,
+                    hydratedFooterText: footer,
+                    hydratedButtons: but
+                }
+            }
+        }),
+        options
+    );
+
+    conn.relayMessage(
+        jid,
+        template.message,
+        { messageId: template.key.id }
+    );
+}
           //========================================================================================================================================
       conn.sendMessage(jid, buttonMessage, { quoted, ...options })
     }
@@ -766,7 +873,7 @@ if (!isReact && senderNumber === botNumber) {
             return status;
         };
     conn.serializeM = mek => sms(conn, mek, store);
-  }
+  
   
   app.get("/", (req, res) => {
   res.send("DARK SHADOW MD STARTED ✅");
