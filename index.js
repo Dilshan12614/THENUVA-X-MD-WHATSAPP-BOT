@@ -89,7 +89,7 @@ const port = process.env.PORT || 8000;
   const conn = makeWASocket({
           logger: P({ level: 'silent' }),
           printQRInTerminal: false,
-          browser: Browsers.macOS("Firefox"),
+          browser: Browsers.macOS("THENUVA X MD"),
           syncFullHistory: true,
           auth: state,
           version
