@@ -2,84 +2,216 @@ const { cmd } = require('../command');
 
 const API_URL = 'https://supunofc.site/api/download/ytmp4-down';
 
-// API key එක Railway Variables / config.env එකෙන් ගන්න.
-// Hard-code කරලා තියෙන්නේ fallback එකක් විතරයි.
-const API_KEY =
-    process.env.YT_API_KEY || 'supun-y3t6k5ig8pdgv32j8z50usxq';
+// API key එක Railway Variables / GitHub Secrets වලින් ගන්න
+const API_KEY = process.env.YT_API_KEY || 'supun-y3t6k5ig8pdgv32j8z50usxq';
 
-const RESOLUTIONS = ['1080p', '720p', '480p', '360p'];
+const PREFERRED_QUALITY = ['720p', '480p', '360p', '240p'];
 
 function isYouTubeUrl(url) {
-    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
+    try {
+        const u = new URL(url);
+
+        return (
+            u.hostname === 'youtube.com' ||
+            u.hostname === 'www.youtube.com' ||
+            u.hostname === 'youtu.be' ||
+            u.hostname === 'www.youtu.be' ||
+            u.hostname.endsWith('.youtube.com')
+        );
+    } catch {
+        return false;
+    }
 }
 
-/**
- * Get a FRESH API response.
- *
- * The API may return temporary googlevideo URLs.
- * A cache-buster helps prevent receiving an old/expired URL.
- */
-async function getApiData(youtubeUrl) {
+function cleanUrl(text) {
+    if (!text) return null;
 
-    const cacheBuster = `${Date.now()}_${Math.random()
-        .toString(36)
-        .slice(2, 10)}`;
+    const match = text.match(
+        /https?:\/\/(?:www\.)?(?:youtube\.com\/\S+|youtu\.be\/\S+)/i
+    );
+
+    return match ? match[0].replace(/[)>.,]+$/, '') : null;
+}
+
+function formatSize(bytes) {
+    if (!bytes || isNaN(bytes)) return 'Unknown';
+
+    const mb = bytes / 1024 / 1024;
+
+    if (mb >= 1024) {
+        return `${(mb / 1024).toFixed(2)} GB`;
+    }
+
+    return `${mb.toFixed(2)} MB`;
+}
+
+async function fetchBuffer(url, headers = {}) {
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
+            Accept: 'video/mp4,application/json,*/*',
+            ...headers
+        },
+        redirect: 'follow'
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType =
+        response.headers.get('content-type') || '';
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    return {
+        buffer,
+        contentType,
+        response
+    };
+}
+
+async function getApiResult(youtubeUrl, stream = false, quality = '') {
+    if (!API_KEY) {
+        throw new Error(
+            'YT_API_KEY is missing. Add YT_API_KEY to Railway Variables.'
+        );
+    }
 
     const params = new URLSearchParams();
 
     params.set('url', youtubeUrl);
+    params.set('apikey', API_KEY);
 
-    if (API_KEY) {
-        params.set('apikey', API_KEY);
+    if (stream) {
+        params.set('stream', 'true');
     }
 
-    // Prevent cached API response
-    params.set('_t', cacheBuster);
+    if (quality) {
+        params.set('quality', quality.replace('p', ''));
+    }
 
-    const apiUrl = `${API_URL}?${params.toString()}`;
+    const endpoint = `${API_URL}?${params.toString()}`;
 
-    console.log('[YTMP4] API request:', apiUrl.replace(API_KEY, '***'));
+    console.log(
+        `[YTMP4] Request: ${API_URL}?url=...&apikey=***${stream ? '&stream=true' : ''}`
+    );
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
             'User-Agent':
-                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36',
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-        }
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
+            Accept: 'video/mp4,application/json,*/*'
+        },
+        redirect: 'follow'
     });
 
-    if (!response.ok) {
-        throw new Error(`API HTTP ${response.status}`);
-    }
+    const contentType =
+        response.headers.get('content-type') || '';
 
-    const data = await response.json();
+    const raw = Buffer.from(await response.arrayBuffer());
 
-    if (
-        !data ||
-        data.success !== true ||
-        !Array.isArray(data.result)
-    ) {
-        console.log('[YTMP4] Invalid API response:', data);
-        throw new Error('API returned an invalid response');
-    }
-
-    return data;
+    return {
+        response,
+        contentType,
+        raw
+    };
 }
 
-/**
- * Select best available quality.
- */
-function selectVideo(data) {
+async function tryStreamMode(youtubeUrl) {
+    console.log('[YTMP4] Trying API stream mode...');
 
-    for (const resolution of RESOLUTIONS) {
+    try {
+        const result = await getApiResult(
+            youtubeUrl,
+            true,
+            '720p'
+        );
 
-        const found = data.result.find(item =>
-            String(item.resolution || '').toLowerCase() ===
-                resolution.toLowerCase() &&
-            item.downloadUrl
+        const contentType =
+            result.contentType.toLowerCase();
+
+        // API directly returned MP4
+        if (
+            contentType.includes('video/mp4') ||
+            contentType.includes('video/') ||
+            result.raw.slice(4, 8).toString() === 'ftyp'
+        ) {
+            console.log(
+                `[YTMP4] Stream received: ${formatSize(result.raw.length)}`
+            );
+
+            return {
+                buffer: result.raw,
+                quality: '720p'
+            };
+        }
+
+        // Maybe API returned JSON
+        try {
+            const json = JSON.parse(result.raw.toString());
+
+            if (json && json.success === false) {
+                console.log(
+                    '[YTMP4] Stream mode rejected:',
+                    json.message || 'Unknown API error'
+                );
+            }
+        } catch {
+            // Not JSON, ignore
+        }
+
+        return null;
+    } catch (error) {
+        console.log(
+            '[YTMP4] Stream mode failed:',
+            error.message
+        );
+
+        return null;
+    }
+}
+
+async function getDownloadList(youtubeUrl) {
+    const result = await getApiResult(youtubeUrl);
+
+    let json;
+
+    try {
+        json = JSON.parse(result.raw.toString());
+    } catch {
+        throw new Error(
+            'API returned an invalid response.'
+        );
+    }
+
+    if (!json.success) {
+        throw new Error(
+            json.message ||
+            json.error ||
+            'API request failed.'
+        );
+    }
+
+    if (!Array.isArray(json.result)) {
+        throw new Error(
+            'API did not return download results.'
+        );
+    }
+
+    return json.result;
+}
+
+function selectQuality(results) {
+    for (const wanted of PREFERRED_QUALITY) {
+        const found = results.find(
+            item =>
+                String(item.resolution).toLowerCase() ===
+                wanted.toLowerCase() &&
+                item.downloadUrl
         );
 
         if (found) {
@@ -87,233 +219,284 @@ function selectVideo(data) {
         }
     }
 
-    return data.result.find(item => item.downloadUrl);
+    // fallback: first usable result
+    return results.find(item => item.downloadUrl);
 }
 
-/**
- * Download temporary video URL.
- */
-async function downloadVideo(downloadUrl) {
+async function downloadFromUrl(downloadUrl) {
+    console.log(
+        '[YTMP4] Downloading returned media URL...'
+    );
 
-    const response = await fetch(downloadUrl, {
-        method: 'GET',
-        headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36',
-            'Accept': 'video/mp4,video/*,*/*;q=0.8',
-            'Referer': 'https://www.youtube.com/',
-            'Cache-Control': 'no-cache'
-        }
+    const result = await fetchBuffer(downloadUrl, {
+        Referer: 'https://www.youtube.com/',
+        Origin: 'https://www.youtube.com/'
     });
 
-    if (!response.ok) {
-        throw new Error(
-            `Video download failed: HTTP ${response.status}`
-        );
+    if (!result.buffer || result.buffer.length < 1000) {
+        throw new Error('Downloaded file is empty.');
     }
 
-    const contentType =
-        response.headers.get('content-type') || '';
-
-    console.log('[YTMP4] Content-Type:', contentType);
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    if (!buffer.length) {
-        throw new Error('Downloaded video is empty');
-    }
-
-    return buffer;
+    return result.buffer;
 }
 
-cmd({
-    pattern: 'video',
-    alias: ['ytmp4', 'playvideo', 'ytvideo'],
-    react: '🎬',
-    desc: 'Download YouTube video as MP4',
-    category: 'download',
-    filename: __filename
-},
-async (conn, mek, m, { from, q, reply }) => {
-
-    try {
-
-        if (!q) {
-            return reply(
-                `╭──────────●●►\n` +
-                `│ 🎬 *THENUVA X MD*\n` +
-                `│\n` +
-                `│ Use:\n` +
-                `│ .video <YouTube URL>\n` +
-                `│\n` +
-                `│ Example:\n` +
-                `│ .video https://youtu.be/xxxx\n` +
-                `╰──────────●●►`
-            );
+cmd(
+    {
+        pattern: 'video',
+        alias: ['ytmp4', 'playvideo'],
+        react: '🎬',
+        desc: 'Download YouTube video as MP4',
+        category: 'download',
+        filename: __filename
+    },
+    async (
+        conn,
+        mek,
+        m,
+        {
+            from,
+            quoted,
+            body,
+            isCmd,
+            command,
+            args,
+            reply
         }
-
-        const youtubeUrl = q.trim();
-
-        if (!isYouTubeUrl(youtubeUrl)) {
-            return reply(
-                `❌ *Invalid YouTube URL*\n\n` +
-                `Please send a valid YouTube video or Shorts URL.`
-            );
-        }
-
-        await reply(
-            `╭──────────●●►\n` +
-            `│ 🎬 *THENUVA X MD*\n` +
-            `│\n` +
-            `│ ⏳ Processing video...\n` +
-            `│ 🔎 Getting fresh download link...\n` +
-            `╰──────────●●►`
-        );
-
-        /*
-         * FIRST ATTEMPT
-         */
-        let data = await getApiData(youtubeUrl);
-
-        let selected = selectVideo(data);
-
-        if (!selected || !selected.downloadUrl) {
-            throw new Error(
-                'No playable MP4 download link was returned by the API.'
-            );
-        }
-
-        console.log(
-            `[YTMP4] Selected: ${selected.resolution} | ${selected.size}`
-        );
-
-        await reply(
-            `╭──────────●●►\n` +
-            `│ 🎬 *THENUVA X MD*\n` +
-            `│\n` +
-            `│ ✅ Video found\n` +
-            `│ 🎞️ Quality: ${selected.resolution}\n` +
-            `│ 📦 Size: ${selected.size || 'Unknown'}\n` +
-            `│\n` +
-            `│ ⬇️ Downloading...\n` +
-            `╰──────────●●►`
-        );
-
-        let videoBuffer;
-
+    ) => {
         try {
+            const input =
+                args && args.length
+                    ? args.join(' ').trim()
+                    : body
+                        ? body.replace(
+                              /^\.?(video|ytmp4|playvideo)\s*/i,
+                              ''
+                          ).trim()
+                        : '';
+
+            const youtubeUrl = cleanUrl(input);
+
+            if (!youtubeUrl || !isYouTubeUrl(youtubeUrl)) {
+                return reply(
+                    '❌ *Invalid YouTube URL*\n\n' +
+                    'Example:\n' +
+                    '`.video https://youtu.be/VIDEO_ID`'
+                );
+            }
+
+            if (!API_KEY) {
+                return reply(
+                    '❌ *YT API key is not configured.*\n\n' +
+                    'Add `YT_API_KEY` to Railway Variables.'
+                );
+            }
+
+            await reply(
+                '⏳ *YOUTUBE VIDEO*\n\n' +
+                '🔎 Searching video...\n' +
+                '▰▱▱▱▱ 20%'
+            );
 
             /*
-             * Try the fresh URL.
+             * STEP 1
+             * Try provider stream mode.
+             *
+             * If Supun API supports:
+             * &stream=true
+             *
+             * the API can return MP4 directly and we don't
+             * need to fetch the temporary googlevideo URL.
              */
-            videoBuffer = await downloadVideo(
-                selected.downloadUrl
+            const streamResult =
+                await tryStreamMode(youtubeUrl);
+
+            if (streamResult) {
+                await reply(
+                    '⬇️ *Downloading...*\n\n' +
+                    `🎞️ Quality: ${streamResult.quality}\n` +
+                    `📦 Size: ${formatSize(streamResult.buffer.length)}\n` +
+                    '▰▰▰▰▰ 100%'
+                );
+
+                await conn.sendMessage(
+                    from,
+                    {
+                        video: streamResult.buffer,
+                        mimetype: 'video/mp4',
+                        fileName: `THENUVA-X-MD-${Date.now()}.mp4`,
+                        caption:
+                            '🎬 *THENUVA X MD*\n\n' +
+                            '✅ YouTube video downloaded\n' +
+                            `🎞️ Quality: ${streamResult.quality}`
+                    },
+                    {
+                        quoted: mek
+                    }
+                );
+
+                return;
+            }
+
+            /*
+             * STEP 2
+             * Normal JSON API mode.
+             */
+            await reply(
+                '🔍 *Video found*\n\n' +
+                '⚙️ Preparing download...\n' +
+                '▰▰▱▱▱ 40%'
             );
 
-        } catch (firstError) {
+            const results =
+                await getDownloadList(youtubeUrl);
+
+            const selected =
+                selectQuality(results);
+
+            if (!selected) {
+                return reply(
+                    '❌ *No downloadable MP4 quality found.*'
+                );
+            }
 
             console.log(
-                '[YTMP4] First download failed:',
-                firstError.message
+                `[YTMP4] Selected: ${selected.resolution} | ${selected.size || 'Unknown'}`
+            );
+
+            await reply(
+                '🎞️ *VIDEO READY*\n\n' +
+                `🎯 Quality: *${selected.resolution}*\n` +
+                `📦 Size: *${selected.size || 'Unknown'}*\n\n` +
+                '⬇️ Downloading...\n' +
+                '▰▰▰▱▱ 60%'
             );
 
             /*
-             * If temporary googlevideo URL expired / returned 403,
-             * request a COMPLETELY FRESH API response.
+             * STEP 3
+             * Fetch temporary download URL.
              */
-            if (
-                firstError.message.includes('HTTP 403') ||
-                firstError.message.includes('HTTP 401') ||
-                firstError.message.includes('HTTP 410')
-            ) {
+            let videoBuffer;
 
-                await reply(
-                    `🔄 *Download link expired.*\n` +
-                    `Getting a fresh link...`
-                );
-
-                data = await getApiData(youtubeUrl);
-
-                selected = selectVideo(data);
-
-                if (!selected || !selected.downloadUrl) {
-                    throw new Error(
-                        'Fresh API response did not contain a download URL.'
+            try {
+                videoBuffer =
+                    await downloadFromUrl(
+                        selected.downloadUrl
                     );
-                }
-
+            } catch (error) {
                 console.log(
-                    `[YTMP4] Fresh URL: ${selected.resolution} | ${selected.size}`
+                    '[YTMP4] Primary download failed:',
+                    error.message
                 );
 
-                videoBuffer = await downloadVideo(
-                    selected.downloadUrl
+                /*
+                 * Try another quality.
+                 * This is useful when one returned URL
+                 * becomes unavailable.
+                 */
+                for (const quality of PREFERRED_QUALITY) {
+                    if (
+                        quality === selected.resolution
+                    ) {
+                        continue;
+                    }
+
+                    const alternative =
+                        results.find(
+                            item =>
+                                String(
+                                    item.resolution
+                                ).toLowerCase() ===
+                                    quality.toLowerCase() &&
+                                item.downloadUrl
+                        );
+
+                    if (!alternative) {
+                        continue;
+                    }
+
+                    try {
+                        console.log(
+                            `[YTMP4] Trying fallback: ${quality}`
+                        );
+
+                        videoBuffer =
+                            await downloadFromUrl(
+                                alternative.downloadUrl
+                            );
+
+                        if (videoBuffer) {
+                            selected.resolution =
+                                alternative.resolution;
+                            selected.size =
+                                alternative.size;
+
+                            break;
+                        }
+                    } catch (fallbackError) {
+                        console.log(
+                            `[YTMP4] ${quality} failed:`,
+                            fallbackError.message
+                        );
+                    }
+                }
+            }
+
+            if (
+                !videoBuffer ||
+                videoBuffer.length < 1000
+            ) {
+                return reply(
+                    '❌ *VIDEO DOWNLOAD FAILED*\n\n' +
+                    'The API successfully returned the video information, ' +
+                    'but the temporary media server rejected the download (HTTP 403).\n\n' +
+                    'The bot code cannot fix an expired/IP-restricted media URL. ' +
+                    'The API provider needs to support direct stream/proxy download for this endpoint.'
                 );
-
-            } else {
-
-                throw firstError;
             }
+
+            /*
+             * STEP 4
+             * Send MP4 to WhatsApp.
+             */
+            await reply(
+                '📤 *Sending video to WhatsApp...*\n\n' +
+                '▰▰▰▰▱ 90%'
+            );
+
+            await conn.sendMessage(
+                from,
+                {
+                    video: videoBuffer,
+                    mimetype: 'video/mp4',
+                    fileName:
+                        `THENUVA-X-MD-${Date.now()}.mp4`,
+                    caption:
+                        '╭──────────●●►\n' +
+                        '│ 🎬 *THENUVA X MD*\n' +
+                        '│\n' +
+                        `│ 🎞️ Quality: ${selected.resolution}\n` +
+                        `│ 📦 Size: ${selected.size || formatSize(videoBuffer.length)}\n` +
+                        '│ ✅ Download Complete\n' +
+                        '╰──────────●●►'
+                },
+                {
+                    quoted: mek
+                }
+            );
+
+            console.log(
+                `[YTMP4] Sent successfully: ${selected.resolution}`
+            );
+        } catch (error) {
+            console.error(
+                '[YTMP4 ERROR]',
+                error
+            );
+
+            return reply(
+                '❌ *YTMP4 ERROR*\n\n' +
+                `${error.message || 'Unknown error'}`
+            );
         }
-
-        if (!videoBuffer || !videoBuffer.length) {
-            throw new Error('Video download returned no data.');
-        }
-
-        const sizeMB =
-            (videoBuffer.length / 1024 / 1024).toFixed(2);
-
-        console.log(
-            `[YTMP4] Downloaded ${sizeMB} MB`
-        );
-
-        /*
-         * Send MP4 to WhatsApp
-         */
-        await conn.sendMessage(
-            from,
-            {
-                video: videoBuffer,
-                mimetype: 'video/mp4',
-                fileName:
-                    `THENUVA-X-MD-${selected.resolution || 'video'}.mp4`,
-                caption:
-                    `╭──────────●●►\n` +
-                    `│ 🎬 *THENUVA X MD*\n` +
-                    `│\n` +
-                    `│ ✅ *Download Complete*\n` +
-                    `│\n` +
-                    `│ 🎞️ Quality: ${selected.resolution || 'MP4'}\n` +
-                    `│ 📦 Size: ${selected.size || sizeMB + ' MB'}\n` +
-                    `│\n` +
-                    `│ ⚡ Powered by THENUVA X MD\n` +
-                    `╰──────────●●►`
-            },
-            {
-                quoted: mek
-            }
-        );
-
-        console.log(
-            '[YTMP4] Video sent successfully.'
-        );
-
-    } catch (error) {
-
-        console.error(
-            '[YTMP4 ERROR]',
-            error
-        );
-
-        return reply(
-            `╭──────────●●►\n` +
-            `│ ❌ *DOWNLOAD ERROR*\n` +
-            `│\n` +
-            `│ ${error.message || 'Unknown error'}\n` +
-            `│\n` +
-            `│ Please try another YouTube video.\n` +
-            `╰──────────●●►`
-        );
     }
-});
+);
