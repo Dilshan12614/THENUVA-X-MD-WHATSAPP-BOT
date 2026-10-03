@@ -1,7 +1,7 @@
 const { cmd } = require('../command');
 
 const API_URL = 'https://supunofc.site/api/download/ytmp4-down';
-const API_KEY = process.env.YT_API_KEY || '';
+const API_KEY = process.env.YT_API_KEY || 'supun-y3t6k5ig8pdgv32j8z50usxq';
 
 // Preferred → fallback resolutions
 const RESOLUTIONS = ['1080p', '720p', '480p', '360p'];
