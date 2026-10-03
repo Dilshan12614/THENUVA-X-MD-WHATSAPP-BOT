@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd } = require("../command");
 const axios = require("axios");
 const fs = require("fs");
@@ -24,6 +25,7 @@ cmd(
 
     try {
       if (!q) {
+        await sendPluginButtons(danuwa, from, 'apk', mek);
         return reply(
           "❌ *Direct APK link එකක් දෙන්න.*\n\n" +
           "📌 Example:\n" +
@@ -160,6 +162,8 @@ cmd(
         fs.unlinkSync(filePath);
         filePath = null;
       } catch {}
+
+      await sendPluginButtons(danuwa, targetJid, 'apk', mek);
 
     } catch (error) {
       console.error("APK Downloader Error:", error);

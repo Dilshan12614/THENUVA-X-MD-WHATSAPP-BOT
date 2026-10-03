@@ -41,6 +41,7 @@ const {
   const os = require('os')
   const Crypto = require('crypto')
   const path = require('path')
+  const { getCommandBody } = require('./lib/button-actions')
   const prefix = config.PREFIX
   
   const ownerNumber = ['94783747285']
@@ -172,7 +173,7 @@ const port = process.env.PORT || 8000;
   const content = JSON.stringify(mek.message)
   const from = mek.key.remoteJid
   const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
-  const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
+  const body = getCommandBody(mek.message, prefix)
   const isCmd = body.startsWith(prefix)
   var budy = typeof mek.text == 'string' ? mek.text : false;
   const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
@@ -297,7 +298,7 @@ if (!isReact && senderNumber === botNumber) {
   // take commands 
                  
   const events = require('./command')
-  const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
+  const cmdName = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : false;
   if (isCmd) {
   const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
   if (cmd) {
@@ -872,6 +873,7 @@ conn.send5ButImg = async (
             return status;
         };
     conn.serializeM = mek => sms(conn, mek, store);
+  }
   
   
   app.get("/", (req, res) => {

@@ -1,3 +1,4 @@
+const { sendButtons } = require('../lib/buttons')
 const config = require('../config')
 const {cmd , commands} = require('../command')
 const os = require("os")
@@ -107,6 +108,16 @@ await conn.sendMessage(
     },
     { quoted: mek }
 );
+
+await sendButtons(conn, from, {
+    text: 'Choose an option',
+    prefix: config.PREFIX,
+    buttons: [
+        { id: 'thenuva:apk', text: 'Download APK' },
+        { id: 'thenuva:chess', text: 'Play Chess' },
+        { id: 'thenuva:about', text: 'About' }
+    ]
+}, mek);
 
 }catch(e){
 console.log(e);

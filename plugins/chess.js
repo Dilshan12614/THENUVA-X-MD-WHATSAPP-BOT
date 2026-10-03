@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd } = require("../command");
 const { Chess } = require("chess.js");
 const sharp = require("sharp");
@@ -427,7 +428,7 @@ async function sendBoard(
 
     `> ⚡ *POWERED BY CYBER THENUWA*`;
 
-  return danuwa.sendMessage(
+  await danuwa.sendMessage(
     jid,
     {
       image,
@@ -437,6 +438,7 @@ async function sendBoard(
       quoted: mek,
     }
   );
+  await sendPluginButtons(danuwa, jid, 'chess', mek);
 }
 
 
@@ -500,7 +502,7 @@ async function finishGame(
 
   games.delete(jid);
 
-  return danuwa.sendMessage(
+  await danuwa.sendMessage(
     jid,
     {
       image,
@@ -510,6 +512,7 @@ async function finishGame(
       quoted: mek,
     }
   );
+  await sendPluginButtons(danuwa, jid, 'chess-finished', mek);
 }
 
 
