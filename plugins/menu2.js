@@ -29,7 +29,7 @@ async (conn, mek, m, { from, pushname, reply }) => {
 │ 📚 *THENUVA X MD MENU*
 ╰───────────────❒
 
-👇 *Tap the button below to view all commands.*
+👇 *Select an option below.*
 
 > 💥 *POWERED BY THENUVA X MD* 💥
 `;
@@ -56,12 +56,21 @@ async (conn, mek, m, { from, pushname, reply }) => {
             conn,
             from,
             {
-                text: '🎛️ *MENU OPTIONS*',
+                text: '🎛️ *THENUVA X MD OPTIONS*',
                 prefix: config.PREFIX,
+
                 buttons: [
                     {
-                        id: 'thenuva:all',
-                        text: '📚 All Options'
+                        id: 'thenuva:alive',
+                        text: '🟢 Alive'
+                    },
+                    {
+                        id: 'thenuva:about',
+                        text: 'ℹ️ About'
+                    },
+                    {
+                        id: 'thenuva:calendar',
+                        text: '📅 Calendar'
                     }
                 ]
             },
