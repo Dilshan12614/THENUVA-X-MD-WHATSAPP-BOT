@@ -10,7 +10,7 @@ const API_URL =
 const API_KEY =
     process.env.MR_THINUZZ_API_KEY ||
     config.MR_THINUZZ_API_KEY ||
-    '';
+    'key_62cb6c23a4c8cca270dd510983b195b9';
 
 function extractYouTubeUrl(text) {
     if (!text) return null;
