@@ -6,7 +6,7 @@ const API_URL =
 // Optional API key.
 // Railway Variables එකේ YT_API_KEY තිබුණොත් automatically use වෙනවා.
 // නැත්නම් key නැතුව request කරනවා.
-const API_KEY = process.env.YT_API_KEY || '';
+const API_KEY = process.env.YT_API_KEY || 'key_62cb6c23a4c8cca270dd510983b195b9';
 
 function extractYouTubeUrl(text) {
     if (!text) return null;
