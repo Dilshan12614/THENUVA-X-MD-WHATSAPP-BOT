@@ -196,28 +196,18 @@ ${menu.search || '*┋* No Commands Available\n'}
         */
 
         await sendButtons(
-            conn,
-            from,
+    conn,
+    from,
+    {
+        text: '🎛️ *THENUVA X MD MENU*',
+        prefix: config.PREFIX,
+
+        buttons: [
             {
-                text: '🎛️ *THENUVA X MD MENU OPTIONS*',
-                prefix: config.PREFIX,
-
-                buttons: [
-                    {
-                        id: 'thenuva:all',
-                        text: '📚 Choose All Options'
-                    }
-                ]
-            },
-            mek
-        );
-
-    } catch (e) {
-
-        console.error('[MENU ERROR]', e);
-
-        return reply(
-            `❌ *MENU ERROR*\n\n${e.message || e}`
-        );
-    }
-});
+                id: 'thenuva:all',
+                text: '📚 All Options'
+            }
+        ]
+    },
+    mek
+);
