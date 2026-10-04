@@ -1,126 +1,223 @@
-const { sendButtons } = require('../lib/buttons')
-const config = require('../config')
-const {cmd , commands} = require('../command')
-const os = require("os")
-const {runtime} = require('../lib/functions')
+const { sendButtons } = require('../lib/buttons');
+const config = require('../config');
+const { cmd, commands } = require('../command');
+const os = require('os');
+const { runtime } = require('../lib/functions');
 
 cmd({
     pattern: "menu2",
     react: "👾",
-    desc: "get cmd list",
+    desc: "Get command list",
     category: "main",
     filename: __filename
 },
-async(conn, mek, m,{from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply}) => {
-try{
-let menu = {
-main: '',
-download: '',
-group: '',
-owner: '',
-convert: '',
-search: ''
-};
+async (
+    conn,
+    mek,
+    m,
+    {
+        from,
+        quoted,
+        body,
+        isCmd,
+        command,
+        args,
+        q,
+        isGroup,
+        sender,
+        senderNumber,
+        botNumber2,
+        botNumber,
+        pushname,
+        isMe,
+        isOwner,
+        groupMetadata,
+        groupName,
+        participants,
+        groupAdmins,
+        isBotAdmins,
+        isAdmins,
+        reply
+    }
+) => {
 
-for (let i = 0; i < commands.length; i++) {
-if (commands[i].pattern && !commands[i].dontAddCommandList) {
-menu[commands[i].category] += `*┋* .${commands[i].pattern}\n`;
- }
-}
+    try {
 
-let madeMenu = `👋 HELLOW...*${pushname || 'User'}* ❤️ Welcome to CYBER X THENULA
+        /*
+        ───────────────────────────────
+        COMMANDS TO HIDE FROM MENU
+        ───────────────────────────────
+        */
 
+        const hiddenCommands = [
+            "url",
+            "vv"
+        ];
 
-✅CYBER THENUWA X MD✅
-╭┈───────────────•* 
-│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
-│  ◦ ⚡ *mode* :  *[${config.MODE}]*
-│  ◦ ⚙️ *prefix* : *[${config.PREFIX}]*
-│  ◦ 💾 *Ram use* : ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)}MB / ${Math.round(require('os').totalmem / 1024 / 1024)}MB
-│  ◦ 🤖 *Name Bot* : *THENUWA XMD*
-│  ◦ 👤 *creater* : *Thenula/Dilshan*
-│  ◦ 📌 *version* : *ᴠ.2.0.0*
-│  ◦ 📜 *Menu Cmd* : *menu list*
-╰┈───────────────•*
+        /*
+        ───────────────────────────────
+        CREATE MENU CATEGORIES
+        ───────────────────────────────
+        */
 
+        let menu = {
+            main: '',
+            download: '',
+            group: '',
+            owner: '',
+            convert: '',
+            search: ''
+        };
 
-*╭───────────────❒⁠⁠⁠⁠*
-*│* *🧑‍💻CYBER-TEAM🧑‍💻*
+        /*
+        ───────────────────────────────
+        ADD ALL PLUGINS
+        ───────────────────────────────
+        */
+
+        for (let i = 0; i < commands.length; i++) {
+
+            const plugin = commands[i];
+
+            if (!plugin.pattern) continue;
+
+            if (plugin.dontAddCommandList) continue;
+
+            const commandName = String(plugin.pattern).toLowerCase();
+
+            // Hide selected commands
+            if (hiddenCommands.includes(commandName)) continue;
+
+            // Only known categories
+            if (!menu[plugin.category]) continue;
+
+            menu[plugin.category] +=
+                `*┋* ${config.PREFIX}${plugin.pattern}\n`;
+        }
+
+        /*
+        ───────────────────────────────
+        FULL MENU
+        ───────────────────────────────
+        */
+
+        const madeMenu =
+`👋 HELLOW... *${pushname || 'User'}* ❤️
+Welcome to *THENUWA X MD*
+
+✅ *THENUWA X MD* ✅
+
+╭┈───────────────•
+│ ◦ 🕒 *Runtime* : ${runtime(process.uptime())}
+│ ◦ ⚡ *Mode* : *[${config.MODE}]*
+│ ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
+│ ◦ 💾 *RAM Use* : ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB
+│ ◦ 🤖 *Bot Name* : *THENUVA X MD*
+│ ◦ 👤 *Creator* : *Thenula/Dilshan*
+│ ◦ 📌 *Version* : *ᴠ.2.0.0*
+│ ◦ 📜 *Menu* : *${config.PREFIX}menu2*
+╰┈───────────────•
+
+*╭───────────────❒*
+*│* 🧑‍💻 *THENUVA TEAM* 🧑‍💻
 *┕───────────────❒*
 
+📥 *DOWNLOAD COMMANDS* 📥
 
-📥*ᴅᴏᴡɴʟᴏᴀᴅ ᴄᴏᴍᴍᴀɴᴅs*📥
+╭──────────●●►
+${menu.download || '*┋* No Commands Available\n'}
+╰──────────●●►
 
-*╭──────────●●►*
-${menu.download || '*┋* No Commands Available\n'}*╰──────────●●►*
+⚙️ *MAIN COMMANDS* ⚙️
 
+╭──────────●●►
+${menu.main || '*┋* No Commands Available\n'}
+╰──────────●●►
 
-⚙️*ᴍᴀɪɴ ᴄᴏᴍᴍᴀɴᴅs*⚙️
+👥 *GROUP COMMANDS* 👥
 
-*╭──────────●●►*
-${menu.main || '*┋* No Commands Available\n'}*╰──────────●●►*
+╭──────────●●►
+${menu.group || '*┋* No Commands Available\n'}
+╰──────────●●►
 
+👨‍💻 *OWNER COMMANDS* 👨‍💻
 
-👥*ɢʀᴏᴜᴘ ᴄᴏᴍᴍᴀɴᴅs*👥
+╭──────────●●►
+${menu.owner || '*┋* No Commands Available\n'}
+╰──────────●●►
 
-*╭──────────●●►*
-${menu.group || '*┋* No Commands Available\n'}*╰──────────●●►*
+🎡 *CONVERT COMMANDS* 🎡
 
+╭──────────●●►
+${menu.convert || '*┋* No Commands Available\n'}
+╰──────────●●►
 
-👨‍💻 *ᴏᴡɴᴇʀ ᴄᴏᴍᴍᴀɴᴅs*👨‍💻 
+🔎 *SEARCH COMMANDS* 🔎
 
-*╭──────────●●►*
-${menu.owner || '*┋* No Commands Available\n'}*╰──────────●●►*
+╭──────────●●►
+${menu.search || '*┋* No Commands Available\n'}
+╰──────────●●►
 
+*❒▭▬▭▬▭▬▭▬▭▬▭▬▭▬▭❒*
 
-🎡*cᴏɴᴠᴇʀᴛ ᴄᴏᴍᴍᴀɴᴅs*🎡
+> 💥 *POWERED BY THENUVA X MD* 💥`;
 
-*╭──────────●●►*
-${menu.convert || '*┋* No Commands Available\n'}*╰──────────●●►*
+        /*
+        ───────────────────────────────
+        SEND MENU
+        ───────────────────────────────
+        */
 
+        await conn.sendMessage(
+            from,
+            {
+                image: {
+                    url: 'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg'
+                },
+                caption: madeMenu,
+                contextInfo: {
+                    mentionedJid: [m.sender],
+                    forwardingScore: 999,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: '120363403804248705@newsletter',
+                        newsletterName: 'THENUWA X MD',
+                        serverMessageId: 143
+                    }
+                }
+            },
+            { quoted: mek }
+        );
 
-🔎*sᴇᴀʀᴄʜ ᴄᴏᴍᴍᴀɴᴅs*🔎
+        /*
+        ───────────────────────────────
+        MENU BUTTONS
+        ───────────────────────────────
+        */
 
-*╭──────────●●►*
-${menu.search || '*┋* No Commands Available\n'}*╰──────────●●►*
+        await sendButtons(
+            conn,
+            from,
+            {
+                text: '🎛️ *THENUVA X MD MENU OPTIONS*',
+                prefix: config.PREFIX,
 
-*❒⁠⁠⁠⁠▭▬▭▬▭▬▭▬▭▬▭▬▭▬▭❒*⁠⁠⁠⁠
+                buttons: [
+                    {
+                        id: 'thenuva:all',
+                        text: '📚 Choose All Options'
+                    }
+                ]
+            },
+            mek
+        );
 
-> *<b>💥 POWERED 💥</b> BY CYBER X MD⁴³²*
+    } catch (e) {
 
-මේකේ .uRL/.vv තියේ menu එකේ පෙන්නන්නෑ හොදේ...`;
+        console.error('[MENU ERROR]', e);
 
-await conn.sendMessage(
-    from,
-    {
-        image: { url: `https://i.ibb.co/N68698yW/5df1e9c651fd.jpg` },
-        caption: madeMenu,
-        contextInfo: {
-            mentionedJid: [m.sender],
-            forwardingScore: 999,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363403804248705@newsletter',
-                newsletterName: 'THENUWA XMD',
-                serverMessageId: 143
-            }
-        }
-    },
-    { quoted: mek }
-);
-
-await sendButtons(conn, from, {
-    text: 'Choose an option',
-    prefix: config.PREFIX,
-    buttons: [
-        { id: 'thenuva:apk', text: 'Download APK' },
-        { id: 'thenuva:chess', text: 'Play Chess' },
-        { id: 'thenuva:about', text: 'About' }
-    ]
-}, mek);
-
-}catch(e){
-console.log(e);
-reply(`${e}`);
-}
+        return reply(
+            `❌ *MENU ERROR*\n\n${e.message || e}`
+        );
+    }
 });
