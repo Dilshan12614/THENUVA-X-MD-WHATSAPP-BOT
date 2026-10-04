@@ -1,18 +1,22 @@
 const { cmd } = require('../command');
+const config = require('../config');
 
 const API_URL =
-    'https://mr-thinuzz-api-build.vercel.app/api/ytmp3/download';
+    'https://mr-thinuzz-api-build.vercel.app/api/ytmp4v3/download-all';
 
-// Optional API key.
-// Railway Variables එකේ YT_API_KEY තිබුණොත් automatically use වෙනවා.
-// නැත්නම් key නැතුව request කරනවා.
-const API_KEY = process.env.YT_API_KEY || 'key_62cb6c23a4c8cca270dd510983b195b9';
+// API key:
+// Railway Variables → MR_THINUZZ_API_KEY
+// config.env → MR_THINUZZ_API_KEY
+const API_KEY =
+    process.env.MR_THINUZZ_API_KEY ||
+    config.MR_THINUZZ_API_KEY ||
+    '';
 
 function extractYouTubeUrl(text) {
     if (!text) return null;
 
     const match = text.match(
-        /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)[^\s]+|youtu\.be\/[^\s]+)/i
+        /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)[^\s]+|youtu\.be\/[^\s]+)/i
     );
 
     return match
@@ -21,10 +25,10 @@ function extractYouTubeUrl(text) {
 }
 
 function cleanFilename(name) {
-    return String(name || 'THENUVA-X-MD.mp3')
+    return String(name || 'THENUVA-X-MD.mp4')
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .trim()
-        .slice(0, 150) || 'THENUVA-X-MD.mp3';
+        .slice(0, 150) || 'THENUVA-X-MD.mp4';
 }
 
 function formatSize(bytes) {
@@ -46,7 +50,6 @@ async function requestAPI(youtubeUrl) {
 
     params.set('url', youtubeUrl);
 
-    // Key තිබුණොත් විතරක් යවනවා.
     if (API_KEY) {
         params.set('apiKey', API_KEY);
     }
@@ -55,7 +58,7 @@ async function requestAPI(youtubeUrl) {
         `${API_URL}?${params.toString()}`;
 
     console.log(
-        '[YTMP3] Request:',
+        '[YTMP4] Request:',
         API_KEY
             ? `${API_URL}?url=...&apiKey=***`
             : `${API_URL}?url=...`
@@ -93,25 +96,25 @@ async function requestAPI(youtubeUrl) {
     return data;
 }
 
-async function downloadAudio(audioUrl) {
+async function downloadVideo(videoUrl) {
     console.log(
-        '[YTMP3] Downloading audio...'
+        '[YTMP4] Downloading video...'
     );
 
-    const response = await fetch(audioUrl, {
+    const response = await fetch(videoUrl, {
         method: 'GET',
         headers: {
             'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
             'Accept':
-                'audio/mpeg,audio/*,*/*'
+                'video/mp4,video/*,*/*'
         },
         redirect: 'follow'
     });
 
     if (!response.ok) {
         throw new Error(
-            `Audio download failed: HTTP ${response.status}`
+            `Video download failed: HTTP ${response.status}`
         );
     }
 
@@ -121,7 +124,7 @@ async function downloadAudio(audioUrl) {
 
     if (!buffer.length) {
         throw new Error(
-            'Audio file is empty.'
+            'Video file is empty.'
         );
     }
 
@@ -130,20 +133,20 @@ async function downloadAudio(audioUrl) {
         contentType:
             response.headers.get(
                 'content-type'
-            ) || 'audio/mpeg'
+            ) || 'video/mp4'
     };
 }
 
 cmd(
     {
-        pattern: 'mp3',
+        pattern: 'video',
         alias: [
-            'ytmp3',
-            'song',
-            'audio'
+            'ytmp4',
+            'playvideo',
+            'mp4'
         ],
-        react: '🎵',
-        desc: 'Download YouTube audio as MP3',
+        react: '🎬',
+        desc: 'Download YouTube video as MP4',
         category: 'download',
         filename: __filename
     },
@@ -170,7 +173,7 @@ cmd(
                     ? args.join(' ').trim()
                     : body
                         ? body.replace(
-                              /^\.?(mp3|ytmp3|song|audio)\s*/i,
+                              /^\.?(video|ytmp4|playvideo|mp4)\s*/i,
                               ''
                           ).trim()
                         : '';
@@ -184,7 +187,22 @@ cmd(
                     '│ ❌ *INVALID YOUTUBE URL*\n' +
                     '│\n' +
                     '│ Example:\n' +
-                    '│ `.mp3 https://youtu.be/VIDEO_ID`\n' +
+                    '│ `.video https://youtu.be/VIDEO_ID`\n' +
+                    '╰──────────●●►'
+                );
+            }
+
+            // ─────────────────────────
+            // API KEY CHECK
+            // ─────────────────────────
+
+            if (!API_KEY) {
+                return reply(
+                    '╭──────────●●►\n' +
+                    '│ ❌ *API KEY NOT CONFIGURED*\n' +
+                    '│\n' +
+                    '│ Add `MR_THINUZZ_API_KEY`\n' +
+                    '│ to config.env / Railway Variables.\n' +
                     '╰──────────●●►'
                 );
             }
@@ -195,7 +213,7 @@ cmd(
 
             await reply(
                 '╭──────────●●►\n' +
-                '│ 🎵 *THENUVA X MD MP3*\n' +
+                '│ 🎬 *THENUVA X MD MP4*\n' +
                 '│\n' +
                 '│ 🔎 Searching YouTube...\n' +
                 '│ ▰▱▱▱▱ 20%\n' +
@@ -212,7 +230,7 @@ cmd(
                 );
 
             console.log(
-                '[YTMP3] API status:',
+                '[YTMP4] API status:',
                 api?.status
             );
 
@@ -224,7 +242,7 @@ cmd(
 
                 let message =
                     api?.error ||
-                    'MP3 download failed.';
+                    'MP4 download failed.';
 
                 if (
                     api?.is_verified === false
@@ -242,7 +260,7 @@ cmd(
 
                 return reply(
                     '╭──────────●●►\n' +
-                    '│ ❌ *YTMP3 API ERROR*\n' +
+                    '│ ❌ *YTMP4 API ERROR*\n' +
                     '│\n' +
                     `│ ${message}\n` +
                     '╰──────────●●►'
@@ -258,7 +276,7 @@ cmd(
 
             const title =
                 data.title ||
-                'YouTube Audio';
+                'YouTube Video';
 
             const thumbnail =
                 data.thumbnail ||
@@ -270,32 +288,33 @@ cmd(
 
             const quality =
                 data.quality_found ||
-                'MP3';
+                'MP4';
 
-            const audioUrl =
-                data.links?.audio;
+            const videoUrl =
+                data.links?.video;
 
             const originalFilename =
                 data.filename ||
-                `${title}.mp3`;
+                `${title}.mp4`;
 
-            if (!audioUrl) {
+            if (!videoUrl) {
                 return reply(
                     '╭──────────●●►\n' +
-                    '│ ❌ *AUDIO LINK NOT FOUND*\n' +
+                    '│ ❌ *VIDEO LINK NOT FOUND*\n' +
                     '│\n' +
-                    '│ API එක MP3 download URL එකක් return කරලා නැහැ.\n' +
+                    '│ API එක MP4 download URL එකක්\n' +
+                    '│ return කරලා නැහැ.\n' +
                     '╰──────────●●►'
                 );
             }
 
             console.log(
-                '[YTMP3] Title:',
+                '[YTMP4] Title:',
                 title
             );
 
             console.log(
-                '[YTMP3] Quality:',
+                '[YTMP4] Quality:',
                 quality
             );
 
@@ -305,11 +324,11 @@ cmd(
 
             await reply(
                 '╭──────────●●►\n' +
-                '│ 🎵 *MP3 FOUND*\n' +
+                '│ 🎬 *MP4 FOUND*\n' +
                 '│\n' +
-                `│ 🎶 ${title}\n` +
+                `│ 🎞️ ${title}\n` +
                 `│ ⏱️ ${duration}\n` +
-                `│ 🎧 ${quality}\n` +
+                `│ 📺 ${quality}\n` +
                 '│\n' +
                 '│ ⬇️ Downloading...\n' +
                 '│ ▰▰▰▱▱ 60%\n' +
@@ -317,33 +336,34 @@ cmd(
             );
 
             // ─────────────────────────
-            // DOWNLOAD MP3
+            // DOWNLOAD MP4
             // ─────────────────────────
 
-            let audio;
+            let video;
 
             try {
 
-                audio =
-                    await downloadAudio(
-                        audioUrl
+                video =
+                    await downloadVideo(
+                        videoUrl
                     );
 
             } catch (downloadError) {
 
                 console.error(
-                    '[YTMP3] Audio download failed:',
+                    '[YTMP4] Video download failed:',
                     downloadError.message
                 );
 
                 return reply(
                     '╭──────────●●►\n' +
-                    '│ ❌ *AUDIO DOWNLOAD FAILED*\n' +
+                    '│ ❌ *VIDEO DOWNLOAD FAILED*\n' +
                     '│\n' +
                     `│ ${downloadError.message}\n` +
                     '│\n' +
                     '│ API එක link එකක් ලබාදී ඇත,\n' +
-                    '│ නමුත් media server එකෙන් file එක ලබාගන්න බැරි වුණා.\n' +
+                    '│ නමුත් media server එකෙන් file එක\n' +
+                    '│ ලබාගන්න බැරි වුණා.\n' +
                     '╰──────────●●►'
                 );
             }
@@ -354,11 +374,11 @@ cmd(
 
             const fileSize =
                 formatSize(
-                    audio.buffer.length
+                    video.buffer.length
                 );
 
             console.log(
-                '[YTMP3] Size:',
+                '[YTMP4] Size:',
                 fileSize
             );
 
@@ -368,9 +388,10 @@ cmd(
 
             await reply(
                 '╭──────────●●►\n' +
-                '│ 📤 *SENDING MP3...*\n' +
+                '│ 📤 *SENDING MP4...*\n' +
                 '│\n' +
                 `│ 📦 Size: ${fileSize}\n` +
+                `│ 📺 Quality: ${quality}\n` +
                 '│ ▰▰▰▰▱ 90%\n' +
                 '╰──────────●●►'
             );
@@ -383,18 +404,29 @@ cmd(
             if (
                 !filename
                     .toLowerCase()
-                    .endsWith('.mp3')
+                    .endsWith('.mp4')
             ) {
-                filename += '.mp3';
+                filename += '.mp4';
             }
+
+            // ─────────────────────────
+            // SEND VIDEO FILE
+            // ─────────────────────────
 
             await conn.sendMessage(
                 from,
                 {
-                    audio: audio.buffer,
-                    mimetype: 'audio/mpeg',
+                    video: video.buffer,
+                    mimetype: 'video/mp4',
                     fileName: filename,
-                    ptt: false
+                    caption:
+                        `╭──────────●●►\n` +
+                        `│ 🎬 *${title}*\n` +
+                        `│ 📺 Quality: ${quality}\n` +
+                        `│ 📦 Size: ${fileSize}\n` +
+                        `│\n` +
+                        `│ 🤖 *THENUVA X MD*\n` +
+                        `╰──────────●●►`
                 },
                 {
                     quoted: mek
@@ -406,7 +438,7 @@ cmd(
             // ─────────────────────────
 
             console.log(
-                '[YTMP3] Sent successfully:',
+                '[YTMP4] Sent successfully:',
                 title
             );
 
@@ -415,13 +447,13 @@ cmd(
         } catch (error) {
 
             console.error(
-                '[YTMP3 ERROR]',
+                '[YTMP4 ERROR]',
                 error
             );
 
             return reply(
                 '╭──────────●●►\n' +
-                '│ ❌ *YTMP3 ERROR*\n' +
+                '│ ❌ *YTMP4 ERROR*\n' +
                 '│\n' +
                 `│ ${error.message || 'Unknown error'}\n` +
                 '╰──────────●●►'
