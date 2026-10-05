@@ -44,7 +44,7 @@ const {
   const { getCommandBody } = require('./lib/button-actions')
   const prefix = config.PREFIX
   
-  const ownerNumber = ['94783747285']
+  const ownerNumber = ['94740534738']
   
   const tempDir = path.join(os.tmpdir(), 'cache-temp')
   if (!fs.existsSync(tempDir)) {
