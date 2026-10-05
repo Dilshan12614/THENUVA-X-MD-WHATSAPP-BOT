@@ -7,7 +7,7 @@ cmd({
     pattern: "menu",
     alias: ["help", "commands"],
     react: "📚",
-    desc: "Open bot command menu",
+    desc: "Open CYBER XMD command menu",
     category: "main",
     filename: __filename
 },
@@ -15,12 +15,100 @@ async (conn, mek, m, { from, pushname, reply }) => {
 
     try {
 
+        const botName = 'CYBER XMD';
+        const creator = 'Dilshan Ashinsa';
+        const version = 'v2.0.0';
+
+        const ram = (
+            process.memoryUsage().heapUsed /
+            1024 /
+            1024
+        ).toFixed(2);
+
+        /*
+         * ==================================================
+         * MENU IMAGE
+         * ==================================================
+         *
+         * මේ URL එක වෙනස් කරන්න ඕන නම් මෙතනින් වෙනස් කරන්න.
+         */
+        const menuImage =
+            'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg';
+
+
+        /*
+         * ==================================================
+         * MENU HEADER IMAGE + INFO
+         * ==================================================
+         */
+
+        const menuCaption =
+
+`╭───────────────●●►
+│ 🤖 *${botName}*
+├───────────────●●►
+│ 👋 Hello : *${pushname || 'User'}*
+│ 👤 Creator : *${creator}*
+│ 🕒 Runtime : *${runtime(process.uptime())}*
+│ ⚡ Mode : *${config.MODE}*
+│ ⚙️ Prefix : *${config.PREFIX}*
+│ 💾 RAM Use : *${ram} MB*
+│ 📌 Version : *${version}*
+╰───────────────●●►
+
+╭───────────────❒
+│ 💙 *WELCOME TO ${botName}*
+│ 👑 *POWERED BY ${creator}*
+╰───────────────❒
+
+📂 *Tap View Commands below*
+to explore all available commands.`;
+
+
+        /*
+         * ==================================================
+         * SEND IMAGE
+         * ==================================================
+         */
+
+        await conn.sendMessage(
+            from,
+            {
+                image: {
+                    url: menuImage
+                },
+
+                caption: menuCaption,
+
+                contextInfo: {
+                    mentionedJid:
+                        m.sender
+                            ? [m.sender]
+                            : [],
+
+                    forwardingScore: 999,
+
+                    isForwarded: true
+                }
+            },
+            {
+                quoted: mek
+            }
+        );
+
+
+        /*
+         * ==================================================
+         * COMMAND LIST
+         * ==================================================
+         */
+
         const sections = [
 
             /*
-             * ==================================================
+             * ============================
              * MAIN COMMANDS
-             * ==================================================
+             * ============================
              */
 
             {
@@ -30,53 +118,60 @@ async (conn, mek, m, { from, pushname, reply }) => {
 
                     {
                         id: 'thenuva:alive',
-                        title: `${config.PREFIX}alive / ${config.PREFIX}status`,
-                        description: 'Check bot status & uptime'
+                        title: `${config.PREFIX}alive`,
+                        description:
+                            'Check bot status, uptime and RAM'
                     },
 
                     {
-                        id: `${config.PREFIX}ping`,
+                        id: 'thenuva:ping',
                         title: `${config.PREFIX}ping`,
-                        description: 'Check bot latency'
+                        description:
+                            'Check bot response speed'
                     },
 
                     {
                         id: 'thenuva:menu',
                         title: `${config.PREFIX}menu`,
-                        description: 'Show interactive menu'
+                        description:
+                            'Open CYBER XMD command menu'
                     },
 
                     {
                         id: 'thenuva:about',
                         title: `${config.PREFIX}about`,
-                        description: 'About THENUVA X MD'
+                        description:
+                            'About CYBER XMD'
                     },
 
                     {
                         id: 'thenuva:calendar',
                         title: `${config.PREFIX}calendar`,
-                        description: 'Show calendar'
+                        description:
+                            'Show current calendar'
                     },
 
                     {
                         id: 'thenuva:jid',
                         title: `${config.PREFIX}jid`,
-                        description: 'Get chat JID'
+                        description:
+                            'Get current chat JID'
                     },
 
                     {
                         id: 'thenuva:calc',
                         title: `${config.PREFIX}calc`,
-                        description: 'Calculate expressions'
+                        description:
+                            'Calculate mathematical expressions'
                     }
                 ]
             },
 
 
             /*
-             * ==================================================
+             * ============================
              * DOWNLOADER
-             * ==================================================
+             * ============================
              */
 
             {
@@ -85,36 +180,40 @@ async (conn, mek, m, { from, pushname, reply }) => {
                 rows: [
 
                     {
-                        id: `${config.PREFIX}tt`,
+                        id: 'thenuva:tt',
                         title: `${config.PREFIX}tt`,
-                        description: 'TikTok video downloader'
+                        description:
+                            'TikTok video downloader'
                     },
 
                     {
                         id: 'thenuva:fb',
                         title: `${config.PREFIX}fb`,
-                        description: 'Facebook video downloader'
+                        description:
+                            'Facebook video downloader'
                     },
 
                     {
                         id: 'thenuva:apk',
                         title: `${config.PREFIX}apk`,
-                        description: 'Download APK'
+                        description:
+                            'Download APK files'
                     },
 
                     {
                         id: 'thenuva:video',
                         title: `${config.PREFIX}video`,
-                        description: 'YouTube video downloader'
+                        description:
+                            'YouTube video downloader'
                     }
                 ]
             },
 
 
             /*
-             * ==================================================
+             * ============================
              * UTILITY
-             * ==================================================
+             * ============================
              */
 
             {
@@ -123,36 +222,40 @@ async (conn, mek, m, { from, pushname, reply }) => {
                 rows: [
 
                     {
-                        id: `${config.PREFIX}owner`,
+                        id: 'thenuva:owner',
                         title: `${config.PREFIX}owner`,
-                        description: 'Show owner information'
+                        description:
+                            'Show owner information'
                     },
 
                     {
                         id: 'thenuva:about',
                         title: `${config.PREFIX}about`,
-                        description: 'About THENUVA X MD'
+                        description:
+                            'About CYBER XMD'
                     },
 
                     {
                         id: 'thenuva:jid',
                         title: `${config.PREFIX}jid`,
-                        description: 'Show current chat JID'
+                        description:
+                            'Show current chat JID'
                     },
 
                     {
                         id: 'thenuva:calc',
                         title: `${config.PREFIX}calc`,
-                        description: 'Calculator'
+                        description:
+                            'Calculator'
                     }
                 ]
             },
 
 
             /*
-             * ==================================================
+             * ============================
              * GAMES
-             * ==================================================
+             * ============================
              */
 
             {
@@ -163,40 +266,45 @@ async (conn, mek, m, { from, pushname, reply }) => {
                     {
                         id: 'thenuva:chess',
                         title: `${config.PREFIX}chess`,
-                        description: 'Start a chess game'
+                        description:
+                            'Start a chess game'
                     },
 
                     {
                         id: 'thenuva:chess-undo',
                         title: `${config.PREFIX}chess undo`,
-                        description: 'Undo last chess move'
+                        description:
+                            'Undo last chess move'
                     },
 
                     {
                         id: 'thenuva:chess-flip',
                         title: `${config.PREFIX}chess flip`,
-                        description: 'Flip chess board'
+                        description:
+                            'Flip chess board'
                     },
 
                     {
                         id: 'thenuva:chess-new',
                         title: `${config.PREFIX}chess new`,
-                        description: 'Start a new chess game'
+                        description:
+                            'Start a new chess game'
                     },
 
                     {
                         id: 'thenuva:chess-help',
                         title: `${config.PREFIX}chess help`,
-                        description: 'Chess commands & help'
+                        description:
+                            'Chess help and commands'
                     }
                 ]
             },
 
 
             /*
-             * ==================================================
+             * ============================
              * ANTIDELETE
-             * ==================================================
+             * ============================
              */
 
             {
@@ -207,19 +315,22 @@ async (conn, mek, m, { from, pushname, reply }) => {
                     {
                         id: 'thenuva:antidelete-on',
                         title: `${config.PREFIX}antidelete on`,
-                        description: 'Enable AntiDelete'
+                        description:
+                            'Enable AntiDelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-off',
                         title: `${config.PREFIX}antidelete off`,
-                        description: 'Disable AntiDelete'
+                        description:
+                            'Disable AntiDelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-status',
                         title: `${config.PREFIX}antidelete status`,
-                        description: 'Check AntiDelete status'
+                        description:
+                            'Check AntiDelete status'
                     }
                 ]
             }
@@ -227,24 +338,34 @@ async (conn, mek, m, { from, pushname, reply }) => {
         ];
 
 
+        /*
+         * ==================================================
+         * SEND VIEW COMMANDS LIST
+         * ==================================================
+         */
+
         await sendListMenu(
             conn,
             from,
             {
                 title:
-                    `📂 *THENUVA X MD — VIEW COMMANDS*\n\n` +
-                    `👋 Hello: *${pushname || 'User'}*\n` +
-                    `🕒 Runtime: *${runtime(process.uptime())}*\n` +
-                    `⚡ Mode: *${config.MODE}*\n` +
-                    `⚙️ Prefix: *${config.PREFIX}*`,
+`🤖 *${botName}*
 
-                buttonText: '📂 View Commands',
+👑 Creator : *${creator}*
+
+📚 *COMMAND CENTER*
+
+Select a command category below.`,
+
+                buttonText:
+                    '📂 View Commands',
 
                 sections,
 
                 footer:
-                    '💥 POWERED BY THENUVA X MD'
+                    `💙 ${botName} • POWERED BY ${creator}`
             },
+
             mek
         );
 
