@@ -5,14 +5,14 @@ const { runtime } = require('../lib/functions');
 
 
 /* =========================================================
- * CYBER XMD MENU CONFIG
+ * THENUVA X MD MENU CONFIG
  * ========================================================= */
 
-const BOT_NAME = 'CYBER XMD';
+const BOT_NAME = 'THENUVA X MD';
 const CREATOR = 'Dilshan Ashinsa';
 const VERSION = 'v2.0.0';
 
-const NEWSLETTER_NAME = 'CYBER X MD UPDATES';
+const NEWSLETTER_NAME = 'THENUVA X MD UPDATES';
 const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
 
 const MENU_IMAGE =
@@ -34,7 +34,7 @@ cmd({
 
     react: '📚',
 
-    desc: 'Open CYBER XMD command menu',
+    desc: 'Open THENUVA X MD command menu',
 
     category: 'main',
 
@@ -105,7 +105,8 @@ cmd({
          * MENU SECTIONS
          *
          * IMPORTANT:
-         * Every row ID must be unique.
+         * Every row ID is UNIQUE.
+         * Do NOT duplicate any ID.
          * ================================================= */
 
         const sections = [
@@ -137,14 +138,14 @@ cmd({
                         id: 'thenuva:menu',
                         title: `${prefix}menu`,
                         description:
-                            'Open CYBER XMD command menu'
+                            'Open THENUVA X MD command menu'
                     },
 
                     {
                         id: 'thenuva:about',
                         title: `${prefix}about`,
                         description:
-                            'About CYBER XMD'
+                            'About THENUVA X MD'
                     },
 
                     {
@@ -214,9 +215,8 @@ cmd({
             /* =================================================
              * UTILITY
              *
-             * ABOUT IS NOT HERE.
-             * It is already inside MAIN COMMANDS.
-             * This prevents duplicate menu row IDs.
+             * JID and CALC are already in MAIN COMMANDS.
+             * They must NOT be repeated here.
              * ================================================= */
 
             {
@@ -229,21 +229,8 @@ cmd({
                         title: `${prefix}owner`,
                         description:
                             'Show owner information'
-                    },
-
-                    {
-                        id: 'thenuva:jid',
-                        title: `${prefix}jid`,
-                        description:
-                            'Get current chat JID'
-                    },
-
-                    {
-                        id: 'thenuva:calc',
-                        title: `${prefix}calc`,
-                        description:
-                            'Calculate mathematical expressions'
                     }
+
                 ]
             },
 
@@ -331,6 +318,42 @@ cmd({
 
 
         /* =================================================
+         * FINAL SAFETY CHECK
+         *
+         * Prevent duplicate row IDs from breaking the menu.
+         * ================================================= */
+
+        const seenIds = new Set();
+
+        for (const section of sections) {
+
+            if (!section || !Array.isArray(section.rows)) {
+                continue;
+            }
+
+            section.rows = section.rows.filter(row => {
+
+                if (!row || !row.id) {
+                    return false;
+                }
+
+                if (seenIds.has(row.id)) {
+
+                    console.warn(
+                        `[MENU] Duplicate row removed: ${row.id}`
+                    );
+
+                    return false;
+                }
+
+                seenIds.add(row.id);
+
+                return true;
+            });
+        }
+
+
+        /* =================================================
          * SEND ONE NATIVE FLOW MENU
          * ================================================= */
 
@@ -344,10 +367,6 @@ cmd({
 
                 title: menuText,
 
-                /*
-                 * No emoji here.
-                 * This is the single button.
-                 */
                 buttonText: 'Open Menu',
 
                 sections,
