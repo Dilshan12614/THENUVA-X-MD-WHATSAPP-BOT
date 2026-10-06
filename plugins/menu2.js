@@ -2,114 +2,113 @@ const config = require('../config');
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 const { runtime } = require('../lib/functions');
+const os = require('os');
+
+/*
+|--------------------------------------------------------------------------
+| THENUVA X MD - MENU CONFIG
+|--------------------------------------------------------------------------
+*/
+
+const BOT_NAME = 'CYBER XMD';
+const CREATOR = 'Dilshan Ashinsa';
+const VERSION = 'v2.0.0';
+
+const NEWSLETTER_NAME = 'CYBER X MD UPDATES';
+const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
+
+const MENU_IMAGE = 'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
+
+
+/*
+|--------------------------------------------------------------------------
+| MENU COMMAND
+|--------------------------------------------------------------------------
+*/
 
 cmd({
-    pattern: "menu",
-    alias: ["help", "commands"],
-    react: "📚",
-    desc: "Open CYBER XMD command menu",
-    category: "main",
+    pattern: 'menu',
+    alias: ['help', 'commands'],
+    react: '📚',
+    desc: 'Open bot command menu',
+    category: 'main',
     filename: __filename
 },
-async (conn, mek, m, { from, pushname, reply }) => {
+
+async (conn, mek, m, {
+    from,
+    pushname,
+    reply
+}) => {
 
     try {
 
-        const botName = 'CYBER XMD';
-        const creator = 'Dilshan Ashinsa';
-        const version = 'v2.0.0';
+        /*
+        |--------------------------------------------------------------------------
+        | SYSTEM INFO
+        |--------------------------------------------------------------------------
+        */
 
         const ram = (
-            process.memoryUsage().heapUsed /
+            process.memoryUsage().rss /
             1024 /
             1024
         ).toFixed(2);
 
-        /*
-         * ==================================================
-         * MENU IMAGE
-         * ==================================================
-         *
-         * මේ URL එක වෙනස් කරන්න ඕන නම් මෙතනින් වෙනස් කරන්න.
-         */
-        const menuImage =
-            'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
+        const botMode = config.MODE || 'public';
+        const prefix = config.PREFIX || '.';
+
+        const userName = pushname || 'User';
 
 
         /*
-         * ==================================================
-         * MENU HEADER IMAGE + INFO
-         * ==================================================
-         */
+        |--------------------------------------------------------------------------
+        | MENU HEADER
+        |--------------------------------------------------------------------------
+        */
 
-        const menuCaption =
-
-`╭───────────────●●►
-│ 🤖 *${botName}*
+        const menuText = `
+╭───────────────●●►
+│ 🤖 *${BOT_NAME}*
 ├───────────────●●►
-│ 👋 Hello : *${pushname || 'User'}*
-│ 👤 Creator : *${creator}*
+│ 👋 Pushname : *${userName}*
+│ 👤 Creator : *${CREATOR}*
 │ 🕒 Runtime : *${runtime(process.uptime())}*
-│ ⚡ Mode : *${config.MODE}*
-│ ⚙️ Prefix : *${config.PREFIX}*
+│ ⚡ Mode : *${botMode}*
+│ ⚙️ Prefix : *${prefix}*
 │ 💾 RAM Use : *${ram} MB*
-│ 📌 Version : *${version}*
+│ 📌 Version : *${VERSION}*
 ╰───────────────●●►
 
 ╭───────────────❒
-│ 💙 *WELCOME TO ${botName}*
-│ 👑 *POWERED BY ${creator}*
+│ 💙 *WELCOME TO ${BOT_NAME}*
+│ 👑 *POWERED BY ${CREATOR}*
 ╰───────────────❒
 
-📂 *Tap View Commands below*
-to explore all available commands.`;
+╭───────────────❒
+│ 📢 *NEWSLETTER*
+│ 📛 Name : *${NEWSLETTER_NAME}*
+│ 🆔 JID : *${NEWSLETTER_JID}*
+╰───────────────❒
+`;
 
 
         /*
-         * ==================================================
-         * SEND IMAGE
-         * ==================================================
-         */
-
-        await conn.sendMessage(
-            from,
-            {
-                image: {
-                    url: menuImage
-                },
-
-                caption: menuCaption,
-
-                contextInfo: {
-                    mentionedJid:
-                        m.sender
-                            ? [m.sender]
-                            : [],
-
-                    forwardingScore: 999,
-
-                    isForwarded: true
-                }
-            },
-            {
-                quoted: mek
-            }
-        );
-
-
-        /*
-         * ==================================================
-         * COMMAND LIST
-         * ==================================================
-         */
+        |--------------------------------------------------------------------------
+        | MENU SECTIONS
+        |--------------------------------------------------------------------------
+        |
+        | මේවා Open Menu button එක click කළාම පෙන්වන commands.
+        |
+        */
 
         const sections = [
 
             /*
-             * ============================
-             * MAIN COMMANDS
-             * ============================
-             */
+            |--------------------------------------------------------------------------
+            | MAIN COMMANDS
+            |--------------------------------------------------------------------------
+            */
 
             {
                 title: '🔰 MAIN COMMANDS',
@@ -118,61 +117,54 @@ to explore all available commands.`;
 
                     {
                         id: 'thenuva:alive',
-                        title: `${config.PREFIX}alive`,
-                        description:
-                            'Check bot status, uptime and RAM'
+                        title: 'Alive',
+                        description: 'Check bot online status'
                     },
 
                     {
                         id: 'thenuva:ping',
-                        title: `${config.PREFIX}ping`,
-                        description:
-                            'Check bot response speed'
+                        title: 'Ping',
+                        description: 'Check bot response speed'
                     },
 
                     {
                         id: 'thenuva:menu',
-                        title: `${config.PREFIX}menu`,
-                        description:
-                            'Open CYBER XMD command menu'
+                        title: 'Menu',
+                        description: 'Open command menu'
                     },
 
                     {
                         id: 'thenuva:about',
-                        title: `${config.PREFIX}about`,
-                        description:
-                            'About CYBER XMD'
+                        title: 'About',
+                        description: 'About this bot'
                     },
 
                     {
                         id: 'thenuva:calendar',
-                        title: `${config.PREFIX}calendar`,
-                        description:
-                            'Show current calendar'
+                        title: 'Calendar',
+                        description: 'Open calendar'
                     },
 
                     {
                         id: 'thenuva:jid',
-                        title: `${config.PREFIX}jid`,
-                        description:
-                            'Get current chat JID'
+                        title: 'JID',
+                        description: 'Get chat JID'
                     },
 
                     {
                         id: 'thenuva:calc',
-                        title: `${config.PREFIX}calc`,
-                        description:
-                            'Calculate mathematical expressions'
+                        title: 'Calculator',
+                        description: 'Calculate numbers'
                     }
                 ]
             },
 
 
             /*
-             * ============================
-             * DOWNLOADER
-             * ============================
-             */
+            |--------------------------------------------------------------------------
+            | DOWNLOADER
+            |--------------------------------------------------------------------------
+            */
 
             {
                 title: '📥 DOWNLOADER',
@@ -181,40 +173,36 @@ to explore all available commands.`;
 
                     {
                         id: 'thenuva:tt',
-                        title: `${config.PREFIX}tt`,
-                        description:
-                            'TikTok video downloader'
+                        title: 'TikTok',
+                        description: 'Download TikTok videos'
                     },
 
                     {
                         id: 'thenuva:fb',
-                        title: `${config.PREFIX}fb`,
-                        description:
-                            'Facebook video downloader'
+                        title: 'Facebook',
+                        description: 'Download Facebook videos'
                     },
 
                     {
                         id: 'thenuva:apk',
-                        title: `${config.PREFIX}apk`,
-                        description:
-                            'Download APK files'
+                        title: 'APK',
+                        description: 'Search and download APK'
                     },
 
                     {
                         id: 'thenuva:video',
-                        title: `${config.PREFIX}video`,
-                        description:
-                            'YouTube video downloader'
+                        title: 'YouTube Video',
+                        description: 'Download YouTube video'
                     }
                 ]
             },
 
 
             /*
-             * ============================
-             * UTILITY
-             * ============================
-             */
+            |--------------------------------------------------------------------------
+            | UTILITY
+            |--------------------------------------------------------------------------
+            */
 
             {
                 title: '👤 UTILITY',
@@ -223,40 +211,36 @@ to explore all available commands.`;
 
                     {
                         id: 'thenuva:owner',
-                        title: `${config.PREFIX}owner`,
-                        description:
-                            'Show owner information'
+                        title: 'Owner',
+                        description: 'Show bot owner contact'
                     },
 
                     {
                         id: 'thenuva:about',
-                        title: `${config.PREFIX}about`,
-                        description:
-                            'About CYBER XMD'
+                        title: 'About',
+                        description: 'Bot information'
                     },
 
                     {
                         id: 'thenuva:jid',
-                        title: `${config.PREFIX}jid`,
-                        description:
-                            'Show current chat JID'
+                        title: 'JID',
+                        description: 'Get WhatsApp JID'
                     },
 
                     {
                         id: 'thenuva:calc',
-                        title: `${config.PREFIX}calc`,
-                        description:
-                            'Calculator'
+                        title: 'Calculator',
+                        description: 'Perform calculations'
                     }
                 ]
             },
 
 
             /*
-             * ============================
-             * GAMES
-             * ============================
-             */
+            |--------------------------------------------------------------------------
+            | GAMES
+            |--------------------------------------------------------------------------
+            */
 
             {
                 title: '🎮 GAMES',
@@ -265,47 +249,42 @@ to explore all available commands.`;
 
                     {
                         id: 'thenuva:chess',
-                        title: `${config.PREFIX}chess`,
-                        description:
-                            'Start a chess game'
+                        title: 'Chess',
+                        description: 'Start a chess game'
                     },
 
                     {
                         id: 'thenuva:chess-undo',
-                        title: `${config.PREFIX}chess undo`,
-                        description:
-                            'Undo last chess move'
+                        title: 'Chess Undo',
+                        description: 'Undo last chess move'
                     },
 
                     {
                         id: 'thenuva:chess-flip',
-                        title: `${config.PREFIX}chess flip`,
-                        description:
-                            'Flip chess board'
+                        title: 'Chess Flip',
+                        description: 'Flip chess board'
                     },
 
                     {
                         id: 'thenuva:chess-new',
-                        title: `${config.PREFIX}chess new`,
-                        description:
-                            'Start a new chess game'
+                        title: 'Chess New',
+                        description: 'Start new chess game'
                     },
 
                     {
                         id: 'thenuva:chess-help',
-                        title: `${config.PREFIX}chess help`,
-                        description:
-                            'Chess help and commands'
+                        title: 'Chess Help',
+                        description: 'Chess commands'
                     }
                 ]
             },
 
 
             /*
-             * ============================
-             * ANTIDELETE
-             * ============================
-             */
+            |--------------------------------------------------------------------------
+            | ANTIDELETE
+            |--------------------------------------------------------------------------
+            */
 
             {
                 title: '🗑️ ANTIDELETE',
@@ -314,23 +293,20 @@ to explore all available commands.`;
 
                     {
                         id: 'thenuva:antidelete-on',
-                        title: `${config.PREFIX}antidelete on`,
-                        description:
-                            'Enable AntiDelete'
+                        title: 'Antidelete On',
+                        description: 'Enable antidelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-off',
-                        title: `${config.PREFIX}antidelete off`,
-                        description:
-                            'Disable AntiDelete'
+                        title: 'Antidelete Off',
+                        description: 'Disable antidelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-status',
-                        title: `${config.PREFIX}antidelete status`,
-                        description:
-                            'Check AntiDelete status'
+                        title: 'Antidelete Status',
+                        description: 'Check antidelete status'
                     }
                 ]
             }
@@ -339,45 +315,64 @@ to explore all available commands.`;
 
 
         /*
-         * ==================================================
-         * SEND VIEW COMMANDS LIST
-         * ==================================================
-         */
+        |--------------------------------------------------------------------------
+        | SEND SINGLE MENU
+        |--------------------------------------------------------------------------
+        |
+        | buttons.js එකේ කලින් හදපු sendListMenu()
+        | function එකට මේක directly ගැළපෙනවා.
+        |
+        */
 
         await sendListMenu(
             conn,
             from,
             {
-                title:
-`🤖 *${botName}*
+                title: menuText,
 
-👑 Creator : *${creator}*
-
-📚 *COMMAND CENTER*
-
-Select a command category below.`,
-
-                buttonText:
-                    '📂 View Commands',
+                // මෙතන emoji නැහැ.
+                buttonText: 'Open Menu',
 
                 sections,
 
-                footer:
-                    `💙 ${botName} • POWERED BY ${creator}`
+                footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
+
+                /*
+                | buttons.js එක image support කරන version එක නම්
+                | menu එකට image එකත් attach කරන්න.
+                */
+                image: {
+                    url: MENU_IMAGE
+                }
             },
 
             mek
         );
 
-    } catch (e) {
+
+    } catch (error) {
 
         console.error(
             '[MENU ERROR]',
-            e
+            error
         );
 
-        return reply(
-            `❌ *MENU ERROR*\n\n${e.message || e}`
-        );
+        try {
+
+            await reply(
+                `❌ Menu එක open කරන්න බැරි වුණා.\n\n` +
+                `Error: ${error.message}`
+            );
+
+        } catch (replyError) {
+
+            console.error(
+                '[MENU REPLY ERROR]',
+                replyError
+            );
+
+        }
+
     }
+
 });
