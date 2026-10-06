@@ -1,802 +1,40 @@
 const config = require('../config');
-const { cmd, commands } = require('../command');
-const os = require('os');
-const { runtime } = require('../lib/functions');
+const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
+const { runtime } = require('../lib/functions');
 
-/*
-|--------------------------------------------------------------------------
-| MENU SETTINGS
-|--------------------------------------------------------------------------
-*/
 
-const BOT_NAME = 'THENUWA X MD';
+/* =========================================================
+ * THENUVA X MD MENU CONFIG
+ * ========================================================= */
+
+const BOT_NAME = 'THENUVA X MD';
 const CREATOR = 'Dilshan Ashinsa';
 const VERSION = 'v2.0.0';
 
+const NEWSLETTER_NAME = 'THENUVA X MD UPDATES';
+const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
+
 const MENU_IMAGE =
-    'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg';
+    'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
 
-const NEWSLETTER_JID =
-    '120363403804248705@newsletter';
 
-const NEWSLETTER_NAME =
-    'THENUWA XMD';
-
-
-/*
-|--------------------------------------------------------------------------
-| CATEGORY HELPERS
-|--------------------------------------------------------------------------
-*/
-
-function normalizeCategory(category) {
-    if (!category) return 'main';
-
-    const value = String(category).toLowerCase().trim();
-
-    const aliases = {
-        main: 'main',
-        download: 'download',
-        downloader: 'download',
-        group: 'group',
-        owner: 'owner',
-        convert: 'convert',
-        search: 'search',
-        game: 'games',
-        games: 'games',
-        utility: 'utility',
-        tools: 'utility',
-        ai: 'ai'
-    };
-
-    return aliases[value] || value;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| BUILD COMMAND LIST
-|--------------------------------------------------------------------------
-*/
-
-function buildCommandLists() {
-
-    const menu = {
-        main: [],
-        download: [],
-        group: [],
-        owner: [],
-        convert: [],
-        search: [],
-        games: [],
-        utility: [],
-        ai: []
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | DYNAMIC CATEGORIES
-    |--------------------------------------------------------------------------
-    */
-
-    const extraCategories = {};
-
-
-    for (const command of commands) {
-
-        if (
-            !command ||
-            !command.pattern ||
-            command.dontAddCommandList
-        ) {
-            continue;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PATTERN
-        |--------------------------------------------------------------------------
-        */
-
-        const pattern =
-            String(command.pattern)
-                .trim();
-
-        if (!pattern) continue;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CATEGORY
-        |--------------------------------------------------------------------------
-        */
-
-        const category =
-            normalizeCategory(command.category);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMMAND LINE
-        |--------------------------------------------------------------------------
-        */
-
-        const commandLine =
-            `┋ .${pattern}`;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | KNOWN CATEGORY
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            Object.prototype.hasOwnProperty.call(
-                menu,
-                category
-            )
-        ) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | AVOID DUPLICATES
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !menu[category].includes(commandLine)
-            ) {
-                menu[category].push(commandLine);
-            }
-
-            continue;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNKNOWN CATEGORY
-        |--------------------------------------------------------------------------
-        |
-        | This makes sure commands such as .url / .vv
-        | don't disappear just because their category
-        | is not one of the old fixed categories.
-        |--------------------------------------------------------------------------
-        */
-
-        if (!extraCategories[category]) {
-            extraCategories[category] = [];
-        }
-
-        if (
-            !extraCategories[category]
-                .includes(commandLine)
-        ) {
-            extraCategories[category]
-                .push(commandLine);
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SORT COMMANDS
-    |--------------------------------------------------------------------------
-    */
-
-    for (const category of Object.keys(menu)) {
-        menu[category].sort(
-            (a, b) => a.localeCompare(b)
-        );
-    }
-
-
-    for (const category of Object.keys(extraCategories)) {
-        extraCategories[category].sort(
-            (a, b) => a.localeCompare(b)
-        );
-    }
-
-
-    return {
-        menu,
-        extraCategories
-    };
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| FORMAT COMMANDS
-|--------------------------------------------------------------------------
-*/
-
-function formatCommands(commandsList) {
-
-    if (
-        !Array.isArray(commandsList) ||
-        commandsList.length === 0
-    ) {
-        return '┋ No Commands Available';
-    }
-
-    return commandsList.join('\n');
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| MAKE TEXT MENU
-|--------------------------------------------------------------------------
-|
-| This is used as the body/caption of the menu.
-|--------------------------------------------------------------------------
-*/
-
-function buildMenuText(pushname) {
-
-    const {
-        menu,
-        extraCategories
-    } = buildCommandLists();
-
-
-    const totalCommands =
-        Object.values(menu)
-            .reduce(
-                (total, list) =>
-                    total + list.length,
-                0
-            ) +
-        Object.values(extraCategories)
-            .reduce(
-                (total, list) =>
-                    total + list.length,
-                0
-            );
-
-
-    let text = `👋 HELLO *${pushname || 'User'}* ❤️
-
-╭━━━〔 🤖 ${BOT_NAME} 〕━━━╮
-┃
-┃ 🕒 Runtime : ${runtime(process.uptime())}
-┃ ⚡ Mode    : ${config.MODE}
-┃ ⚙️ Prefix  : ${config.PREFIX}
-┃ 💾 RAM     : ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB
-┃ 🤖 Bot     : ${BOT_NAME}
-┃ 👤 Creator : ${CREATOR}
-┃ 📌 Version : ${VERSION}
-┃ 📜 Commands: ${totalCommands}
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-╭━━〔 👾 CYBER TEAM 〕━━╮
-┃
-┃  ✨ Welcome to ${BOT_NAME}
-┃  ⚡ Fast • Powerful • Easy
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DOWNLOAD
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-📥 *DOWNLOAD COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.download)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MAIN
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-⚙️ *MAIN COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.main)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | GROUP
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-👥 *GROUP COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.group)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OWNER
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-👨‍💻 *OWNER COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.owner)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CONVERT
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-🎡 *CONVERT COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.convert)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SEARCH
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-🔎 *SEARCH COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.search)}
-╰───────────────●●►
-`;
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | GAMES
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.games.length > 0) {
-
-        text += `
-🎮 *GAME COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.games)}
-╰───────────────●●►
-`;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | UTILITY
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.utility.length > 0) {
-
-        text += `
-🛠️ *UTILITY COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.utility)}
-╰───────────────●●►
-`;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | AI
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.ai.length > 0) {
-
-        text += `
-🤖 *AI COMMANDS*
-
-╭───────────────●●►
-${formatCommands(menu.ai)}
-╰───────────────●●►
-`;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | UNKNOWN / CUSTOM CATEGORIES
-    |--------------------------------------------------------------------------
-    */
-
-    for (
-        const [category, list]
-        of Object.entries(extraCategories)
-    ) {
-
-        if (!list.length) continue;
-
-        const displayCategory =
-            category
-                .replace(/[-_]/g, ' ')
-                .replace(/\b\w/g, c => c.toUpperCase());
-
-
-        text += `
-✨ *${displayCategory.toUpperCase()} COMMANDS*
-
-╭───────────────●●►
-${formatCommands(list)}
-╰───────────────●●►
-`;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | FOOTER
-    |--------------------------------------------------------------------------
-    */
-
-    text += `
-╭━━━━━━━━━━━━━━━━━━━━━━╮
-┃ 💥 POWERED BY
-┃ ⚡ ${BOT_NAME}
-┃ 👤 ${CREATOR}
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-`;
-
-    return text;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| BUILD INTERACTIVE LIST
-|--------------------------------------------------------------------------
-*/
-
-function buildSections() {
-
-    const {
-        menu,
-        extraCategories
-    } = buildCommandLists();
-
-
-    const sections = [];
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MAIN
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.main.length) {
-
-        sections.push({
-            title: '⚙️ MAIN COMMANDS',
-
-            rows: menu.main.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Main command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DOWNLOAD
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.download.length) {
-
-        sections.push({
-            title: '📥 DOWNLOAD COMMANDS',
-
-            rows: menu.download.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Downloader command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | GROUP
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.group.length) {
-
-        sections.push({
-            title: '👥 GROUP COMMANDS',
-
-            rows: menu.group.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Group command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OWNER
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.owner.length) {
-
-        sections.push({
-            title: '👨‍💻 OWNER COMMANDS',
-
-            rows: menu.owner.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Owner command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CONVERT
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.convert.length) {
-
-        sections.push({
-            title: '🎡 CONVERT COMMANDS',
-
-            rows: menu.convert.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Convert command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SEARCH
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.search.length) {
-
-        sections.push({
-            title: '🔎 SEARCH COMMANDS',
-
-            rows: menu.search.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Search command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | GAMES
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.games.length) {
-
-        sections.push({
-            title: '🎮 GAME COMMANDS',
-
-            rows: menu.games.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Game command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | UTILITY
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.utility.length) {
-
-        sections.push({
-            title: '🛠️ UTILITY COMMANDS',
-
-            rows: menu.utility.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'Utility command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | AI
-    |--------------------------------------------------------------------------
-    */
-
-    if (menu.ai.length) {
-
-        sections.push({
-            title: '🤖 AI COMMANDS',
-
-            rows: menu.ai.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: 'AI command'
-                };
-            })
-        });
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CUSTOM CATEGORIES
-    |--------------------------------------------------------------------------
-    */
-
-    for (
-        const [category, list]
-        of Object.entries(extraCategories)
-    ) {
-
-        if (!list.length) continue;
-
-
-        sections.push({
-
-            title:
-                `✨ ${category
-                    .replace(/[-_]/g, ' ')
-                    .toUpperCase()}`,
-
-            rows: list.map(command => {
-
-                const cmdName =
-                    command
-                        .replace('┋ .', '')
-                        .trim();
-
-                return {
-                    id: `thenuva:${cmdName}`,
-                    title: `.${cmdName}`,
-                    description: `${category} command`
-                };
-            })
-        });
-    }
-
-
-    return sections;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| MENU COMMAND
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+ * MENU COMMAND
+ * ========================================================= */
 
 cmd({
 
-    pattern: 'menu2',
+    pattern: 'menu',
 
-    react: '👾',
+    alias: [
+        'help',
+        'commands'
+    ],
 
-    desc: 'Get interactive command menu',
+    react: '📚',
+
+    desc: 'Open THENUVA X MD command menu',
 
     category: 'main',
 
@@ -815,34 +53,309 @@ cmd({
 
     try {
 
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE MENU TEXT
-        |--------------------------------------------------------------------------
-        */
+        /* =================================================
+         * SYSTEM INFORMATION
+         * ================================================= */
 
-        const menuText =
-            buildMenuText(pushname);
+        const ram = (
+            process.memoryUsage().rss /
+            1024 /
+            1024
+        ).toFixed(2);
+
+        const botMode =
+            config.MODE || 'public';
+
+        const prefix =
+            config.PREFIX || '.';
+
+        const userName =
+            pushname || 'User';
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE SECTIONS
-        |--------------------------------------------------------------------------
-        */
+        /* =================================================
+         * MENU TEXT
+         * ================================================= */
 
-        const sections =
-            buildSections();
+        const menuText = `╭───────────────●●►
+│ 🤖 *${BOT_NAME}*
+├───────────────●●►
+│ 👋 Pushname : *${userName}*
+│ 👤 Creator : *${CREATOR}*
+│ 🕒 Runtime : *${runtime(process.uptime())}*
+│ ⚡ Mode : *${botMode}*
+│ ⚙️ Prefix : *${prefix}*
+│ 💾 RAM Use : *${ram} MB*
+│ 📌 Version : *${VERSION}*
+╰───────────────●●►
+
+╭───────────────❒
+│ 💙 *WELCOME TO ${BOT_NAME}*
+│ 👑 *POWERED BY ${CREATOR}*
+╰───────────────❒
+
+╭───────────────❒
+│ 📢 *NEWSLETTER*
+│ 📛 Name : *${NEWSLETTER_NAME}*
+│ 🆔 JID : *${NEWSLETTER_JID}*
+╰───────────────❒`;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEND IMAGE + INTERACTIVE MENU
-        |--------------------------------------------------------------------------
-        |
-        | sendListMenu handles the image.
-        |
-        */
+        /* =================================================
+         * MENU SECTIONS
+         *
+         * IMPORTANT:
+         * Every row ID is UNIQUE.
+         * Do NOT duplicate any ID.
+         * ================================================= */
+
+        const sections = [
+
+            /* =================================================
+             * MAIN COMMANDS
+             * ================================================= */
+
+            {
+                title: '🔰 MAIN COMMANDS',
+
+                rows: [
+
+                    {
+                        id: 'thenuva:alive',
+                        title: `${prefix}alive`,
+                        description:
+                            'Check bot status, uptime and RAM'
+                    },
+
+                    {
+                        id: 'thenuva:ping',
+                        title: `${prefix}ping`,
+                        description:
+                            'Check bot response speed'
+                    },
+
+                    {
+                        id: 'thenuva:menu',
+                        title: `${prefix}menu`,
+                        description:
+                            'Open THENUVA X MD command menu'
+                    },
+
+                    {
+                        id: 'thenuva:about',
+                        title: `${prefix}about`,
+                        description:
+                            'About THENUVA X MD'
+                    },
+
+                    {
+                        id: 'thenuva:calendar',
+                        title: `${prefix}calendar`,
+                        description:
+                            'Show current calendar'
+                    },
+
+                    {
+                        id: 'thenuva:jid',
+                        title: `${prefix}jid`,
+                        description:
+                            'Get current chat JID'
+                    },
+
+                    {
+                        id: 'thenuva:calc',
+                        title: `${prefix}calc`,
+                        description:
+                            'Calculate mathematical expressions'
+                    }
+                ]
+            },
+
+
+            /* =================================================
+             * DOWNLOADER
+             * ================================================= */
+
+            {
+                title: '📥 DOWNLOADER',
+
+                rows: [
+
+                    {
+                        id: 'thenuva:tt',
+                        title: `${prefix}tt`,
+                        description:
+                            'TikTok video downloader'
+                    },
+
+                    {
+                        id: 'thenuva:fb',
+                        title: `${prefix}fb`,
+                        description:
+                            'Facebook video downloader'
+                    },
+
+                    {
+                        id: 'thenuva:apk',
+                        title: `${prefix}apk`,
+                        description:
+                            'Download APK files'
+                    },
+
+                    {
+                        id: 'thenuva:video',
+                        title: `${prefix}video`,
+                        description:
+                            'YouTube video downloader'
+                    }
+                ]
+            },
+
+
+            /* =================================================
+             * UTILITY
+             *
+             * JID and CALC are already in MAIN COMMANDS.
+             * They must NOT be repeated here.
+             * ================================================= */
+
+            {
+                title: '👤 UTILITY',
+
+                rows: [
+
+                    {
+                        id: 'thenuva:owner',
+                        title: `${prefix}owner`,
+                        description:
+                            'Show owner information'
+                    }
+
+                ]
+            },
+
+
+            /* =================================================
+             * GAMES
+             * ================================================= */
+
+            {
+                title: '🎮 GAMES',
+
+                rows: [
+
+                    {
+                        id: 'thenuva:chess',
+                        title: `${prefix}chess`,
+                        description:
+                            'Start a chess game'
+                    },
+
+                    {
+                        id: 'thenuva:chess-undo',
+                        title: `${prefix}chess undo`,
+                        description:
+                            'Undo the last chess move'
+                    },
+
+                    {
+                        id: 'thenuva:chess-flip',
+                        title: `${prefix}chess flip`,
+                        description:
+                            'Flip the chess board'
+                    },
+
+                    {
+                        id: 'thenuva:chess-new',
+                        title: `${prefix}chess new`,
+                        description:
+                            'Start a new chess game'
+                    },
+
+                    {
+                        id: 'thenuva:chess-help',
+                        title: `${prefix}chess help`,
+                        description:
+                            'Show chess commands'
+                    }
+                ]
+            },
+
+
+            /* =================================================
+             * ANTIDELETE
+             * ================================================= */
+
+            {
+                title: '🗑️ ANTIDELETE',
+
+                rows: [
+
+                    {
+                        id: 'thenuva:antidelete-on',
+                        title: 'Antidelete On',
+                        description:
+                            'Enable antidelete'
+                    },
+
+                    {
+                        id: 'thenuva:antidelete-off',
+                        title: 'Antidelete Off',
+                        description:
+                            'Disable antidelete'
+                    },
+
+                    {
+                        id: 'thenuva:antidelete-status',
+                        title: 'Antidelete Status',
+                        description:
+                            'Check antidelete status'
+                    }
+                ]
+            }
+
+        ];
+
+
+        /* =================================================
+         * FINAL SAFETY CHECK
+         *
+         * Prevent duplicate row IDs from breaking the menu.
+         * ================================================= */
+
+        const seenIds = new Set();
+
+        for (const section of sections) {
+
+            if (!section || !Array.isArray(section.rows)) {
+                continue;
+            }
+
+            section.rows = section.rows.filter(row => {
+
+                if (!row || !row.id) {
+                    return false;
+                }
+
+                if (seenIds.has(row.id)) {
+
+                    console.warn(
+                        `[MENU] Duplicate row removed: ${row.id}`
+                    );
+
+                    return false;
+                }
+
+                seenIds.add(row.id);
+
+                return true;
+            });
+        }
+
+
+        /* =================================================
+         * SEND ONE NATIVE FLOW MENU
+         * ================================================= */
 
         await sendListMenu(
 
@@ -851,16 +364,16 @@ cmd({
             from,
 
             {
+
                 title: menuText,
 
-                buttonText: '📜 OPEN COMMAND MENU',
+                buttonText: 'Open Menu',
 
                 sections,
 
                 footer:
-                    `${BOT_NAME} • POWERED BY ${CREATOR}`,
+                    `${BOT_NAME} • POWERED BY ${CREATOR}`
 
-                image: MENU_IMAGE
             },
 
             mek
@@ -870,68 +383,22 @@ cmd({
     } catch (error) {
 
         console.error(
-            '[MENU2 ERROR]',
+            '[MENU ERROR]',
             error
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | FALLBACK
-        |--------------------------------------------------------------------------
-        */
-
         try {
 
-            await conn.sendMessage(
-
-                from,
-
-                {
-                    image: {
-                        url: MENU_IMAGE
-                    },
-
-                    caption: buildMenuText(pushname),
-
-                    contextInfo: {
-
-                        mentionedJid: [
-                            m.sender
-                        ],
-
-                        forwardingScore: 999,
-
-                        isForwarded: true,
-
-                        forwardedNewsletterMessageInfo: {
-
-                            newsletterJid:
-                                NEWSLETTER_JID,
-
-                            newsletterName:
-                                NEWSLETTER_NAME,
-
-                            serverMessageId: 143
-                        }
-                    }
-                },
-
-                {
-                    quoted: mek
-                }
+            await reply(
+                `❌ *MENU ERROR*\n\n` +
+                `${error?.message || error}`
             );
 
-        } catch (fallbackError) {
+        } catch (replyError) {
 
             console.error(
-                '[MENU2 FALLBACK ERROR]',
-                fallbackError
-            );
-
-            return reply(
-                `Menu Error: ${
-                    error?.message || error
-                }`
+                '[MENU REPLY ERROR]',
+                replyError
             );
         }
     }
