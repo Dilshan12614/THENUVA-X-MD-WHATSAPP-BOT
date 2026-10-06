@@ -26,33 +26,22 @@ jobs:
 
     steps:
 
-      # ─────────────────────────────
-      # CHECKOUT
-      # ─────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # ─────────────────────────────
-      # NODE.JS
-      # ─────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
 
+      - name: Check Node & npm
+        run: |
+          node --version
+          npm --version
 
-      # ─────────────────────────────
-      # INSTALL DEPENDENCIES
-      # ─────────────────────────────
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-
-      # ─────────────────────────────
-      # FFmpeg + ImageMagick
-      # ─────────────────────────────
       - name: Install FFmpeg & ImageMagick
         run: |
           sudo rm -rf /var/lib/apt/lists/*
@@ -60,10 +49,6 @@ jobs:
           sudo apt-get update -o Acquire::Retries=5
           sudo apt-get install -y --fix-missing ffmpeg imagemagick
 
-
-      # ─────────────────────────────
-      # CHECK SESSION ID
-      # ─────────────────────────────
       - name: Check SESSION_ID
         run: |
           if [ -z "$SESSION_ID" ]; then
@@ -73,10 +58,6 @@ jobs:
 
           echo "✅ SESSION_ID is set"
 
-
-      # ─────────────────────────────
-      # CHECK SASA API KEY
-      # ─────────────────────────────
       - name: Check SASA API Key
         run: |
           if [ -z "$SASA_API_KEY" ]; then
@@ -86,9 +67,13 @@ jobs:
 
           echo "✅ SASA_API_KEY is set"
 
+      - name: Check FFmpeg
+        run: |
+          ffmpeg -version | head -n 1
 
-      # ─────────────────────────────
-      # START BOT
-      # ─────────────────────────────
+      - name: Check ImageMagick
+        run: |
+          convert --version | head -n 1
+
       - name: Start application
         run: node index.js
