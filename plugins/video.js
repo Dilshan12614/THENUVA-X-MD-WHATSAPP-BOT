@@ -8,7 +8,7 @@ const API_BASE = 'https://sasa-dev-api.xyz/api/yt/mp4-dl';
 const API_KEY =
     process.env.SASA_API_KEY ||
     config.SASA_API_KEY ||
-    'Sasa_Dev_Api_79346efacb553ec6ee94f2f6453dec8658ec5e7b';
+    '';
 
 function getYouTubeUrl(text = '') {
     const match = text.match(
