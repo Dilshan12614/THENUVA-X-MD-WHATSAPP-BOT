@@ -33,7 +33,7 @@ async (conn, mek, m, { from, pushname, reply }) => {
          * මේ URL එක වෙනස් කරන්න ඕන නම් මෙතනින් වෙනස් කරන්න.
          */
         const menuImage =
-            'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg';
+            'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
 
 
         /*
