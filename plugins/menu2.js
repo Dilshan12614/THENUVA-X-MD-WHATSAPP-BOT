@@ -2,13 +2,11 @@ const config = require('../config');
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 const { runtime } = require('../lib/functions');
-const os = require('os');
 
-/*
-|--------------------------------------------------------------------------
-| THENUVA X MD - MENU CONFIG
-|--------------------------------------------------------------------------
-*/
+
+/* =========================================================
+ * CYBER XMD MENU CONFIG
+ * ========================================================= */
 
 const BOT_NAME = 'CYBER XMD';
 const CREATOR = 'Dilshan Ashinsa';
@@ -17,37 +15,47 @@ const VERSION = 'v2.0.0';
 const NEWSLETTER_NAME = 'CYBER X MD UPDATES';
 const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
 
-const MENU_IMAGE = 'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
+const MENU_IMAGE =
+    'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
 
 
-/*
-|--------------------------------------------------------------------------
-| MENU COMMAND
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+ * MENU COMMAND
+ * ========================================================= */
 
 cmd({
-    pattern: 'menu',
-    alias: ['help', 'commands'],
-    react: '📚',
-    desc: 'Open bot command menu',
-    category: 'main',
-    filename: __filename
-},
 
-async (conn, mek, m, {
-    from,
-    pushname,
-    reply
-}) => {
+    pattern: 'menu',
+
+    alias: [
+        'help',
+        'commands'
+    ],
+
+    react: '📚',
+
+    desc: 'Open CYBER XMD command menu',
+
+    category: 'main',
+
+    filename: __filename
+
+}, async (
+    conn,
+    mek,
+    m,
+    {
+        from,
+        pushname,
+        reply
+    }
+) => {
 
     try {
 
-        /*
-        |--------------------------------------------------------------------------
-        | SYSTEM INFO
-        |--------------------------------------------------------------------------
-        */
+        /* =================================================
+         * SYSTEM INFORMATION
+         * ================================================= */
 
         const ram = (
             process.memoryUsage().rss /
@@ -55,20 +63,21 @@ async (conn, mek, m, {
             1024
         ).toFixed(2);
 
-        const botMode = config.MODE || 'public';
-        const prefix = config.PREFIX || '.';
+        const botMode =
+            config.MODE || 'public';
 
-        const userName = pushname || 'User';
+        const prefix =
+            config.PREFIX || '.';
+
+        const userName =
+            pushname || 'User';
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | MENU HEADER
-        |--------------------------------------------------------------------------
-        */
+        /* =================================================
+         * MENU TEXT
+         * ================================================= */
 
-        const menuText = `
-╭───────────────●●►
+        const menuText = `╭───────────────●●►
 │ 🤖 *${BOT_NAME}*
 ├───────────────●●►
 │ 👋 Pushname : *${userName}*
@@ -89,26 +98,21 @@ async (conn, mek, m, {
 │ 📢 *NEWSLETTER*
 │ 📛 Name : *${NEWSLETTER_NAME}*
 │ 🆔 JID : *${NEWSLETTER_JID}*
-╰───────────────❒
-`;
+╰───────────────❒`;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | MENU SECTIONS
-        |--------------------------------------------------------------------------
-        |
-        | මේවා Open Menu button එක click කළාම පෙන්වන commands.
-        |
-        */
+        /* =================================================
+         * MENU SECTIONS
+         *
+         * IMPORTANT:
+         * Every row ID must be unique.
+         * ================================================= */
 
         const sections = [
 
-            /*
-            |--------------------------------------------------------------------------
-            | MAIN COMMANDS
-            |--------------------------------------------------------------------------
-            */
+            /* =================================================
+             * MAIN COMMANDS
+             * ================================================= */
 
             {
                 title: '🔰 MAIN COMMANDS',
@@ -117,54 +121,59 @@ async (conn, mek, m, {
 
                     {
                         id: 'thenuva:alive',
-                        title: 'Alive',
-                        description: 'Check bot online status'
+                        title: `${prefix}alive`,
+                        description:
+                            'Check bot status, uptime and RAM'
                     },
 
                     {
                         id: 'thenuva:ping',
-                        title: 'Ping',
-                        description: 'Check bot response speed'
+                        title: `${prefix}ping`,
+                        description:
+                            'Check bot response speed'
                     },
 
                     {
                         id: 'thenuva:menu',
-                        title: 'Menu',
-                        description: 'Open command menu'
+                        title: `${prefix}menu`,
+                        description:
+                            'Open CYBER XMD command menu'
                     },
 
                     {
                         id: 'thenuva:about',
-                        title: 'About',
-                        description: 'About this bot'
+                        title: `${prefix}about`,
+                        description:
+                            'About CYBER XMD'
                     },
 
                     {
                         id: 'thenuva:calendar',
-                        title: 'Calendar',
-                        description: 'Open calendar'
+                        title: `${prefix}calendar`,
+                        description:
+                            'Show current calendar'
                     },
 
                     {
                         id: 'thenuva:jid',
-                        title: 'JID',
-                        description: 'Get chat JID'
+                        title: `${prefix}jid`,
+                        description:
+                            'Get current chat JID'
                     },
 
                     {
                         id: 'thenuva:calc',
-                        title: 'Calculator',
-                        description: 'Calculate numbers'
+                        title: `${prefix}calc`,
+                        description:
+                            'Calculate mathematical expressions'
                     }
                 ]
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | DOWNLOADER
-            |--------------------------------------------------------------------------
-            */
+            /* =================================================
+             * DOWNLOADER
+             * ================================================= */
 
             {
                 title: '📥 DOWNLOADER',
@@ -173,36 +182,42 @@ async (conn, mek, m, {
 
                     {
                         id: 'thenuva:tt',
-                        title: 'TikTok',
-                        description: 'Download TikTok videos'
+                        title: `${prefix}tt`,
+                        description:
+                            'TikTok video downloader'
                     },
 
                     {
                         id: 'thenuva:fb',
-                        title: 'Facebook',
-                        description: 'Download Facebook videos'
+                        title: `${prefix}fb`,
+                        description:
+                            'Facebook video downloader'
                     },
 
                     {
                         id: 'thenuva:apk',
-                        title: 'APK',
-                        description: 'Search and download APK'
+                        title: `${prefix}apk`,
+                        description:
+                            'Download APK files'
                     },
 
                     {
                         id: 'thenuva:video',
-                        title: 'YouTube Video',
-                        description: 'Download YouTube video'
+                        title: `${prefix}video`,
+                        description:
+                            'YouTube video downloader'
                     }
                 ]
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | UTILITY
-            |--------------------------------------------------------------------------
-            */
+            /* =================================================
+             * UTILITY
+             *
+             * ABOUT IS NOT HERE.
+             * It is already inside MAIN COMMANDS.
+             * This prevents duplicate menu row IDs.
+             * ================================================= */
 
             {
                 title: '👤 UTILITY',
@@ -211,36 +226,31 @@ async (conn, mek, m, {
 
                     {
                         id: 'thenuva:owner',
-                        title: 'Owner',
-                        description: 'Show bot owner contact'
-                    },
-
-                    {
-                        id: 'thenuva:about',
-                        title: 'About',
-                        description: 'Bot information'
+                        title: `${prefix}owner`,
+                        description:
+                            'Show owner information'
                     },
 
                     {
                         id: 'thenuva:jid',
-                        title: 'JID',
-                        description: 'Get WhatsApp JID'
+                        title: `${prefix}jid`,
+                        description:
+                            'Get current chat JID'
                     },
 
                     {
                         id: 'thenuva:calc',
-                        title: 'Calculator',
-                        description: 'Perform calculations'
+                        title: `${prefix}calc`,
+                        description:
+                            'Calculate mathematical expressions'
                     }
                 ]
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | GAMES
-            |--------------------------------------------------------------------------
-            */
+            /* =================================================
+             * GAMES
+             * ================================================= */
 
             {
                 title: '🎮 GAMES',
@@ -249,42 +259,45 @@ async (conn, mek, m, {
 
                     {
                         id: 'thenuva:chess',
-                        title: 'Chess',
-                        description: 'Start a chess game'
+                        title: `${prefix}chess`,
+                        description:
+                            'Start a chess game'
                     },
 
                     {
                         id: 'thenuva:chess-undo',
-                        title: 'Chess Undo',
-                        description: 'Undo last chess move'
+                        title: `${prefix}chess undo`,
+                        description:
+                            'Undo the last chess move'
                     },
 
                     {
                         id: 'thenuva:chess-flip',
-                        title: 'Chess Flip',
-                        description: 'Flip chess board'
+                        title: `${prefix}chess flip`,
+                        description:
+                            'Flip the chess board'
                     },
 
                     {
                         id: 'thenuva:chess-new',
-                        title: 'Chess New',
-                        description: 'Start new chess game'
+                        title: `${prefix}chess new`,
+                        description:
+                            'Start a new chess game'
                     },
 
                     {
                         id: 'thenuva:chess-help',
-                        title: 'Chess Help',
-                        description: 'Chess commands'
+                        title: `${prefix}chess help`,
+                        description:
+                            'Show chess commands'
                     }
                 ]
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | ANTIDELETE
-            |--------------------------------------------------------------------------
-            */
+            /* =================================================
+             * ANTIDELETE
+             * ================================================= */
 
             {
                 title: '🗑️ ANTIDELETE',
@@ -294,19 +307,22 @@ async (conn, mek, m, {
                     {
                         id: 'thenuva:antidelete-on',
                         title: 'Antidelete On',
-                        description: 'Enable antidelete'
+                        description:
+                            'Enable antidelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-off',
                         title: 'Antidelete Off',
-                        description: 'Disable antidelete'
+                        description:
+                            'Disable antidelete'
                     },
 
                     {
                         id: 'thenuva:antidelete-status',
                         title: 'Antidelete Status',
-                        description: 'Check antidelete status'
+                        description:
+                            'Check antidelete status'
                     }
                 ]
             }
@@ -314,36 +330,31 @@ async (conn, mek, m, {
         ];
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEND SINGLE MENU
-        |--------------------------------------------------------------------------
-        |
-        | buttons.js එකේ කලින් හදපු sendListMenu()
-        | function එකට මේක directly ගැළපෙනවා.
-        |
-        */
+        /* =================================================
+         * SEND ONE NATIVE FLOW MENU
+         * ================================================= */
 
         await sendListMenu(
+
             conn,
+
             from,
+
             {
+
                 title: menuText,
 
-                // මෙතන emoji නැහැ.
+                /*
+                 * No emoji here.
+                 * This is the single button.
+                 */
                 buttonText: 'Open Menu',
 
                 sections,
 
-                footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
+                footer:
+                    `${BOT_NAME} • POWERED BY ${CREATOR}`
 
-                /*
-                | buttons.js එක image support කරන version එක නම්
-                | menu එකට image එකත් attach කරන්න.
-                */
-                image: {
-                    url: MENU_IMAGE
-                }
             },
 
             mek
@@ -360,8 +371,8 @@ async (conn, mek, m, {
         try {
 
             await reply(
-                `❌ Menu එක open කරන්න බැරි වුණා.\n\n` +
-                `Error: ${error.message}`
+                `❌ *MENU ERROR*\n\n` +
+                `${error?.message || error}`
             );
 
         } catch (replyError) {
@@ -370,9 +381,6 @@ async (conn, mek, m, {
                 '[MENU REPLY ERROR]',
                 replyError
             );
-
         }
-
     }
-
 });
