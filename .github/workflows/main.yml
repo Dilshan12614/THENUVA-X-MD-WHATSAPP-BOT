@@ -26,22 +26,42 @@ jobs:
 
     steps:
 
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ==========================================
+      # NODE.JS
+      # ==========================================
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Check Node & npm
+
+      # ==========================================
+      # NODE / NPM VERSION
+      # ==========================================
+      - name: Check Node.js and npm
         run: |
           node --version
           npm --version
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
 
+      # ==========================================
+      # INSTALL DEPENDENCIES
+      # ==========================================
+      - name: Install dependencies
+        run: |
+          npm install --legacy-peer-deps
+
+
+      # ==========================================
+      # FFMPEG + IMAGEMAGICK
+      # ==========================================
       - name: Install FFmpeg & ImageMagick
         run: |
           sudo rm -rf /var/lib/apt/lists/*
@@ -49,6 +69,26 @@ jobs:
           sudo apt-get update -o Acquire::Retries=5
           sudo apt-get install -y --fix-missing ffmpeg imagemagick
 
+
+      # ==========================================
+      # CHECK FFMPEG
+      # ==========================================
+      - name: Check FFmpeg
+        run: |
+          ffmpeg -version | head -n 1
+
+
+      # ==========================================
+      # CHECK IMAGEMAGICK
+      # ==========================================
+      - name: Check ImageMagick
+        run: |
+          convert --version | head -n 1
+
+
+      # ==========================================
+      # CHECK SESSION ID
+      # ==========================================
       - name: Check SESSION_ID
         run: |
           if [ -z "$SESSION_ID" ]; then
@@ -58,6 +98,10 @@ jobs:
 
           echo "✅ SESSION_ID is set"
 
+
+      # ==========================================
+      # CHECK SASA API KEY
+      # ==========================================
       - name: Check SASA API Key
         run: |
           if [ -z "$SASA_API_KEY" ]; then
@@ -67,13 +111,69 @@ jobs:
 
           echo "✅ SASA_API_KEY is set"
 
-      - name: Check FFmpeg
-        run: |
-          ffmpeg -version | head -n 1
 
-      - name: Check ImageMagick
+      # ==========================================
+      # TEST SASA API
+      # ==========================================
+      - name: Test SASA YouTube API
+        env:
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
         run: |
-          convert --version | head -n 1
 
+          echo "=========================================="
+          echo "Testing SASA YouTube MP4 API"
+          echo "=========================================="
+
+          STATUS=$(curl -s -o /tmp/sasa-response.txt \
+            -w "%{http_code}" \
+            --get \
+            --data-urlencode "apikey=$SASA_API_KEY" \
+            --data-urlencode "url=https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+            --data-urlencode "quality=360" \
+            "https://sasa-dev-api.xyz/api/yt/mp4-dl")
+
+          echo "API HTTP STATUS: $STATUS"
+
+          echo "------------------------------------------"
+          echo "API RESPONSE"
+          echo "------------------------------------------"
+
+          cat /tmp/sasa-response.txt
+
+          echo ""
+          echo "------------------------------------------"
+
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ SASA API request accepted"
+
+          elif [ "$STATUS" = "401" ]; then
+            echo "❌ API KEY UNAUTHORIZED"
+            echo "Check SASA_API_KEY"
+            exit 1
+
+          elif [ "$STATUS" = "403" ]; then
+            echo "❌ API REQUEST FORBIDDEN"
+            echo "The API server rejected this request."
+            exit 1
+
+          elif [ "$STATUS" = "429" ]; then
+            echo "❌ API RATE LIMIT"
+            echo "Too many requests."
+            exit 1
+
+          else
+            echo "❌ API ERROR: HTTP $STATUS"
+            exit 1
+          fi
+
+
+      # ==========================================
+      # START APPLICATION
+      # ==========================================
       - name: Start application
-        run: node index.js
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
+        run: |
+          echo "🚀 Starting THENUVA X MD..."
+          node index.js
