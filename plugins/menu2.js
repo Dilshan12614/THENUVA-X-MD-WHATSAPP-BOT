@@ -367,13 +367,14 @@ cmd({
 
                 title: menuText,
 
-                buttonText: 'Open Menu',
+buttonText: 'Open Menu',
 
-                sections,
+sections,
 
-                footer:
-                    `${BOT_NAME} • POWERED BY ${CREATOR}`
+footer:
+    `${BOT_NAME} • POWERED BY ${CREATOR}`,
 
+image: MENU_IMAGE
             },
 
             mek
