@@ -77,19 +77,20 @@ cmd({
          * MENU TEXT
          * ================================================= */
 
-        const menuText = `👋 *HELLOW ${pushname || 'User'}* ❤️
-*Welcome to CYBER X THENULA*
+        const menuText = `*👋 HELLOW...${pushname}* ❤️ welcome to CYBER THENULA...
 
-╭━━〔 🎉️*THENUWA X MD*🎉️ 〕━━╮
+
+*✅ CYBER THENUWA X MD ✅*
+╭────────────●●►
+┃ 🎉️ *THENUWA X MD* 🎉️
 ┃ 🕒 Runtime : ${runtime(process.uptime())}
 ┃ ⚡ Mode    : ${config.MODE}
 ┃ ⚙️ Prefix  : ${config.PREFIX}
-┃ 👤 owner : Dilshan Ashinsa
+┃ 👤 owner   : Dilshan Ashinsa
 ┃ 📌 Version : v2.0.0
-╰━━━━━━━━━━━━━━━━━━━━╯
+╰────────────●●►
+`;
 
-
-> ⚡Powered by THENULA THISAN`;
 
 
         /* =================================================
