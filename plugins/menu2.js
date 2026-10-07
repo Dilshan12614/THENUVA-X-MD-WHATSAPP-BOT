@@ -16,7 +16,7 @@ const NEWSLETTER_NAME = 'THENUVA X MD UPDATES';
 const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
 
 const MENU_IMAGE =
-    'https://i.ibb.co/yFQWcf3T/b454eacd7ab3.jpg';
+    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
 
 /* =========================================================
@@ -365,7 +365,7 @@ cmd({
         buttonText: 'Open Menu',
         sections,
         footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
-        image: 'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg'
+        image: 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg'
     },
     mek
 );
