@@ -77,28 +77,19 @@ cmd({
          * MENU TEXT
          * ================================================= */
 
-        const menuText = `╭───────────────●●►
-│ 🤖 *${BOT_NAME}*
-├───────────────●●►
-│ 👋 Pushname : *${userName}*
-│ 👤 Creator : *${CREATOR}*
-│ 🕒 Runtime : *${runtime(process.uptime())}*
-│ ⚡ Mode : *${botMode}*
-│ ⚙️ Prefix : *${prefix}*
-│ 💾 RAM Use : *${ram} MB*
-│ 📌 Version : *${VERSION}*
-╰───────────────●●►
+        const menuText = `👋 *HELLOW ${pushname || 'User'}* ❤️
+*Welcome to CYBER X THENULA*
 
-╭───────────────❒
-│ 💙 *WELCOME TO ${BOT_NAME}*
-│ 👑 *POWERED BY ${CREATOR}*
-╰───────────────❒
+╭━━〔 🎉️*THENUWA X MD*🎉️ 〕━━╮
+┃ 🕒 Runtime : ${runtime(process.uptime())}
+┃ ⚡ Mode    : ${config.MODE}
+┃ ⚙️ Prefix  : ${config.PREFIX}
+┃ 👤 owner : Dilshan Ashinsa
+┃ 📌 Version : v2.0.0
+╰━━━━━━━━━━━━━━━━━━━━╯
 
-╭───────────────❒
-│ 📢 *NEWSLETTER*
-│ 📛 Name : *${NEWSLETTER_NAME}*
-│ 🆔 JID : *${NEWSLETTER_JID}*
-╰───────────────❒`;
+
+> ⚡Powered by THENULA THISAN`;
 
 
         /* =================================================
