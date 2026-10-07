@@ -358,27 +358,17 @@ cmd({
          * ================================================= */
 
         await sendListMenu(
-
-            conn,
-
-            from,
-
-            {
-
-                title: menuText,
-
-buttonText: 'Open Menu',
-
-sections,
-
-footer:
-    `${BOT_NAME} • POWERED BY ${CREATOR}`,
-
-image: MENU_IMAGE
-            },
-
-            mek
-        );
+    conn,
+    from,
+    {
+        title: menuText,
+        buttonText: 'Open Menu',
+        sections,
+        footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
+        image: 'https://i.ibb.co/N68698yW/5df1e9c651fd.jpg'
+    },
+    mek
+);
 
 
     } catch (error) {
