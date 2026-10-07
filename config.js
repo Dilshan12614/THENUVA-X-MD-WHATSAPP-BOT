@@ -17,7 +17,7 @@ module.exports = {
     // ==============================
     // SESSION
     // ==============================
-    SESSION_ID: process.env.SESSION_ID || "THENUVA-XMD=9rYDhabJ#4_CkQaqhGzIBb-7qWtWMVE53NYyXIPq3RhccSsnLNeA",
+    SESSION_ID: process.env.SESSION_ID || "THENUVA-XMD=ErpSjTYK#tSFfyfXLDQfNIa8I1VNn_L-MOP40ncAZLQKP10JnfQQ",
 
     // ==============================
     // STATUS SETTINGS
