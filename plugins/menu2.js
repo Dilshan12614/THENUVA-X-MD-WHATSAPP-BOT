@@ -8,10 +8,11 @@ const { runtime } = require('../lib/functions');
  * THENUVA X MD MENU CONFIG
  * ========================================================= */
 
+const BOT_NAME = 'THENUWA X MD';
 const CREATOR = 'Dilshan Ashinsa';
 const VERSION = 'v2.0.0';
 
-const NEWSLETTER_NAME = 'THENUVA X MD UPDATES';
+const NEWSLETTER_NAME = 'THENUWA X MD UPDATES';
 const NEWSLETTER_JID = '120363xxxxxxxxxxxx@newsletter';
 
 const MENU_IMAGE =
@@ -76,10 +77,9 @@ cmd({
          * MENU TEXT
          * ================================================= */
 
-        const menuText = `*👋 HELLOW...${pushname}* ❤️ welcome to CYBER THENULA...
+        const menuText = `*👋 HELLOW...${pushname || 'User'}* ❤️ welcome to CYBER THENULA...
 
 ╭────────────●●►
-┃ 🎉️ *THENUWA X MD* 🎉️
 ┃ 🕒 Runtime : ${runtime(process.uptime())}
 ┃ ⚡ Mode    : ${config.MODE}
 ┃ ⚙️ Prefix  : ${config.PREFIX}
@@ -87,7 +87,6 @@ cmd({
 ┃ 📌 Version : v2.0.0
 ╰────────────●●►
 `;
-
 
 
         /* =================================================
@@ -347,17 +346,17 @@ cmd({
          * ================================================= */
 
         await sendListMenu(
-    conn,
-    from,
-    {
-        title: menuText,
-        buttonText: 'Open Menu',
-        sections,
-        footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
-        image: 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg'
-    },
-    mek
-);
+            conn,
+            from,
+            {
+                title: menuText,
+                buttonText: 'Open Menu',
+                sections,
+                footer: `${BOT_NAME} • POWERED BY ${CREATOR}`,
+                image: MENU_IMAGE
+            },
+            mek
+        );
 
 
     } catch (error) {
