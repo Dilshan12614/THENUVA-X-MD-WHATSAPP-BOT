@@ -78,16 +78,18 @@ cmd({
          * ================================================= */
 
         const menuText = `
-👋 *HELLOW ${pushname || 'User'}* ❤️
-*WELCOME TO THENUWA X MD* 🎉
+👋 *ʜᴇʟʟᴏᴡ... ${pushname || 'User'}* ❤️
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉...
 
-╭──〔 *STATUS PANEL* 〕──●●►
-┃ 🕒 *Uptime*  : ${runtime(process.uptime())}
-┃ 👤 *User*    : ${pushname || 'User'}
-┃ 💾 *RAM*     : ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}MB
-┃ ⚙️ *Host*    : ${require('os').hostname()}
-┃ 👑 *Owner*   : Dilshan Ashinsa
-┃ 🧬 *Version* : v2.0.0
+╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+│
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${runtime(process.uptime())}
+│ 👤 *ᴜsᴇʀ*    : ${pushname || 'User'}
+│ 📁 *ʀᴀᴍ*     : ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${require('os').hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+│
 ╰────────────────●●►
 `;
 
