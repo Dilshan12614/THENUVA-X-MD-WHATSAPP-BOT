@@ -8,7 +8,6 @@ const { runtime } = require('../lib/functions');
  * THENUVA X MD MENU CONFIG
  * ========================================================= */
 
-const BOT_NAME = 'THENUVA X MD';
 const CREATOR = 'Dilshan Ashinsa';
 const VERSION = 'v2.0.0';
 
@@ -79,8 +78,6 @@ cmd({
 
         const menuText = `*👋 HELLOW...${pushname}* ❤️ welcome to CYBER THENULA...
 
-
-*✅ CYBER THENUWA X MD ✅*
 ╭────────────●●►
 ┃ 🎉️ *THENUWA X MD* 🎉️
 ┃ 🕒 Runtime : ${runtime(process.uptime())}
