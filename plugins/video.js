@@ -328,8 +328,8 @@ async function downloadOriginalVideo(
 | Video  : H.264
 | Audio  : AAC 96k
 | CRF    : 29
-| Preset : medium
-| Max    : 720p
+| Preset : veryfast
+| Max    : 1080p
 | Pixel  : yuv420p
 | MP4    : faststart
 |
@@ -345,125 +345,292 @@ async function convertToWhatsAppMp4(
     );
 
     try {
+        /*
+        |--------------------------------------------------------------------------
+        | Detect source resolution
+        |--------------------------------------------------------------------------
+        */
+
+        let width = 0;
+        let height = 0;
+
+        try {
+            const { stdout } =
+                await execFileAsync(
+                    'ffprobe',
+                    [
+                        '-v',
+                        'error',
+
+                        '-select_streams',
+                        'v:0',
+
+                        '-show_entries',
+                        'stream=width,height',
+
+                        '-of',
+                        'csv=s=x:p=0',
+
+                        inputPath
+                    ],
+                    {
+                        timeout:
+                            30000,
+
+                        maxBuffer:
+                            1024 * 1024
+                    }
+                );
+
+            const resolution =
+                String(
+                    stdout || ''
+                ).trim();
+
+            const match =
+                resolution.match(
+                    /^(\d+)x(\d+)$/
+                );
+
+            if (match) {
+                width =
+                    Number(match[1]);
+
+                height =
+                    Number(match[2]);
+            }
+
+        } catch (probeError) {
+            console.log(
+                '[VIDEO] Resolution detection failed.'
+            );
+        }
+
+        console.log(
+            `[VIDEO] Source resolution: ${width}x${height}`
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate maximum 1080p resolution
+        |--------------------------------------------------------------------------
+        |
+        | 1080p = maximum 1920x1080
+        | 720p  = maximum 1280x720
+        |
+        | Smaller videos are never enlarged.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        let outputWidth =
+            width;
+
+        let outputHeight =
+            height;
+
+        if (
+            width > 1920 ||
+            height > 1080
+        ) {
+            const scale =
+                Math.min(
+                    1920 / width,
+                    1080 / height
+                );
+
+            outputWidth =
+                Math.floor(
+                    (width * scale) / 2
+                ) * 2;
+
+            outputHeight =
+                Math.floor(
+                    (height * scale) / 2
+                ) * 2;
+
+            console.log(
+                `[VIDEO] Downscaling to ${outputWidth}x${outputHeight}`
+            );
+
+        } else {
+            console.log(
+                '[VIDEO] Source is already within 1080p.'
+            );
+
+            /*
+            | Ensure even dimensions
+            */
+
+            if (
+                outputWidth > 0 &&
+                outputWidth % 2 !== 0
+            ) {
+                outputWidth -= 1;
+            }
+
+            if (
+                outputHeight > 0 &&
+                outputHeight % 2 !== 0
+            ) {
+                outputHeight -= 1;
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FFmpeg arguments
+        |--------------------------------------------------------------------------
+        */
+
+        const ffmpegArgs = [
+            '-y',
+
+            '-hide_banner',
+
+            '-loglevel',
+            'error',
+
+            /*
+            | Input
+            */
+
+            '-i',
+            inputPath,
+
+            /*
+            | Video stream
+            */
+
+            '-map',
+            '0:v:0',
+
+            /*
+            | Audio if available
+            */
+
+            '-map',
+            '0:a:0?'
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Resize only when required
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            outputWidth > 0 &&
+            outputHeight > 0 &&
+            (
+                outputWidth !== width ||
+                outputHeight !== height
+            )
+        ) {
+            ffmpegArgs.push(
+                '-vf',
+                `scale=${outputWidth}:${outputHeight}`
+            );
+
+            console.log(
+                `[VIDEO] FFmpeg scale: ${outputWidth}x${outputHeight}`
+            );
+
+        } else {
+            console.log(
+                '[VIDEO] No video scaling required.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | H.264
+        |--------------------------------------------------------------------------
+        */
+
+        ffmpegArgs.push(
+            '-c:v',
+            'libx264',
+
+            /*
+            | Faster compression
+            */
+
+            '-preset',
+            'veryfast',
+
+            /*
+            | Smaller file size
+            */
+
+            '-crf',
+            '29',
+
+            /*
+            | WhatsApp compatible
+            */
+
+            '-pix_fmt',
+            'yuv420p',
+
+            /*
+            | Compatibility
+            */
+
+            '-bf',
+            '2'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | AAC Audio
+        |--------------------------------------------------------------------------
+        */
+
+        ffmpegArgs.push(
+            '-c:a',
+            'aac',
+
+            '-b:a',
+            '96k',
+
+            '-ar',
+            '44100'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | MP4
+        |--------------------------------------------------------------------------
+        */
+
+        ffmpegArgs.push(
+            '-movflags',
+            '+faststart',
+
+            /*
+            | Remove metadata
+            */
+
+            '-map_metadata',
+            '-1',
+
+            outputPath
+        );
+
+        console.log(
+            '[VIDEO] Running FFmpeg...'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Run FFmpeg
+        |--------------------------------------------------------------------------
+        */
+
         await execFileAsync(
             'ffmpeg',
-            [
-                '-y',
-
-                '-hide_banner',
-
-                '-loglevel',
-                'error',
-
-                /*
-                | Input
-                */
-
-                '-i',
-                inputPath,
-
-                /*
-                | Video stream
-                */
-
-                '-map',
-                '0:v:0',
-
-                /*
-                | Audio if available
-                */
-
-                '-map',
-                '0:a:0?',
-
-                /*
-                |--------------------------------------------------------------------------
-                | Resize
-                |--------------------------------------------------------------------------
-                |
-                | Maximum output:
-                |
-                | Landscape  -> 1280x720
-                | Portrait   -> 720x1280
-                |
-                | Smaller videos are NOT enlarged.
-                |
-                */
-
-                '-vf',
-                'scale=w=min(1280\\,iw):h=min(720\\,ih):force_original_aspect_ratio=decrease',
-
-                /*
-                | H.264
-                */
-
-                '-c:v',
-                'libx264',
-
-                /*
-                | Compression
-                */
-
-                '-preset',
-                'medium',
-
-                /*
-                | Higher CRF = smaller file
-                |
-                | 29 = good balance for WhatsApp
-                */
-
-                '-crf',
-                '29',
-
-                /*
-                | WhatsApp compatible pixel format
-                */
-
-                '-pix_fmt',
-                'yuv420p',
-
-                /*
-                | Remove B-frames that can cause some
-                | mobile playback problems
-                */
-
-                '-bf',
-                '2',
-
-                /*
-                |--------------------------------------------------------------------------
-                | Audio compression
-                |--------------------------------------------------------------------------
-                */
-
-                '-c:a',
-                'aac',
-
-                '-b:a',
-                '96k',
-
-                '-ar',
-                '44100',
-
-                /*
-                |--------------------------------------------------------------------------
-                | MP4
-                |--------------------------------------------------------------------------
-                */
-
-                '-movflags',
-                '+faststart',
-
-                /*
-                | Remove unnecessary metadata
-                */
-
-                '-map_metadata',
-                '-1',
-
-                outputPath
-            ],
+            ffmpegArgs,
             {
                 timeout:
                     300000,
@@ -472,10 +639,26 @@ async function convertToWhatsAppMp4(
                     10 * 1024 * 1024
             }
         );
+
     } catch (error) {
         console.error(
-            '[FFMPEG ERROR]',
+            '[FFMPEG ERROR CODE]',
+            error?.code
+        );
+
+        console.error(
+            '[FFMPEG ERROR SIGNAL]',
+            error?.signal
+        );
+
+        console.error(
+            '[FFMPEG STDERR]',
             error?.stderr ||
+            'No FFmpeg stderr output'
+        );
+
+        console.error(
+            '[FFMPEG MESSAGE]',
             error?.message ||
             error
         );
@@ -485,8 +668,16 @@ async function convertToWhatsAppMp4(
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Check output
+    |--------------------------------------------------------------------------
+    */
+
     if (
-        !fs.existsSync(outputPath)
+        !fs.existsSync(
+            outputPath
+        )
     ) {
         throw new Error(
             'FFmpeg output file එක හදලා නැහැ.'
