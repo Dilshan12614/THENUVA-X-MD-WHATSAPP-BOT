@@ -17,40 +17,192 @@ jobs:
     timeout-minutes: 360
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20.x]
 
     steps:
 
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      # --------------------------------------------------
+      # Node.js
+      # --------------------------------------------------
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+
+      # --------------------------------------------------
+      # FFmpeg + FFprobe + ImageMagick
+      # --------------------------------------------------
 
       - name: Install FFmpeg & ImageMagick
         run: |
+          echo "========================================"
+          echo "Installing FFmpeg & ImageMagick"
+          echo "========================================"
+
           sudo rm -rf /var/lib/apt/lists/*
           sudo apt-get clean
+
           sudo apt-get update -o Acquire::Retries=5
-          sudo apt-get install -y --fix-missing ffmpeg imagemagick
+
+          sudo apt-get install -y --fix-missing \
+            ffmpeg \
+            imagemagick
+
+          echo ""
+          echo "========================================"
+          echo "Checking FFmpeg"
+          echo "========================================"
+
+          command -v ffmpeg
+          command -v ffprobe
+
+          echo ""
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+          echo ""
+          echo "========================================"
+          echo "Checking ImageMagick"
+          echo "========================================"
+
+          command -v convert || true
+          command -v magick || true
+
+          echo ""
+          echo "========================================"
+          echo "FFmpeg Encoder Check"
+          echo "========================================"
+
+          ffmpeg -hide_banner -encoders | grep -E "libx264|aac" || true
+
+          echo ""
+          echo "========================================"
+          echo "FFmpeg Installation Complete"
+          echo "========================================"
+
+
+      # --------------------------------------------------
+      # Test FFmpeg
+      # --------------------------------------------------
+
+      - name: Test FFmpeg
+        run: |
+          echo "========================================"
+          echo "Testing FFmpeg"
+          echo "========================================"
+
+          ffmpeg -hide_banner -version | head -n 3
+
+          echo ""
+          echo "FFprobe:"
+          ffprobe -hide_banner -version | head -n 3
+
+          echo ""
+          echo "H.264 encoder:"
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep "libx264" || true
+
+          echo ""
+          echo "AAC encoder:"
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep "aac" || true
+
+          echo ""
+          echo "✅ FFmpeg environment ready"
+
+
+      # --------------------------------------------------
+      # Install Node dependencies
+      # --------------------------------------------------
+
+      - name: Install dependencies
+        run: |
+          echo "========================================"
+          echo "Installing Node.js dependencies"
+          echo "========================================"
+
+          npm install --legacy-peer-deps
+
+          echo ""
+          echo "✅ Dependencies installed"
+
+
+      # --------------------------------------------------
+      # Verify environment
+      # --------------------------------------------------
+
+      - name: Verify environment
+        run: |
+          echo "========================================"
+          echo "Environment Information"
+          echo "========================================"
+
+          echo ""
+          echo "Node.js:"
+          node --version
+
+          echo ""
+          echo "NPM:"
+          npm --version
+
+          echo ""
+          echo "FFmpeg:"
+          ffmpeg -version | head -n 1
+
+          echo ""
+          echo "FFprobe:"
+          ffprobe -version | head -n 1
+
+          echo ""
+          echo "Working directory:"
+          pwd
+
+          echo ""
+          echo "Repository:"
+          ls -la
+
+
+      # --------------------------------------------------
+      # SESSION_ID
+      # --------------------------------------------------
 
       - name: Check SESSION_ID
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
         run: |
+          echo "========================================"
+          echo "Checking SESSION_ID"
+          echo "========================================"
+
           if [ -z "$SESSION_ID" ]; then
             echo "❌ SESSION_ID is missing"
             exit 1
           fi
+
           echo "✅ SESSION_ID is set"
+
+
+      # --------------------------------------------------
+      # Start THENUVA X MD
+      # --------------------------------------------------
 
       - name: Start application
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
-        run: node index.js
+        run: |
+          echo "========================================"
+          echo "Starting THENUVA X MD"
+          echo "========================================"
+
+          node index.js
