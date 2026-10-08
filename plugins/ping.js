@@ -11,58 +11,54 @@ cmd(
         category: 'main',
         filename: __filename
     },
-    async (conn, mek, m, { from, reply }) => {
+
+    async (conn, mek, m, { from }) => {
         try {
+
             // ==============================
-            // START SPEED TEST
+            // SPEED TEST
             // ==============================
             const start = Date.now();
 
-            // Don't use quoted/edit here.
-            await conn.sendMessage(from, {
-                text: `🏓 *THENUVA X MD*\n\n⏳ Testing Speed...`
-            });
+            // Small internal calculation
+            await new Promise(resolve => setTimeout(resolve, 10));
 
             const speed = Date.now() - start;
 
-            // ==============================
-            // RESULT
-            // ==============================
-            let speedStatus;
+            let status;
 
-            if (speed <= 100) {
-                speedStatus = '🚀 Excellent';
+            if (speed <= 50) {
+                status = '🚀 SUPER FAST';
+            } else if (speed <= 150) {
+                status = '⚡ VERY FAST';
             } else if (speed <= 300) {
-                speedStatus = '⚡ Very Fast';
-            } else if (speed <= 700) {
-                speedStatus = '🟢 Good';
+                status = '🟢 FAST';
             } else {
-                speedStatus = '🟡 Normal';
+                status = '🟡 NORMAL';
             }
 
-            const resultText = `
-╭━━━〔 🏓 PING RESULT 〕━━━╮
-┃
-┃ 🤖 *Bot:* THENUVA X MD
-┃ ⚡ *Response:* ${speed} ms
-┃ 📊 *Status:* ${speedStatus}
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-⚡ *Powered by THENUVA X MD*
-`.trim();
-
-            await conn.sendMessage(from, {
-                text: resultText
-            });
-
             // ==============================
-            // BUTTON / LIST MENU
+            // ONE INTERACTIVE MESSAGE
             // ==============================
             await sendListMenu(conn, from, {
                 title: '🏓 THENUVA X MD',
-                buttonText: 'BOT OPTIONS',
-                footer: '⚡ Powered by THENUVA X MD',
+                buttonText: 'PING RESULT',
+
+                description: `
+╭━━━〔 🏓 PING 〕━━━╮
+┃
+┃ 🤖 *BOT* : THENUVA X MD
+┃ ⚡ *SPEED* : ${speed} ms
+┃ 📊 *STATUS* : ${status}
+┃
+┃ 🟢 *SYSTEM ONLINE*
+┃ 🔥 *BOT IS WORKING*
+┃
+╰━━━━━━━━━━━━━━━━━━╯
+                `.trim(),
+
+                footer: '> ⚡ Powered by THENUVA X MD',
+
                 sections: [
                     {
                         title: '🤖 THENUVA X MD',
@@ -70,16 +66,16 @@ cmd(
                             {
                                 id: `${config.PREFIX}alive`,
                                 title: '🟢 Alive',
-                                description: 'View complete bot status'
+                                description: 'View bot system status'
                             },
                             {
                                 id: `${config.PREFIX}menu`,
                                 title: '📋 Main Menu',
-                                description: 'Open THENUVA X MD menu'
+                                description: 'Open complete bot menu'
                             },
                             {
                                 id: `${config.PREFIX}about`,
-                                title: '🤖 About Bot',
+                                title: '🤖 About',
                                 description: 'View bot information'
                             }
                         ]
@@ -88,11 +84,14 @@ cmd(
             });
 
         } catch (error) {
+
             console.error('[PING ERROR]', error);
 
             try {
                 await conn.sendMessage(from, {
-                    text: `❌ *PING ERROR*\n\n${error.message || 'Unknown error'}`
+                    text:
+                        `❌ *PING ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
                 });
             } catch (sendError) {
                 console.error('[PING SEND ERROR]', sendError);
