@@ -290,10 +290,6 @@ async function downloadOriginalVideo(
         );
     }
 
-    /*
-    | Check if server returned HTML/error
-    */
-
     const firstBytes =
         data
             .subarray(0, 100)
@@ -324,15 +320,18 @@ async function downloadOriginalVideo(
 
 /*
 |--------------------------------------------------------------------------
-| FFmpeg
+| FFmpeg Compression
 |--------------------------------------------------------------------------
 |
-| MP4 එක WhatsApp-compatible:
+| LOW SIZE / GOOD QUALITY
 |
-| Video : H.264
-| Audio : AAC
-| Container : MP4
-| Fast Start : enabled
+| Video  : H.264
+| Audio  : AAC 96k
+| CRF    : 29
+| Preset : medium
+| Max    : 720p
+| Pixel  : yuv420p
+| MP4    : faststart
 |
 |--------------------------------------------------------------------------
 */
@@ -342,7 +341,7 @@ async function convertToWhatsAppMp4(
     outputPath
 ) {
     console.log(
-        '[VIDEO] Converting with FFmpeg...'
+        '[VIDEO] Compressing with FFmpeg...'
     );
 
     try {
@@ -356,11 +355,15 @@ async function convertToWhatsAppMp4(
                 '-loglevel',
                 'error',
 
+                /*
+                | Input
+                */
+
                 '-i',
                 inputPath,
 
                 /*
-                | Video
+                | Video stream
                 */
 
                 '-map',
@@ -374,33 +377,79 @@ async function convertToWhatsAppMp4(
                 '0:a:0?',
 
                 /*
-                | WhatsApp-friendly H.264
+                |--------------------------------------------------------------------------
+                | Resize
+                |--------------------------------------------------------------------------
+                |
+                | Maximum output:
+                |
+                | Landscape  -> 1280x720
+                | Portrait   -> 720x1280
+                |
+                | Smaller videos are NOT enlarged.
+                |
+                */
+
+                '-vf',
+                'scale=w=min(1280\\,iw):h=min(720\\,ih):force_original_aspect_ratio=decrease',
+
+                /*
+                | H.264
                 */
 
                 '-c:v',
                 'libx264',
 
+                /*
+                | Compression
+                */
+
                 '-preset',
-                'veryfast',
+                'medium',
+
+                /*
+                | Higher CRF = smaller file
+                |
+                | 29 = good balance for WhatsApp
+                */
 
                 '-crf',
-                '23',
+                '29',
+
+                /*
+                | WhatsApp compatible pixel format
+                */
 
                 '-pix_fmt',
                 'yuv420p',
 
                 /*
-                | Audio
+                | Remove B-frames that can cause some
+                | mobile playback problems
+                */
+
+                '-bf',
+                '2',
+
+                /*
+                |--------------------------------------------------------------------------
+                | Audio compression
+                |--------------------------------------------------------------------------
                 */
 
                 '-c:a',
                 'aac',
 
                 '-b:a',
-                '128k',
+                '96k',
+
+                '-ar',
+                '44100',
 
                 /*
-                | MP4 streaming/playback
+                |--------------------------------------------------------------------------
+                | MP4
+                |--------------------------------------------------------------------------
                 */
 
                 '-movflags',
@@ -417,7 +466,8 @@ async function convertToWhatsAppMp4(
             ],
             {
                 timeout:
-                    240000,
+                    300000,
+
                 maxBuffer:
                     10 * 1024 * 1024
             }
@@ -431,7 +481,7 @@ async function convertToWhatsAppMp4(
         );
 
         throw new Error(
-            'FFmpeg video conversion failed.'
+            'FFmpeg video compression failed.'
         );
     }
 
@@ -457,7 +507,7 @@ async function convertToWhatsAppMp4(
     }
 
     console.log(
-        `[VIDEO] Converted size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`
+        `[VIDEO] Compressed size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`
     );
 
     return outputPath;
@@ -542,7 +592,7 @@ async function verifyVideo(outputPath) {
 
 /*
 |--------------------------------------------------------------------------
-| Send Playable Video
+| Send Playable Compressed Video
 |--------------------------------------------------------------------------
 */
 
@@ -572,7 +622,7 @@ async function sendVideo(
     const inputPath =
         path.join(
             tempDir,
-            'source-video'
+            'source-video.mp4'
         );
 
     const outputPath =
@@ -583,7 +633,9 @@ async function sendVideo(
 
     try {
         /*
-        | 1. Download
+        |--------------------------------------------------------------------------
+        | 1. Download original
+        |--------------------------------------------------------------------------
         */
 
         await downloadOriginalVideo(
@@ -592,7 +644,9 @@ async function sendVideo(
         );
 
         /*
-        | 2. Convert to H.264/AAC MP4
+        |--------------------------------------------------------------------------
+        | 2. Compress with FFmpeg
+        |--------------------------------------------------------------------------
         */
 
         await convertToWhatsAppMp4(
@@ -601,22 +655,89 @@ async function sendVideo(
         );
 
         /*
-        | 3. Verify
+        |--------------------------------------------------------------------------
+        | 3. Verify final video
+        |--------------------------------------------------------------------------
         */
 
         await verifyVideo(
             outputPath
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | File sizes
+        |--------------------------------------------------------------------------
+        */
+
+        let originalSize = 0;
+        let compressedSize = 0;
+
+        try {
+            originalSize =
+                fs.statSync(
+                    inputPath
+                ).size;
+
+            compressedSize =
+                fs.statSync(
+                    outputPath
+                ).size;
+        } catch (_) {}
+
+        const originalMB =
+            (
+                originalSize /
+                1024 /
+                1024
+            ).toFixed(2);
+
+        const compressedMB =
+            (
+                compressedSize /
+                1024 /
+                1024
+            ).toFixed(2);
+
+        let reduction = 0;
+
+        if (
+            originalSize > 0 &&
+            compressedSize > 0
+        ) {
+            reduction =
+                Math.max(
+                    0,
+                    (
+                        100 -
+                        (
+                            compressedSize /
+                            originalSize
+                        ) *
+                            100
+                    )
+                ).toFixed(0);
+        }
+
         const fileName =
             `${cleanFileName(title)}-${quality}p.mp4`;
 
         console.log(
-            `[VIDEO] Sending playable ${quality}P video...`
+            `[VIDEO] Original: ${originalMB} MB`
+        );
+
+        console.log(
+            `[VIDEO] Compressed: ${compressedMB} MB`
+        );
+
+        console.log(
+            `[VIDEO] Reduced: ${reduction}%`
         );
 
         /*
-        | 4. Send actual MP4 file
+        |--------------------------------------------------------------------------
+        | 4. Send compressed MP4
+        |--------------------------------------------------------------------------
         */
 
         await conn.sendMessage(
@@ -638,6 +759,10 @@ async function sendVideo(
                     `┃ 🎥 *${title}*\n` +
                     `┃ 📺 Quality: *${quality}P*\n` +
                     `┃\n` +
+                    `┃ 📦 Original: *${originalMB} MB*\n` +
+                    `┃ ⚡ Compressed: *${compressedMB} MB*\n` +
+                    `┃ 💾 Reduced: *${reduction}%*\n` +
+                    `┃\n` +
                     `┃ ▶️ Playable MP4\n` +
                     `┃ ⚡ Powered by THENUVA X MD\n` +
                     `┃\n` +
@@ -649,12 +774,14 @@ async function sendVideo(
         );
 
         console.log(
-            '[VIDEO] Playable video sent successfully.'
+            '[VIDEO] Compressed video sent successfully.'
         );
 
     } finally {
         /*
-        | 5. Delete temporary files
+        |--------------------------------------------------------------------------
+        | 5. Cleanup
+        |--------------------------------------------------------------------------
         */
 
         try {
@@ -739,9 +866,6 @@ async function sendQualityMenu(
 
     /*
     | Quality rows
-    |
-    | Example:
-    | .video https://youtu.be/xxxxx 720
     */
 
     const rows =
@@ -754,7 +878,7 @@ async function sendQualityMenu(
                     `🎬 ${item.quality}P`,
 
                 description:
-                    `Download ${item.quality}P playable video`
+                    `Download compressed ${item.quality}P video`
             })
         );
 
@@ -768,6 +892,7 @@ async function sendQualityMenu(
                 `┃ 🎥 *${title}*\n` +
                 `┃\n` +
                 `┃ 📺 Select video quality\n` +
+                `┃ 📦 FFmpeg compression enabled\n` +
                 `┃\n` +
                 `╰━━━━━━━━━━━━━━━━━━━━╯`,
 
@@ -775,7 +900,7 @@ async function sendQualityMenu(
                 'SELECT QUALITY',
 
             footer:
-                '⚡ H.264 + AAC • THENUVA X MD',
+                '⚡ H.264 + AAC • Low Size • THENUVA X MD',
 
             image:
                 thumbnail || null,
@@ -814,7 +939,7 @@ cmd(
             '🎬',
 
         desc:
-            'Download YouTube video',
+            'Download compressed YouTube video',
 
         category:
             'download',
@@ -835,7 +960,9 @@ cmd(
     ) => {
         try {
             /*
+            |--------------------------------------------------------------------------
             | Check body
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -855,7 +982,9 @@ cmd(
             }
 
             /*
+            |--------------------------------------------------------------------------
             | Split
+            |--------------------------------------------------------------------------
             */
 
             const parts =
@@ -881,7 +1010,9 @@ cmd(
             }
 
             /*
+            |--------------------------------------------------------------------------
             | Quality
+            |--------------------------------------------------------------------------
             */
 
             let quality =
@@ -907,7 +1038,9 @@ cmd(
             }
 
             /*
+            |--------------------------------------------------------------------------
             | URL
+            |--------------------------------------------------------------------------
             */
 
             const url =
@@ -931,7 +1064,9 @@ cmd(
             }
 
             /*
-            | API key
+            |--------------------------------------------------------------------------
+            | API Key
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -948,7 +1083,9 @@ cmd(
             }
 
             /*
-            | Processing
+            |--------------------------------------------------------------------------
+            | Processing message
+            |--------------------------------------------------------------------------
             */
 
             await reply(
@@ -958,7 +1095,9 @@ cmd(
                         `┃\n` +
                         `┃ ⏳ *${quality}P video එක prepare කරනවා...*\n` +
                         `┃\n` +
-                        `┃ 🔄 Downloading & converting...\n` +
+                        `┃ 📥 Downloading...\n` +
+                        `┃ ⚙️ FFmpeg compressing...\n` +
+                        `┃ 📦 Size optimize කරනවා...\n` +
                         `┃\n` +
                         `╰━━━━━━━━━━━━━━━━━━━━╯`
                     )
@@ -968,13 +1107,17 @@ cmd(
                         `┃ ⏳ *Processing video...*\n` +
                         `┃\n` +
                         `┃ 📺 YouTube video එක ලබාගන්නවා.\n` +
+                        `┃ ⚙️ FFmpeg compression enabled.\n` +
+                        `┃ 📦 Low-size MP4 හදනවා...\n` +
                         `┃\n` +
                         `╰━━━━━━━━━━━━━━━━━━━━╯`
                     )
             );
 
             /*
+            |--------------------------------------------------------------------------
             | API
+            |--------------------------------------------------------------------------
             */
 
             const api =
@@ -989,7 +1132,9 @@ cmd(
                 getThumbnail(api);
 
             /*
+            |--------------------------------------------------------------------------
             | Selected quality
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -1036,7 +1181,9 @@ cmd(
             }
 
             /*
-            | Show quality buttons
+            |--------------------------------------------------------------------------
+            | Show quality menu
+            |--------------------------------------------------------------------------
             */
 
             return await sendQualityMenu(
@@ -1094,12 +1241,11 @@ cmd(
             if (
                 String(
                     message
-                ).includes(
-                    'ffmpeg'
-                )
+                ).toLowerCase()
+                    .includes('ffmpeg')
             ) {
                 message =
-                    'FFmpeg install වෙලා නැහැ. Railway build එකේ FFmpeg install කරන step එක තියෙන්න ඕන.';
+                    'FFmpeg install වෙලා නැහැ. Railway build එකේ FFmpeg install කරන්න.';
             }
 
             return reply(
