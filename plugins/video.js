@@ -11,9 +11,23 @@ const API_KEY =
     process.env.MR_THINUZZ_API_KEY ||
     '';
 
+/*
+|--------------------------------------------------------------------------
+| YouTube URL Check
+|--------------------------------------------------------------------------
+*/
+
 function isYouTubeUrl(url) {
-    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
+    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(
+        url
+    );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Clean File Name
+|--------------------------------------------------------------------------
+*/
 
 function cleanFileName(name) {
     return String(name || 'THENUVA X MD VIDEO')
@@ -23,6 +37,12 @@ function cleanFileName(name) {
         .slice(0, 100);
 }
 
+/*
+|--------------------------------------------------------------------------
+| Get Title
+|--------------------------------------------------------------------------
+*/
+
 function getTitle(api) {
     return (
         api?.data?.title ||
@@ -31,6 +51,12 @@ function getTitle(api) {
     );
 }
 
+/*
+|--------------------------------------------------------------------------
+| Get Thumbnail
+|--------------------------------------------------------------------------
+*/
+
 function getThumbnail(api) {
     return (
         api?.data?.thumbnail ||
@@ -38,6 +64,12 @@ function getThumbnail(api) {
         null
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Get Available Qualities
+|--------------------------------------------------------------------------
+*/
 
 function getQualities(api) {
     const qualities =
@@ -60,24 +92,44 @@ function getQualities(api) {
             }
 
             const quality =
-                String(item.quality);
+                String(item.quality)
+                    .replace(/p$/i, '');
 
             if (seen.has(quality)) {
                 return false;
             }
 
+            if (
+                !/^https?:\/\//i.test(
+                    item.downloadUrl
+                )
+            ) {
+                return false;
+            }
+
             seen.add(quality);
 
-            return /^https?:\/\//i.test(
-                item.downloadUrl
-            );
+            return true;
         })
+        .map(item => ({
+            quality:
+                String(item.quality)
+                    .replace(/p$/i, ''),
+            downloadUrl:
+                item.downloadUrl
+        }))
         .sort(
             (a, b) =>
                 Number(b.quality) -
                 Number(a.quality)
         );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Find Selected Quality
+|--------------------------------------------------------------------------
+*/
 
 function findQuality(api, quality) {
     const qualities =
@@ -89,6 +141,12 @@ function findQuality(api, quality) {
             String(quality)
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Request Video From API
+|--------------------------------------------------------------------------
+*/
 
 async function requestVideo(url) {
     if (!API_KEY) {
@@ -121,7 +179,9 @@ async function requestVideo(url) {
 
                 headers: {
                     Accept:
-                        'application/json'
+                        'application/json',
+                    'User-Agent':
+                        'Mozilla/5.0'
                 },
 
                 timeout: 60000,
@@ -138,6 +198,14 @@ async function requestVideo(url) {
         '[VIDEO API STATUS]',
         response.status
     );
+
+    if (
+        !response.data
+    ) {
+        throw new Error(
+            'API response එක empty.'
+        );
+    }
 
     console.log(
         '[VIDEO API RESPONSE]',
@@ -158,7 +226,9 @@ async function requestVideo(url) {
         );
     }
 
-    if (!response.data?.data) {
+    if (
+        !response.data?.data
+    ) {
         throw new Error(
             'API response එකේ data නැහැ.'
         );
@@ -166,6 +236,93 @@ async function requestVideo(url) {
 
     return response.data;
 }
+
+/*
+|--------------------------------------------------------------------------
+| Download MP4
+|--------------------------------------------------------------------------
+|
+| Important:
+| API එකෙන් ලැබෙන URL එක WhatsAppට direct දෙනවා වෙනුවට
+| මුලින් MP4 Buffer එකක් කරලා WhatsAppට upload කරනවා.
+|
+|--------------------------------------------------------------------------
+*/
+
+async function downloadVideoBuffer(videoUrl) {
+    if (
+        !videoUrl ||
+        !/^https?:\/\//i.test(videoUrl)
+    ) {
+        throw new Error(
+            'Invalid video download URL'
+        );
+    }
+
+    console.log(
+        '[VIDEO] Downloading MP4...'
+    );
+
+    console.log(
+        '[VIDEO DOWNLOAD URL]',
+        videoUrl
+    );
+
+    const response =
+        await axios.get(
+            videoUrl,
+            {
+                responseType:
+                    'arraybuffer',
+
+                timeout:
+                    180000,
+
+                maxContentLength:
+                    Infinity,
+
+                maxBodyLength:
+                    Infinity,
+
+                headers: {
+                    'User-Agent':
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
+
+                    Accept:
+                        'video/mp4,video/*,*/*',
+
+                    Referer:
+                        'https://www.youtube.com/'
+                }
+            }
+        );
+
+    const buffer =
+        Buffer.from(
+            response.data
+        );
+
+    if (
+        !buffer ||
+        !buffer.length
+    ) {
+        throw new Error(
+            'Video file එක empty.'
+        );
+    }
+
+    console.log(
+        `[VIDEO] Downloaded ${(buffer.length / 1024 / 1024).toFixed(2)} MB`
+    );
+
+    return buffer;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Send Video To WhatsApp
+|--------------------------------------------------------------------------
+*/
 
 async function sendVideo(
     conn,
@@ -184,19 +341,31 @@ async function sendVideo(
         );
     }
 
+    /*
+    | Download first
+    */
+
+    const videoBuffer =
+        await downloadVideoBuffer(
+            videoUrl
+        );
+
     const fileName =
         `${cleanFileName(title)}-${quality}p.mp4`;
 
     console.log(
-        `[VIDEO] Sending ${quality}P`
+        `[VIDEO] Uploading ${quality}P to WhatsApp...`
     );
+
+    /*
+    | Send Buffer
+    */
 
     await conn.sendMessage(
         from,
         {
-            video: {
-                url: videoUrl
-            },
+            video:
+                videoBuffer,
 
             mimetype:
                 'video/mp4',
@@ -213,12 +382,21 @@ async function sendVideo(
                 `┃\n` +
                 `╰━━━━━━━━━━━━━━━━━━━━╯`
         },
-
         {
             quoted
         }
     );
+
+    console.log(
+        '[VIDEO] Sent successfully'
+    );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Quality Selection Menu
+|--------------------------------------------------------------------------
+*/
 
 async function sendQualityMenu(
     conn,
@@ -236,7 +414,14 @@ async function sendQualityMenu(
     const qualities =
         getQualities(api);
 
-    if (!qualities.length) {
+    /*
+    | If API doesn't return all qualities,
+    | use direct video link.
+    */
+
+    if (
+        !qualities.length
+    ) {
         const directUrl =
             api?.data?.links?.video;
 
@@ -255,7 +440,7 @@ async function sendQualityMenu(
                 ''
             );
 
-        return sendVideo(
+        return await sendVideo(
             conn,
             from,
             quoted,
@@ -265,20 +450,19 @@ async function sendQualityMenu(
         );
     }
 
+    /*
+    | Create quality rows
+    |
+    | Example ID:
+    | .video https://youtu.be/xxxxx 720
+    |
+    | getCommandBody() මේක direct command එකක්
+    | විදිහට return කරන නිසා button-actions.js
+    | වෙනස් කරන්න අවශ්‍ය නැහැ.
+    */
+
     const rows =
         qualities.map(item => ({
-            /*
-             * IMPORTANT:
-             * This is a real bot command.
-             *
-             * Example:
-             * .video https://youtube.com/... 720
-             *
-             * Your current button-actions.js
-             * already returns IDs beginning
-             * with PREFIX as commands.
-             */
-
             id:
                 `${config.PREFIX}video ${originalUrl} ${item.quality}`,
 
@@ -325,9 +509,16 @@ async function sendQualityMenu(
     );
 }
 
+/*
+|--------------------------------------------------------------------------
+| VIDEO COMMAND
+|--------------------------------------------------------------------------
+*/
+
 cmd(
     {
-        pattern: 'video',
+        pattern:
+            'video',
 
         alias: [
             'ytmp4',
@@ -335,7 +526,8 @@ cmd(
             'ytvideo'
         ],
 
-        react: '🎬',
+        react:
+            '🎬',
 
         desc:
             'Download YouTube video',
@@ -359,23 +551,13 @@ cmd(
     ) => {
         try {
             /*
-             * Example normal command:
-             *
-             * .video https://youtu.be/xxxxx
-             *
-             * Example quality command:
-             *
-             * .video https://youtu.be/xxxxx 720
-             */
+            | Check command
+            */
 
-            const parts =
-                body
-                    .trim()
-                    .split(/\s+/);
-
-            parts.shift();
-
-            if (!parts.length) {
+            if (
+                typeof body !== 'string' ||
+                !body.trim()
+            ) {
                 return reply(
                     `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
                     `┃\n` +
@@ -389,16 +571,61 @@ cmd(
             }
 
             /*
-             * Last argument can be quality.
-             */
+            | Split command
+            */
 
-            let quality = null;
+            const parts =
+                body
+                    .trim()
+                    .split(/\s+/);
 
-            const last =
-                parts[parts.length - 1];
+            /*
+            | Remove command
+            */
+
+            parts.shift();
 
             if (
-                /^\d{3,4}p?$/i.test(last)
+                !parts.length
+            ) {
+                return reply(
+                    `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
+                    `┃\n` +
+                    `┃ ❌ YouTube link එකක් දෙන්න.\n` +
+                    `┃\n` +
+                    `┃ Example:\n` +
+                    `┃ .video https://youtu.be/xxxxx\n` +
+                    `┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`
+                );
+            }
+
+            /*
+            | Detect quality
+            |
+            | Supports:
+            | 1080
+            | 1080p
+            | 720
+            | 720p
+            | 360
+            | 360p
+            | 144
+            | 144p
+            */
+
+            let quality =
+                null;
+
+            const last =
+                parts[
+                    parts.length - 1
+                ];
+
+            if (
+                /^\d{3,4}p?$/i.test(
+                    last
+                )
             ) {
                 quality =
                     last.replace(
@@ -409,32 +636,66 @@ cmd(
                 parts.pop();
             }
 
+            /*
+            | Rebuild URL
+            */
+
             const url =
-                parts.join(' ').trim();
+                parts
+                    .join(' ')
+                    .trim();
 
-            if (!isYouTubeUrl(url)) {
-                return reply(
-                    `❌ *Invalid YouTube URL*\n\n` +
-                    `YouTube link එකක් ලබා දෙන්න.`
-                );
-            }
+            /*
+            | Validate YouTube URL
+            */
 
-            if (!API_KEY) {
+            if (
+                !isYouTubeUrl(url)
+            ) {
                 return reply(
-                    `❌ *API KEY NOT FOUND*\n\n` +
-                    `MR_THINUZZ_API_KEY config එකේ නැහැ.`
+                    `╭━━━〔 ❌ INVALID URL 〕━━━╮\n` +
+                    `┃\n` +
+                    `┃ YouTube link එකක් ලබා දෙන්න.\n` +
+                    `┃\n` +
+                    `┃ Example:\n` +
+                    `┃ .video https://youtu.be/xxxxx\n` +
+                    `┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`
                 );
             }
 
             /*
-             * ==================================
-             * QUALITY BUTTON CLICK
-             * ==================================
-             */
+            | Check API key
+            */
 
-            if (quality) {
+            if (
+                !API_KEY
+            ) {
+                return reply(
+                    `╭━━━〔 ❌ API ERROR 〕━━━╮\n` +
+                    `┃\n` +
+                    `┃ MR_THINUZZ_API_KEY\n` +
+                    `┃ config එකේ නැහැ.\n` +
+                    `┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`
+                );
+            }
+
+            /*
+            | Processing message
+            */
+
+            if (
+                quality
+            ) {
                 await reply(
-                    `⏳ *${quality}P video එක prepare කරනවා...*`
+                    `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
+                    `┃\n` +
+                    `┃ ⏳ *${quality}P video එක prepare කරනවා...*\n` +
+                    `┃\n` +
+                    `┃ Please wait...\n` +
+                    `┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`
                 );
             } else {
                 await reply(
@@ -448,49 +709,73 @@ cmd(
                 );
             }
 
+            /*
+            | Request API
+            */
+
             const api =
-                await requestVideo(url);
+                await requestVideo(
+                    url
+                );
 
             const title =
                 getTitle(api);
 
             /*
-             * ==================================
-             * SPECIFIC QUALITY
-             * ==================================
-             */
+            | If user selected quality
+            */
 
-            if (quality) {
+            if (
+                quality
+            ) {
                 const selected =
                     findQuality(
                         api,
                         quality
                     );
 
-                if (!selected) {
+                if (
+                    !selected
+                ) {
+                    const available =
+                        getQualities(
+                            api
+                        )
+                        .map(
+                            item =>
+                                `${item.quality}P`
+                        )
+                        .join(', ');
+
                     return reply(
-                        `❌ *${quality}P quality එක හමු වුණේ නැහැ.*`
+                        `╭━━━〔 ❌ QUALITY NOT FOUND 〕━━━╮\n` +
+                        `┃\n` +
+                        `┃ ❌ *${quality}P* quality එක හමු වුණේ නැහැ.\n` +
+                        `┃\n` +
+                        `┃ Available:\n` +
+                        `┃ ${available || 'Unknown'}\n` +
+                        `┃\n` +
+                        `╰━━━━━━━━━━━━━━━━━━━━╯`
                     );
                 }
+
+                /*
+                | Download + upload to WhatsApp
+                */
 
                 return await sendVideo(
                     conn,
                     from,
                     mek,
-
                     selected.downloadUrl,
-
                     title,
-
                     selected.quality
                 );
             }
 
             /*
-             * ==================================
-             * SHOW QUALITY MENU
-             * ==================================
-             */
+            | Show quality selection
+            */
 
             return await sendQualityMenu(
                 conn,
@@ -514,6 +799,10 @@ cmd(
                 error?.message ||
                 'Unknown error';
 
+            /*
+            | HTTP Errors
+            */
+
             if (
                 error?.response?.status === 401
             ) {
@@ -535,13 +824,33 @@ cmd(
                     'YTMP4 API endpoint එක හමු වුණේ නැහැ.';
             }
 
+            /*
+            | Timeout
+            */
+
             if (
                 error?.code ===
                 'ECONNABORTED'
             ) {
                 message =
-                    'API request timeout වුණා.';
+                    'Video download timeout වුණා.';
             }
+
+            /*
+            | Axios network errors
+            */
+
+            if (
+                error?.code ===
+                'ERR_BAD_RESPONSE'
+            ) {
+                message =
+                    'Video server එකෙන් invalid response එකක් ලැබුණා.';
+            }
+
+            /*
+            | Final error
+            */
 
             return reply(
                 `╭━━━〔 ❌ VIDEO ERROR 〕━━━╮\n` +
