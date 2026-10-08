@@ -23,28 +23,27 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------
-      # Checkout
-      # --------------------------------------------------
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # --------------------------------------------------
-      # Node.js
-      # --------------------------------------------------
+      # ==========================================
+      # NODE.JS
+      # ==========================================
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
 
 
-      # --------------------------------------------------
-      # FFmpeg + FFprobe + ImageMagick
-      # --------------------------------------------------
+      # ==========================================
+      # SYSTEM DEPENDENCIES
+      # ==========================================
 
       - name: Install FFmpeg & ImageMagick
         run: |
@@ -86,7 +85,7 @@ jobs:
           echo "FFmpeg Encoder Check"
           echo "========================================"
 
-          ffmpeg -hide_banner -encoders | grep -E "libx264|aac" || true
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libx264|aac" || true
 
           echo ""
           echo "========================================"
@@ -94,9 +93,9 @@ jobs:
           echo "========================================"
 
 
-      # --------------------------------------------------
-      # Test FFmpeg
-      # --------------------------------------------------
+      # ==========================================
+      # TEST FFMPEG
+      # ==========================================
 
       - name: Test FFmpeg
         run: |
@@ -104,6 +103,8 @@ jobs:
           echo "Testing FFmpeg"
           echo "========================================"
 
+          echo ""
+          echo "FFmpeg:"
           ffmpeg -hide_banner -version | head -n 3
 
           echo ""
@@ -119,12 +120,14 @@ jobs:
           ffmpeg -hide_banner -encoders 2>/dev/null | grep "aac" || true
 
           echo ""
-          echo "✅ FFmpeg environment ready"
+          echo "========================================"
+          echo "FFmpeg environment ready"
+          echo "========================================"
 
 
-      # --------------------------------------------------
-      # Install Node dependencies
-      # --------------------------------------------------
+      # ==========================================
+      # NODE DEPENDENCIES
+      # ==========================================
 
       - name: Install dependencies
         run: |
@@ -135,12 +138,14 @@ jobs:
           npm install --legacy-peer-deps
 
           echo ""
-          echo "✅ Dependencies installed"
+          echo "========================================"
+          echo "Dependencies installed"
+          echo "========================================"
 
 
-      # --------------------------------------------------
-      # Verify environment
-      # --------------------------------------------------
+      # ==========================================
+      # ENVIRONMENT CHECK
+      # ==========================================
 
       - name: Verify environment
         run: |
@@ -169,17 +174,23 @@ jobs:
           pwd
 
           echo ""
-          echo "Repository:"
+          echo "Repository files:"
           ls -la
 
+          echo ""
+          echo "========================================"
+          echo "Environment check complete"
+          echo "========================================"
 
-      # --------------------------------------------------
-      # SESSION_ID
-      # --------------------------------------------------
+
+      # ==========================================
+      # SESSION ID
+      # ==========================================
 
       - name: Check SESSION_ID
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
+
         run: |
           echo "========================================"
           echo "Checking SESSION_ID"
@@ -193,13 +204,14 @@ jobs:
           echo "✅ SESSION_ID is set"
 
 
-      # --------------------------------------------------
-      # Start THENUVA X MD
-      # --------------------------------------------------
+      # ==========================================
+      # START BOT
+      # ==========================================
 
       - name: Start application
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
+
         run: |
           echo "========================================"
           echo "Starting THENUVA X MD"
