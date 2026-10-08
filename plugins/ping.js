@@ -40,7 +40,7 @@ cmd(
             // IMAGE URL
             // ==============================
             const imageUrl =
-                'https://i.ibb.co/your-image-url/thenuva-x-md.jpg';
+                'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             // ==============================
             // ONE INTERACTIVE MESSAGE
