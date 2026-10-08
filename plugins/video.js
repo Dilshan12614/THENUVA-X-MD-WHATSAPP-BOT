@@ -4,8 +4,6 @@ const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
 
 const API_BASE =
-    config.MR_THINUZZ_API_URL ||
-    process.env.MR_THINUZZ_API_URL ||
     'https://mr-thinuzz-api-build.vercel.app';
 
 const API_KEY =
@@ -13,246 +11,181 @@ const API_KEY =
     process.env.MR_THINUZZ_API_KEY ||
     '';
 
-const MENU_IMAGE =
-    config.MENU_IMAGE ||
-    process.env.MENU_IMAGE ||
-    '';
-
 function isYouTubeUrl(url) {
-    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(
-        url
-    );
+    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
 }
 
-function safeFileName(name) {
-    return String(name || 'THENUVA-X-MD-VIDEO')
+function cleanFileName(name) {
+    return String(name || 'THENUVA X MD VIDEO')
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 120);
+        .slice(0, 100);
 }
 
-function getQualityNumber(value) {
-    const match = String(value || '').match(/\d+/);
-    return match ? Number(match[0]) : 0;
+function getTitle(api) {
+    return (
+        api?.data?.title ||
+        api?.title ||
+        'THENUVA X MD VIDEO'
+    );
 }
 
-function findQuality(data, quality) {
-    const qualities = Array.isArray(data?.all_qualities)
-        ? data.all_qualities
-        : [];
-
-    return qualities.find(item => {
-        return (
-            String(item?.quality) === String(quality) &&
-            typeof item?.downloadUrl === 'string' &&
-            /^https?:\/\//i.test(item.downloadUrl)
-        );
-    });
+function getThumbnail(api) {
+    return (
+        api?.data?.thumbnail ||
+        api?.thumbnail ||
+        null
+    );
 }
 
-function buildQualityRows(data, originalUrl) {
-    const qualities = Array.isArray(data?.all_qualities)
-        ? data.all_qualities
-        : [];
+function getQualities(api) {
+    const qualities =
+        api?.data?.all_qualities;
 
-    const unique = new Map();
-
-    for (const item of qualities) {
-        const quality = String(item?.quality || '').trim();
-        const downloadUrl = item?.downloadUrl;
-
-        if (!quality) continue;
-        if (!downloadUrl) continue;
-        if (!/^https?:\/\//i.test(downloadUrl)) continue;
-
-        if (!unique.has(quality)) {
-            unique.set(quality, {
-                quality,
-                downloadUrl
-            });
-        }
+    if (!Array.isArray(qualities)) {
+        return [];
     }
 
-    const rows = [...unique.values()]
+    const seen = new Set();
+
+    return qualities
+        .filter(item => {
+            if (
+                !item ||
+                !item.quality ||
+                !item.downloadUrl
+            ) {
+                return false;
+            }
+
+            const quality =
+                String(item.quality);
+
+            if (seen.has(quality)) {
+                return false;
+            }
+
+            seen.add(quality);
+
+            return /^https?:\/\//i.test(
+                item.downloadUrl
+            );
+        })
         .sort(
             (a, b) =>
-                getQualityNumber(b.quality) -
-                getQualityNumber(a.quality)
-        )
-        .map(item => ({
-            id:
-                `video_quality|${encodeURIComponent(
-                    item.quality
-                )}|${encodeURIComponent(originalUrl)}`,
-
-            title: `${item.quality}P`,
-
-            description:
-                `Download ${item.quality}P video`
-        }));
-
-    return rows;
+                Number(b.quality) -
+                Number(a.quality)
+        );
 }
 
-function parseQualityAction(id) {
-    if (
-        typeof id !== 'string' ||
-        !id.startsWith('video_quality|')
-    ) {
-        return null;
-    }
+function findQuality(api, quality) {
+    const qualities =
+        getQualities(api);
 
-    const parts = id.split('|');
-
-    if (parts.length < 3) {
-        return null;
-    }
-
-    try {
-        return {
-            quality: decodeURIComponent(parts[1]),
-            url: decodeURIComponent(parts.slice(2).join('|'))
-        };
-    } catch {
-        return null;
-    }
+    return qualities.find(
+        item =>
+            String(item.quality) ===
+            String(quality)
+    );
 }
 
 async function requestVideo(url) {
+    if (!API_KEY) {
+        throw new Error(
+            'MR_THINUZZ_API_KEY is missing'
+        );
+    }
+
     const endpoint =
-        `${API_BASE}/ytmp4v3/download-all`;
-
-    console.log('[VIDEO] API:', endpoint);
-    console.log('[VIDEO] URL:', url);
-
-    const response = await axios.get(endpoint, {
-        params: {
-            url
-        },
-        headers: {
-            'x-api-key': API_KEY,
-            Accept: 'application/json'
-        },
-        timeout: 60000,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
-    });
+        `${API_BASE}/api/ytmp4v2/download`;
 
     console.log(
-        '[VIDEO] API status:',
+        '[VIDEO API]',
+        endpoint
+    );
+
+    console.log(
+        '[VIDEO URL]',
+        url
+    );
+
+    const response =
+        await axios.get(
+            endpoint,
+            {
+                params: {
+                    url,
+                    apiKey: API_KEY
+                },
+
+                headers: {
+                    Accept:
+                        'application/json'
+                },
+
+                timeout: 60000,
+
+                maxContentLength:
+                    Infinity,
+
+                maxBodyLength:
+                    Infinity
+            }
+        );
+
+    console.log(
+        '[VIDEO API STATUS]',
         response.status
     );
 
     console.log(
-        '[VIDEO] API response:',
-        JSON.stringify(response.data, null, 2)
+        '[VIDEO API RESPONSE]',
+        JSON.stringify(
+            response.data,
+            null,
+            2
+        )
     );
 
-    if (!response.data?.status) {
+    if (
+        response.data?.status === false
+    ) {
         throw new Error(
             response.data?.message ||
             response.data?.error ||
-            'Video API request failed'
+            'Video API failed'
         );
     }
 
     if (!response.data?.data) {
         throw new Error(
-            'API response does not contain data'
+            'API response එකේ data නැහැ.'
         );
     }
 
     return response.data;
 }
 
-async function sendQualityMenu(
-    conn,
-    from,
-    quoted,
-    apiData,
-    originalUrl
-) {
-    const data = apiData.data;
-
-    const title =
-        data.title ||
-        'YouTube Video';
-
-    const rows =
-        buildQualityRows(
-            data,
-            originalUrl
-        );
-
-    if (!rows.length) {
-        throw new Error(
-            'No downloadable qualities found'
-        );
-    }
-
-    const available =
-        rows
-            .map(row => row.title)
-            .join(' • ');
-
-    await sendListMenu(
-        conn,
-        from,
-        {
-            title:
-                `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
-                `┃\n` +
-                `┃ 🎥 ${title}\n` +
-                `┃\n` +
-                `┃ 📺 Available: ${available}\n` +
-                `┃\n` +
-                `╰━━━━━━━━━━━━━━━━━━━━╯`,
-
-            buttonText:
-                'SELECT QUALITY',
-
-            footer:
-                '⚡ Powered by THENUVA X MD',
-
-            image:
-                data.thumbnail ||
-                MENU_IMAGE,
-
-            sections: [
-                {
-                    title:
-                        '🎬 VIDEO QUALITY',
-
-                    rows
-                }
-            ]
-        },
-        quoted
-    );
-}
-
 async function sendVideo(
     conn,
     from,
     quoted,
-    {
-        videoUrl,
-        title,
-        quality
-    }
+    videoUrl,
+    title,
+    quality
 ) {
     if (
-        typeof videoUrl !== 'string' ||
+        !videoUrl ||
         !/^https?:\/\//i.test(videoUrl)
     ) {
         throw new Error(
-            'Invalid video download URL'
+            'Invalid video URL'
         );
     }
 
     const fileName =
-        `${safeFileName(title)}-${quality}p.mp4`;
+        `${cleanFileName(title)}-${quality}p.mp4`;
 
     console.log(
         `[VIDEO] Sending ${quality}P`
@@ -273,32 +206,145 @@ async function sendVideo(
             caption:
                 `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
                 `┃\n` +
-                `┃ 🎥 ${title}\n` +
-                `┃\n` +
-                `┃ 📺 Quality: ${quality}P\n` +
+                `┃ 🎥 *${title}*\n` +
+                `┃ 📺 Quality: *${quality}P*\n` +
                 `┃\n` +
                 `┃ ⚡ Powered by THENUVA X MD\n` +
                 `┃\n` +
                 `╰━━━━━━━━━━━━━━━━━━━━╯`
         },
+
         {
             quoted
         }
     );
 }
 
+async function sendQualityMenu(
+    conn,
+    from,
+    quoted,
+    api,
+    originalUrl
+) {
+    const title =
+        getTitle(api);
+
+    const thumbnail =
+        getThumbnail(api);
+
+    const qualities =
+        getQualities(api);
+
+    if (!qualities.length) {
+        const directUrl =
+            api?.data?.links?.video;
+
+        if (!directUrl) {
+            throw new Error(
+                'API එක MP4 download URL එකක් return කරලා නැහැ.'
+            );
+        }
+
+        const quality =
+            String(
+                api?.data?.quality_found ||
+                '720'
+            ).replace(
+                /p/i,
+                ''
+            );
+
+        return sendVideo(
+            conn,
+            from,
+            quoted,
+            directUrl,
+            title,
+            quality
+        );
+    }
+
+    const rows =
+        qualities.map(item => ({
+            /*
+             * IMPORTANT:
+             * This is a real bot command.
+             *
+             * Example:
+             * .video https://youtube.com/... 720
+             *
+             * Your current button-actions.js
+             * already returns IDs beginning
+             * with PREFIX as commands.
+             */
+
+            id:
+                `${config.PREFIX}video ${originalUrl} ${item.quality}`,
+
+            title:
+                `${item.quality}P`,
+
+            description:
+                `Download ${item.quality}P video`
+        }));
+
+    await sendListMenu(
+        conn,
+        from,
+        {
+            title:
+                `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
+                `┃\n` +
+                `┃ 🎥 *${title}*\n` +
+                `┃\n` +
+                `┃ 📺 Select video quality\n` +
+                `┃\n` +
+                `╰━━━━━━━━━━━━━━━━━━━━╯`,
+
+            buttonText:
+                'SELECT QUALITY',
+
+            footer:
+                '⚡ Powered by THENUVA X MD',
+
+            image:
+                thumbnail || null,
+
+            sections: [
+                {
+                    title:
+                        '🎬 AVAILABLE QUALITY',
+
+                    rows
+                }
+            ]
+        },
+
+        quoted
+    );
+}
+
 cmd(
     {
         pattern: 'video',
+
         alias: [
             'ytmp4',
             'playvideo',
             'ytvideo'
         ],
+
         react: '🎬',
-        desc: 'Download YouTube video',
-        category: 'download',
-        filename: __filename
+
+        desc:
+            'Download YouTube video',
+
+        category:
+            'download',
+
+        filename:
+            __filename
     },
 
     async (
@@ -312,15 +358,24 @@ cmd(
         }
     ) => {
         try {
-            const args =
+            /*
+             * Example normal command:
+             *
+             * .video https://youtu.be/xxxxx
+             *
+             * Example quality command:
+             *
+             * .video https://youtu.be/xxxxx 720
+             */
+
+            const parts =
                 body
                     .trim()
-                    .split(/\s+/)
-                    .slice(1)
-                    .join(' ')
-                    .trim();
+                    .split(/\s+/);
 
-            if (!args) {
+            parts.shift();
+
+            if (!parts.length) {
                 return reply(
                     `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
                     `┃\n` +
@@ -334,107 +389,115 @@ cmd(
             }
 
             /*
-             * Quality button click
-             *
-             * ID format:
-             * video_quality|720|https://youtube.com/...
+             * Last argument can be quality.
              */
+
+            let quality = null;
+
+            const last =
+                parts[parts.length - 1];
+
             if (
-                args.startsWith(
-                    'video_quality|'
-                )
+                /^\d{3,4}p?$/i.test(last)
             ) {
-                const selected =
-                    parseQualityAction(args);
-
-                if (!selected) {
-                    return reply(
-                        '❌ Invalid video quality selection.'
-                    );
-                }
-
-                const apiData =
-                    await requestVideo(
-                        selected.url
+                quality =
+                    last.replace(
+                        /p$/i,
+                        ''
                     );
 
-                const data =
-                    apiData.data;
-
-                const selectedQuality =
-                    findQuality(
-                        data,
-                        selected.quality
-                    );
-
-                if (!selectedQuality) {
-                    return reply(
-                        `❌ ${selected.quality}P quality එක API එකේ නැහැ.`
-                    );
-                }
-
-                await reply(
-                    `⏳ *${selected.quality}P video එක prepare කරනවා...*`
-                );
-
-                await sendVideo(
-                    conn,
-                    from,
-                    mek,
-                    {
-                        videoUrl:
-                            selectedQuality.downloadUrl,
-
-                        title:
-                            data.title ||
-                            'THENUVA X MD VIDEO',
-
-                        quality:
-                            selectedQuality.quality
-                    }
-                );
-
-                return;
+                parts.pop();
             }
 
-            if (!isYouTubeUrl(args)) {
+            const url =
+                parts.join(' ').trim();
+
+            if (!isYouTubeUrl(url)) {
                 return reply(
                     `❌ *Invalid YouTube URL*\n\n` +
-                    `YouTube video link එකක් ලබා දෙන්න.`
+                    `YouTube link එකක් ලබා දෙන්න.`
                 );
             }
 
             if (!API_KEY) {
-                console.log(
-                    '[VIDEO] MR_THINUZZ_API_KEY missing'
-                );
-
                 return reply(
                     `❌ *API KEY NOT FOUND*\n\n` +
-                    `config.env එකේ:\n\n` +
-                    `MR_THINUZZ_API_KEY=YOUR_KEY`
+                    `MR_THINUZZ_API_KEY config එකේ නැහැ.`
                 );
             }
 
-            await reply(
-                `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
-                `┃\n` +
-                `┃ ⏳ *Processing...*\n` +
-                `┃\n` +
-                `┃ YouTube video එක ලබාගන්නවා.\n` +
-                `┃\n` +
-                `╰━━━━━━━━━━━━━━━━━━━━╯`
-            );
+            /*
+             * ==================================
+             * QUALITY BUTTON CLICK
+             * ==================================
+             */
 
-            const apiData =
-                await requestVideo(args);
+            if (quality) {
+                await reply(
+                    `⏳ *${quality}P video එක prepare කරනවා...*`
+                );
+            } else {
+                await reply(
+                    `╭━━━〔 🎬 THENUVA X MD 〕━━━╮\n` +
+                    `┃\n` +
+                    `┃ ⏳ *Processing video...*\n` +
+                    `┃\n` +
+                    `┃ YouTube video එක ලබාගන්නවා.\n` +
+                    `┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`
+                );
+            }
 
-            await sendQualityMenu(
+            const api =
+                await requestVideo(url);
+
+            const title =
+                getTitle(api);
+
+            /*
+             * ==================================
+             * SPECIFIC QUALITY
+             * ==================================
+             */
+
+            if (quality) {
+                const selected =
+                    findQuality(
+                        api,
+                        quality
+                    );
+
+                if (!selected) {
+                    return reply(
+                        `❌ *${quality}P quality එක හමු වුණේ නැහැ.*`
+                    );
+                }
+
+                return await sendVideo(
+                    conn,
+                    from,
+                    mek,
+
+                    selected.downloadUrl,
+
+                    title,
+
+                    selected.quality
+                );
+            }
+
+            /*
+             * ==================================
+             * SHOW QUALITY MENU
+             * ==================================
+             */
+
+            return await sendQualityMenu(
                 conn,
                 from,
                 mek,
-                apiData,
-                args
+                api,
+                url
             );
 
         } catch (error) {
@@ -455,7 +518,7 @@ cmd(
                 error?.response?.status === 401
             ) {
                 message =
-                    'API key එක invalid හෝ expired.';
+                    'API key එක invalid.';
             }
 
             if (
@@ -469,7 +532,7 @@ cmd(
                 error?.response?.status === 404
             ) {
                 message =
-                    'Video API endpoint එක හමු වුණේ නැහැ.';
+                    'YTMP4 API endpoint එක හමු වුණේ නැහැ.';
             }
 
             if (
@@ -477,7 +540,7 @@ cmd(
                 'ECONNABORTED'
             ) {
                 message =
-                    'API request timeout වුණා. නැවත try කරන්න.';
+                    'API request timeout වුණා.';
             }
 
             return reply(
