@@ -48,8 +48,6 @@ cmd(
             await sendListMenu(conn, from, {
                 title: '🏓 THENUVA X MD',
 
-                buttonText: 'PING RESULT',
-
                 description: `
 ╭━━━〔 🏓 PING 〕━━━╮
 ┃
