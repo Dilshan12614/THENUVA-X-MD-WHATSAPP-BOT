@@ -20,7 +20,9 @@ cmd(
             // ==============================
             const start = Date.now();
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise(resolve =>
+                setTimeout(resolve, 10)
+            );
 
             const speed = Date.now() - start;
 
@@ -40,13 +42,21 @@ cmd(
             // IMAGE URL
             // ==============================
             const imageUrl =
-                'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+                'https://i.ibb.co/your-image-url/thenuva-x-md.jpg';
 
             // ==============================
-            // ONE INTERACTIVE MESSAGE
+            // PING MENU
             // ==============================
             await sendListMenu(conn, from, {
-                title: '🏓 THENUVA X MD',
+
+                title:
+                    '🏓 THENUVA X MD',
+
+                buttonText:
+                    'PING RESULT',
+
+                hideListButton:
+                    true,
 
                 description: `
 ╭━━━〔 🏓 PING 〕━━━╮
@@ -61,46 +71,80 @@ cmd(
 ╰━━━━━━━━━━━━━━━━━━╯
                 `.trim(),
 
-                footer: '⚡ Powered by THENUVA X MD',
+                footer:
+                    '⚡ Powered by THENUVA X MD',
 
-                image: imageUrl,
+                image:
+                    imageUrl,
 
                 sections: [
                     {
-                        title: '🤖 THENUVA X MD',
+                        title:
+                            '🤖 THENUVA X MD',
+
                         rows: [
                             {
-                                id: `${config.PREFIX}alive`,
-                                title: '🟢 Alive',
-                                description: 'View bot system status'
+                                id:
+                                    `${config.PREFIX}alive`,
+
+                                title:
+                                    '🟢 Alive',
+
+                                description:
+                                    'View bot system status'
                             },
+
                             {
-                                id: `${config.PREFIX}menu`,
-                                title: '📋 Main Menu',
-                                description: 'Open complete bot menu'
+                                id:
+                                    `${config.PREFIX}menu`,
+
+                                title:
+                                    '📋 Main Menu',
+
+                                description:
+                                    'Open complete bot menu'
                             },
+
                             {
-                                id: `${config.PREFIX}about`,
-                                title: '🤖 About',
-                                description: 'View bot information'
+                                id:
+                                    `${config.PREFIX}about`,
+
+                                title:
+                                    '🤖 About',
+
+                                description:
+                                    'View bot information'
                             }
                         ]
                     }
                 ]
+
             });
 
         } catch (error) {
 
-            console.error('[PING ERROR]', error);
+            console.error(
+                '[PING ERROR]',
+                error
+            );
 
             try {
-                await conn.sendMessage(from, {
-                    text:
-                        `❌ *PING ERROR*\n\n` +
-                        `⚠️ ${error.message || 'Unknown error'}`
-                });
+
+                await conn.sendMessage(
+                    from,
+                    {
+                        text:
+                            `❌ *PING ERROR*\n\n` +
+                            `⚠️ ${error.message || 'Unknown error'}`
+                    }
+                );
+
             } catch (sendError) {
-                console.error('[PING SEND ERROR]', sendError);
+
+                console.error(
+                    '[PING SEND ERROR]',
+                    sendError
+                );
             }
         }
     }
