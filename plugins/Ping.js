@@ -24,68 +24,100 @@ cmd(
     ) => {
         try {
 
+            /*
+            |-----------------------------------------
+            | Start timer
+            |-----------------------------------------
+            */
+
             const start = Date.now();
 
-            // Initial message
+            /*
+            |-----------------------------------------
+            | Send testing message
+            |-----------------------------------------
+            */
+
             const sent = await conn.sendMessage(
                 from,
                 {
                     text:
                         `╭━━━〔 🏓 THENUVA X MD 〕━━━╮\n` +
                         `┃\n` +
-                        `┃ ⏳ *Testing response speed...*\n` +
+                        `┃ ⏳ *Testing Speed...*\n` +
                         `┃\n` +
                         `╰━━━━━━━━━━━━━━━━━━━━╯`
                 },
                 {
-                    quoted
+                    quoted: quoted || mek || undefined
                 }
             );
 
-            const end = Date.now();
-            const speed = end - start;
+            /*
+            |-----------------------------------------
+            | Calculate speed
+            |-----------------------------------------
+            */
 
-            // Edit previous message
+            const speed =
+                Date.now() - start;
+
+            /*
+            |-----------------------------------------
+            | Edit testing message
+            |-----------------------------------------
+            */
+
+            const resultText =
+                `╭━━━〔 🏓 THENUVA X MD 〕━━━╮\n` +
+                `┃\n` +
+                `┃ 🟢 *PONG!*\n` +
+                `┃\n` +
+                `┃ ⚡ Response : *${speed} ms*\n` +
+                `┃ 🚀 Status   : *ONLINE*\n` +
+                `┃ 🤖 Bot      : *THENUVA X MD*\n` +
+                `┃\n` +
+                `╰━━━━━━━━━━━━━━━━━━━━╯`;
+
             try {
+
                 await conn.sendMessage(
                     from,
                     {
-                        text:
-                            `╭━━━〔 🏓 THENUVA X MD 〕━━━╮\n` +
-                            `┃\n` +
-                            `┃ 🟢 *PONG!*\n` +
-                            `┃\n` +
-                            `┃ ⚡ Response : *${speed} ms*\n` +
-                            `┃ 🚀 Status   : *ONLINE*\n` +
-                            `┃ 🤖 Bot      : *THENUVA X MD*\n` +
-                            `┃\n` +
-                            `╰━━━━━━━━━━━━━━━━━━━━╯`,
+                        text: resultText,
                         edit: sent.key
                     }
                 );
+
             } catch (editError) {
 
-                // Fallback if message editing isn't supported
+                console.log(
+                    '[PING] Message edit failed, sending result normally.'
+                );
+
+                /*
+                |-----------------------------------------
+                | Fallback message
+                |-----------------------------------------
+                */
+
                 await conn.sendMessage(
                     from,
                     {
-                        text:
-                            `╭━━━〔 🏓 THENUVA X MD 〕━━━╮\n` +
-                            `┃\n` +
-                            `┃ 🟢 *PONG!*\n` +
-                            `┃\n` +
-                            `┃ ⚡ Response : *${speed} ms*\n` +
-                            `┃ 🚀 Status   : *ONLINE*\n` +
-                            `┃\n` +
-                            `╰━━━━━━━━━━━━━━━━━━━━╯`
+                        text: resultText
                     },
                     {
-                        quoted
+                        quoted: quoted || mek || undefined
                     }
                 );
             }
 
-            // Interactive menu
+            /*
+            |-----------------------------------------
+            | Interactive buttons/list
+            |-----------------------------------------
+            */
+
             await sendListMenu(
                 conn,
                 from,
@@ -94,7 +126,9 @@ cmd(
                         `╭━━━〔 🏓 THENUVA X MD 〕━━━╮\n` +
                         `┃\n` +
                         `┃ 🟢 *PONG!*\n` +
-                        `┃ ⚡ Speed: *${speed} ms*\n` +
+                        `┃\n` +
+                        `┃ ⚡ Speed : *${speed} ms*\n` +
+                        `┃ 🚀 Status : *ONLINE*\n` +
                         `┃\n` +
                         `╰━━━━━━━━━━━━━━━━━━━━╯`,
 
@@ -147,7 +181,7 @@ cmd(
                     ]
                 },
 
-                quoted
+                quoted || mek
             );
 
         } catch (error) {
