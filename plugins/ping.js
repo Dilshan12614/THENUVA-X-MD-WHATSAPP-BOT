@@ -20,7 +20,6 @@ cmd(
             // ==============================
             const start = Date.now();
 
-            // Small internal calculation
             await new Promise(resolve => setTimeout(resolve, 10));
 
             const speed = Date.now() - start;
@@ -38,10 +37,17 @@ cmd(
             }
 
             // ==============================
+            // IMAGE URL
+            // ==============================
+            const imageUrl =
+                'https://i.ibb.co/your-image-url/thenuva-x-md.jpg';
+
+            // ==============================
             // ONE INTERACTIVE MESSAGE
             // ==============================
             await sendListMenu(conn, from, {
                 title: '🏓 THENUVA X MD',
+
                 buttonText: 'PING RESULT',
 
                 description: `
@@ -57,7 +63,9 @@ cmd(
 ╰━━━━━━━━━━━━━━━━━━╯
                 `.trim(),
 
-                footer: '> ⚡ Powered by THENUVA X MD',
+                footer: '⚡ Powered by THENUVA X MD',
+
+                image: imageUrl,
 
                 sections: [
                     {
