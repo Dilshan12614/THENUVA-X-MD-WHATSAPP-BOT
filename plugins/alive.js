@@ -30,20 +30,22 @@ cmd(
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             const aliveText = `
-╭━━━〔 🟢 ALIVE 〕━━━╮
-┃
-┃ 🤖 *BOT* : THENUVA X MD
-┃ ⚡ *STATUS* : ONLINE
-┃ ⏱️ *UPTIME* : ${uptime}
-┃ 💾 *RAM USED* : ${usedMemory} MB
-┃ 🖥️ *TOTAL RAM* : ${totalMemory} GB
-┃
-┃ ✅ *SYSTEM ONLINE*
-┃ 🔥 *BOT IS WORKING*
-┃
-╰━━━━━━━━━━━━━━━━━━╯
+🟢 *ALIVE NOW* 🟢
 
-🌐 *THENUVA X MD*
+👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+
+✅ *CYBER THENULA X MD IS ONLINE* ✅
+
+╭┈───────────────•* 
+│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
+│  ◦ ⚡ *Mode* :  *[${config.MODE}]*
+│  ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
+│  ◦ 🤖 *Name Bot* : *THENUWA XMD*
+│  ◦ 👤 *Creator* : *Thenula/Dilshan*
+│  ◦ 📌 *Version* : *ᴠ.2.0.0*
+╰┈───────────────•*
+
+> © ⚡*POWERED by CYBER THENUWA*
 
 Choose Contact Me or View Channel below.
             `.trim();
