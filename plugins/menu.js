@@ -104,7 +104,7 @@ async (conn, mek, m, { from, pushName }) => {
 │
 ╰────────────────●●►
 
-🔘choose an option below now`;
+🔘 Select an option.`;
 
         await sendListMenu(conn, from, {
             title: menuText,
