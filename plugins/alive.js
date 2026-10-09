@@ -16,6 +16,10 @@ cmd(
 
     async (conn, mek, m, { from, pushName }) => {
         try {
+            // Safe username
+            const userName = pushName || 'User';
+
+            // System information
             const uptime = runtime(process.uptime());
 
             const usedMemory = (
@@ -30,70 +34,58 @@ cmd(
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             const aliveText = `
-🟢 *ALIVE NOW* 🟢
+╭━━〔 🟢 *ALIVE NOW* 〕━━╮
 
-👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+👋 Hello, *${userName}* ❤️
 
-✅ *CYBER THENULA X MD IS ONLINE* ✅
+✅ *THENUVA X MD IS ONLINE*
 
-╭┈───────────────•* 
-│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
-│  ◦ ⚡ *Mode* :  *[${config.MODE}]*
-│  ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
-│  ◦ 🤖 *Name Bot* : *THENUWA XMD*
-│  ◦ 👤 *Creator* : *Thenula/Dilshan*
-│  ◦ 📌 *Version* : *ᴠ.2.0.0*
-╰┈───────────────•*
+╭┈───────────────•
+│ 🕒 *Runtime:* ${uptime}
+│ ⚡ *Mode:* ${config.MODE || 'public'}
+│ ⚙️ *Prefix:* ${config.PREFIX || '.'}
+│ 🤖 *Bot:* THENUVA X MD
+│ 👤 *Creator:* Dilshan
+│ 📌 *Version:* v2.0.0
+│ 💾 *RAM Used:* ${usedMemory} MB
+│ 🖥️ *System RAM:* ${totalMemory} GB
+╰┈───────────────•
 
-> © ⚡*POWERED by CYBER THENUWA*
+> ⚡ *POWERED BY THENUVA X MD*
 
-Choose Contact Me or View Channel below.
+Select an option below.
             `.trim();
 
-            await sendListMenu(
-                conn,
-                from,
-                {
-                    title: aliveText,
+            await sendListMenu(conn, from, {
+                title: aliveText,
+                buttonText: 'ALIVE MENU',
+                hideListButton: true,
+                footer: '⚡ Powered by THENUVA X MD',
+                image: imageUrl,
 
-                    buttonText: 'ALIVE MENU',
-
-                    hideListButton: true,
-
-                    footer:
-                        '⚡ Powered by THENUVA X MD',
-
-                    image: imageUrl,
-
-                    sections: [
-                        {
-                            title: '🤖 THENUVA X MD',
-
-                            rows: [
-                                {
-                                    id: `${config.PREFIX}ping`,
-                                    title: '🏓 Ping',
-                                    description:
-                                        'Check bot response speed'
-                                },
-                                {
-                                    id: `${config.PREFIX}menu`,
-                                    title: '📋 Main Menu',
-                                    description:
-                                        'Open complete bot menu'
-                                },
-                                {
-                                    id: `${config.PREFIX}about`,
-                                    title: 'ℹ️ About',
-                                    description:
-                                        'View bot information'
-                                }
-                            ]
-                        }
-                    ]
-                },
-                mek
-            );
+                sections: [
+                    {
+                        title: '🤖 THENUVA X MD',
+                        rows: [
+                            {
+                                id: `${config.PREFIX || '.'}ping`,
+                                title: '🏓 Ping',
+                                description: 'Check bot response speed'
+                            },
+                            {
+                                id: `${config.PREFIX || '.'}menu`,
+                                title: '📋 Main Menu',
+                                description: 'Open complete bot menu'
+                            },
+                            {
+                                id: `${config.PREFIX || '.'}about`,
+                                title: 'ℹ️ About',
+                                description: 'View bot information'
+                            }
+                        ]
+                    }
+                ]
+            });
 
         } catch (error) {
             console.error('[ALIVE ERROR]', error);
@@ -101,8 +93,8 @@ Choose Contact Me or View Channel below.
             await conn.sendMessage(from, {
                 text:
                     `❌ *ALIVE ERROR*\n\n` +
-                    `${error.message || 'Unknown error'}`
-            });
+                    `⚠️ ${error.message || 'Unknown error'}`
+            }, { quoted: mek });
         }
     }
 );
