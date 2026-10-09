@@ -24,90 +24,93 @@ async (conn, mek, m, { from, pushName }) => {
 
         const sections = [
             {
-                title: '🤖 THENUVA X MD',
+                title: '🤖 ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ',
                 rows: [
                     {
                         id: `${prefix}menuall`,
-                        title: '📚 All Commands',
-                        description: 'View all bot commands'
+                        title: '📚 ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs',
+                        description: 'ᴠɪᴇᴡ ᴀʟʟ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs'
                     },
                     {
                         id: `${prefix}alive`,
-                        title: '🟢 Bot Status',
-                        description: 'Check bot online status'
+                        title: '🟢 ʙᴏᴛ sᴛᴀᴛᴜs',
+                        description: 'ᴄʜᴇᴄᴋ ʙᴏᴛ ᴏɴʟɪɴᴇ sᴛᴀᴛᴜs'
                     },
                     {
                         id: `${prefix}ping`,
-                        title: '🏓 Ping',
-                        description: 'Check bot response speed'
+                        title: '🏓 ᴘɪɴɢ',
+                        description: 'ᴄʜᴇᴄᴋ ʀᴇsᴘᴏɴsᴇ sᴘᴇᴇᴅ'
                     },
                     {
                         id: `${prefix}owner`,
-                        title: '👑 Owner',
-                        description: 'Bot owner details'
+                        title: '👑 ᴏᴡɴᴇʀ',
+                        description: 'ʙᴏᴛ ᴏᴡɴᴇʀ ᴅᴇᴛᴀɪʟs'
                     }
                 ]
             },
             {
-                title: '🎮 FUN & TOOLS',
+                title: '🎮 ғᴜɴ & ᴛᴏᴏʟs',
                 rows: [
                     {
                         id: `${prefix}chess`,
-                        title: '♟️ Chess',
-                        description: 'Play a chess game'
+                        title: '♟️ ᴄʜᴇss',
+                        description: 'ᴘʟᴀʏ ᴀ ᴄʜᴇss ɢᴀᴍᴇ'
                     },
                     {
                         id: `${prefix}calc`,
-                        title: '🧮 Calculator',
-                        description: 'Open calculator'
+                        title: '🧮 ᴄᴀʟᴄᴜʟᴀᴛᴏʀ',
+                        description: 'ᴏᴘᴇɴ ᴄᴀʟᴄᴜʟᴀᴛᴏʀ'
                     },
                     {
                         id: `${prefix}jid`,
-                        title: '🆔 JID',
-                        description: 'Get chat ID information'
+                        title: '🆔 ᴊɪᴅ',
+                        description: 'ɢᴇᴛ ᴄʜᴀᴛ ɪᴅ'
                     }
                 ]
             },
             {
-                title: '📥 DOWNLOADS',
+                title: '📥 ᴅᴏᴡɴʟᴏᴀᴅs',
                 rows: [
                     {
                         id: `${prefix}fb`,
-                        title: '📘 Facebook',
-                        description: 'Download Facebook media'
+                        title: '📘 ғᴀᴄᴇʙᴏᴏᴋ',
+                        description: 'ᴅᴏᴡɴʟᴏᴀᴅ ғᴀᴄᴇʙᴏᴏᴋ ᴍᴇᴅɪᴀ'
                     },
                     {
                         id: `${prefix}video`,
-                        title: '🎬 Video',
-                        description: 'Download video'
+                        title: '🎬 ᴠɪᴅᴇᴏ',
+                        description: 'ᴅᴏᴡɴʟᴏᴀᴅ ᴠɪᴅᴇᴏ'
                     },
                     {
                         id: `${prefix}apk`,
-                        title: '📱 APK',
-                        description: 'APK download command'
+                        title: '📱 ᴀᴘᴋ',
+                        description: 'ᴀᴘᴋ ᴅᴏᴡɴʟᴏᴀᴅ ᴄᴏᴍᴍᴀɴᴅ'
                     }
                 ]
             }
         ];
 
-        const menuText = `╭─〔 *STATUS PANEL* 〕──●●►
+        const menuText = `👋 *ʜᴇʟʟᴏ... ${userName}* 
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+
+╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
 │
-│ ⏳ *UPTIME* : ${uptime}
-│ 👤 *USER* : ${userName}
-│ 📁 *RAM* : ${usedMemory}MB
-│ ⚙️ *HOST* : ${os.hostname()}
-│ 👨‍💻 *OWNER* : Dilshan Ashinsa
-│ 🧬 *VERSION* : v2.0.0
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
 │
 ╰────────────────●●►
 
-👇 Tap the button below to open the menu.`;
+🔘choose an option below now`;
 
         await sendListMenu(conn, from, {
             title: menuText,
-            buttonText: '📋 OPEN MENU',
+            buttonText: '📋 ᴏᴘᴇɴ ᴍᴇɴᴜ',
             sections,
-            footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
+            footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
             image: 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg',
             hideListButton: false
         }, mek);
@@ -116,7 +119,7 @@ async (conn, mek, m, { from, pushName }) => {
         console.error('[MENU ERROR]', error);
 
         await conn.sendMessage(from, {
-            text: `❌ *MENU ERROR*\n\n${error.message || error}`
+            text: `❌ *ᴍᴇɴᴜ ᴇʀʀᴏʀ*\n\n${error.message || error}`
         }, { quoted: mek });
     }
 });
