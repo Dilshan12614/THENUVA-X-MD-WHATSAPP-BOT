@@ -1,5 +1,6 @@
 const { cmd } = require('../command');
 const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
 const os = require('os');
 const { runtime } = require('../lib/functions');
 
@@ -25,15 +26,10 @@ cmd(
                 os.totalmem() / 1024 / 1024 / 1024
             ).toFixed(2);
 
-            const ownerNumber = '94772194789';
-
-            const channelUrl =
-                'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
-
             const imageUrl =
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-            const caption = `
+            const aliveText = `
 ╭━━━〔 🟢 ALIVE 〕━━━╮
 ┃
 ┃ 🤖 *BOT* : THENUVA X MD
@@ -52,28 +48,50 @@ cmd(
 Choose Contact Me or View Channel below.
             `.trim();
 
-            await conn.sendMessage(from, {
-                image: { url: imageUrl },
-                caption,
-                footer: '⚡ Powered by THENUVA X MD',
-                templateButtons: [
-                    {
-                        index: 1,
-                        urlButton: {
-                            displayText: '👤 Contact Me',
-                            url: `https://wa.me/${ownerNumber}`
+            await sendListMenu(
+                conn,
+                from,
+                {
+                    title: aliveText,
+
+                    buttonText: 'ALIVE MENU',
+
+                    hideListButton: true,
+
+                    footer:
+                        '⚡ Powered by THENUVA X MD',
+
+                    image: imageUrl,
+
+                    sections: [
+                        {
+                            title: '🤖 THENUVA X MD',
+
+                            rows: [
+                                {
+                                    id: `${config.PREFIX}ping`,
+                                    title: '🏓 Ping',
+                                    description:
+                                        'Check bot response speed'
+                                },
+                                {
+                                    id: `${config.PREFIX}menu`,
+                                    title: '📋 Main Menu',
+                                    description:
+                                        'Open complete bot menu'
+                                },
+                                {
+                                    id: `${config.PREFIX}about`,
+                                    title: 'ℹ️ About',
+                                    description:
+                                        'View bot information'
+                                }
+                            ]
                         }
-                    },
-                    {
-                        index: 2,
-                        urlButton: {
-                            displayText: '📢 View Channel',
-                            url: channelUrl
-                        }
-                    }
-                ],
-                headerType: 4
-            });
+                    ]
+                },
+                mek
+            );
 
         } catch (error) {
             console.error('[ALIVE ERROR]', error);
