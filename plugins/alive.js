@@ -16,51 +16,59 @@ cmd(
 
     async (conn, mek, m, { from, pushName }) => {
         try {
-            // Safe username
             const userName = pushName || 'User';
+            const prefix = config.PREFIX || '.';
 
-            // System information
             const uptime = runtime(process.uptime());
 
             const usedMemory = (
                 process.memoryUsage().rss / 1024 / 1024
             ).toFixed(2);
 
-            const totalMemory = (
-                os.totalmem() / 1024 / 1024 / 1024
-            ).toFixed(2);
-
             const imageUrl =
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-            const aliveText = ` 👋 HELLOW... ${pushName || 'User'} ❤️ WELCOME TO THENUWA X MD 🎉 ╭━━〔 STATUS PANEL 〕━━●●► │ │ ⏳ UPTIME : ${runtime(process.uptime())} │ 👤 USER : ${pushName || 'User'} │ 📂 RAM : ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}MB │ ⚙️ HOST : ${os.hostname()} │ 👨‍💻 OWNER : Dilshan Ashinsa │ 🧬 VERSION : v2.0.0 │ │ ╰━━━━━━━━━━━━━━━━━━━━●●►
+            // Compact STATUS PANEL
+            const aliveText = `
+👋 HELLOW... ${userName} ❤️
+WELCOME TO THENUVA X MD 🎉
 
-> 🔘Select an option below.
+╭━━〔 STATUS PANEL 〕━━●●►
+│
+│ ⏳ UPTIME  : ${uptime}
+│ 👤 USER    : ${userName}
+│ 📂 RAM     : ${usedMemory}MB
+│ ⚙️ HOST    : ${os.hostname()}
+│ 👨‍💻 OWNER   : Dilshan Ashinsa
+│ 🧬 VERSION : v2.0.0
+│
+╰━━━━━━━━━━━━━━━━━━━━●●►
+
+> 🔘 Select an option below.
             `.trim();
 
             await sendListMenu(conn, from, {
                 title: aliveText,
-                buttonText: 'ALIVE MENU',
-                hideListButton: true,
-                footer: '⚡ Powered by THENUVA X MD',
+                buttonText: 'OPEN MENU',
+                hideListButton: false,
+                footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
                 image: imageUrl,
-
                 sections: [
                     {
                         title: '🤖 THENUVA X MD',
                         rows: [
                             {
-                                id: `${config.PREFIX || '.'}ping`,
+                                id: `${prefix}ping`,
                                 title: '🏓 Ping',
                                 description: 'Check bot response speed'
                             },
                             {
-                                id: `${config.PREFIX || '.'}menu`,
-                                title: '📋 Main Menu',
-                                description: 'Open complete bot menu'
+                                id: `${prefix}menu`,
+                                title: '📋 Open Menu',
+                                description: 'Open the complete bot menu'
                             },
                             {
-                                id: `${config.PREFIX || '.'}about`,
+                                id: `${prefix}about`,
                                 title: 'ℹ️ About',
                                 description: 'View bot information'
                             }
@@ -72,11 +80,15 @@ cmd(
         } catch (error) {
             console.error('[ALIVE ERROR]', error);
 
-            await conn.sendMessage(from, {
-                text:
-                    `❌ *ALIVE ERROR*\n\n` +
-                    `⚠️ ${error.message || 'Unknown error'}`
-            }, { quoted: mek });
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `❌ *ALIVE ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
+                },
+                { quoted: mek }
+            );
         }
     }
 );
