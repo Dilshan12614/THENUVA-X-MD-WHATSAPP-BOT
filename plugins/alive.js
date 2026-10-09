@@ -33,27 +33,9 @@ cmd(
             const imageUrl =
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-            const aliveText = `
-╭━━〔 🟢 *ALIVE NOW* 〕━━╮
+            const aliveText = ` 👋 HELLOW... ${pushName || 'User'} ❤️ WELCOME TO THENUWA X MD 🎉 ╭━━〔 STATUS PANEL 〕━━●●► │ │ ⏳ UPTIME : ${runtime(process.uptime())} │ 👤 USER : ${pushName || 'User'} │ 📂 RAM : ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}MB │ ⚙️ HOST : ${os.hostname()} │ 👨‍💻 OWNER : Dilshan Ashinsa │ 🧬 VERSION : v2.0.0 │ │ ╰━━━━━━━━━━━━━━━━━━━━●●►
 
-👋 Hello, *${userName}* ❤️
-
-✅ *THENUVA X MD IS ONLINE*
-
-╭┈───────────────•
-│ 🕒 *Runtime:* ${uptime}
-│ ⚡ *Mode:* ${config.MODE || 'public'}
-│ ⚙️ *Prefix:* ${config.PREFIX || '.'}
-│ 🤖 *Bot:* THENUVA X MD
-│ 👤 *Creator:* Dilshan
-│ 📌 *Version:* v2.0.0
-│ 💾 *RAM Used:* ${usedMemory} MB
-│ 🖥️ *System RAM:* ${totalMemory} GB
-╰┈───────────────•
-
-> ⚡ *POWERED BY THENUVA X MD*
-
-Select an option below.
+> 🔘Select an option below.
             `.trim();
 
             await sendListMenu(conn, from, {
