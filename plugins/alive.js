@@ -1,143 +1,88 @@
-const config = require('../config');
 const { cmd } = require('../command');
-const { sendListMenu } = require('../lib/buttons');
+const config = require('../config');
+const os = require('os');
 const { runtime } = require('../lib/functions');
 
-/* =========================================================
- * THENUVA X MD ALIVE CONFIG
- * ========================================================= */
-
-const BOT_NAME = 'THENUVA X MD';
-const CREATOR = 'Thenula/Dilshan';
-const VERSION = 'v2.0.0';
-
-const NEWSLETTER_NAME = 'THENUVA XMD';
-const NEWSLETTER_JID = '120363403804248705@newsletter';
-
-const CONTACT_URL = 'https://wa.me/94742876482';
-
-const CHANNEL_URL =
-    'https://whatsapp.com/channel/120363403804248705';
-
-const ALIVE_IMAGE =
-    'https://i.ibb.co/qPDNmSY/5cdec1f68264.jpg';
-
-/* =========================================================
- * ALIVE COMMAND
- * ========================================================= */
-
-cmd({
-    pattern: 'alive',
-    alias: ['online', 'status'],
-    react: '🟢',
-    desc: 'Check bot online status',
-    category: 'main',
-    filename: __filename
-}, async (
-    conn,
-    mek,
-    m,
+cmd(
     {
-        from,
-        pushname,
-        reply
-    }
-) => {
-    try {
+        pattern: 'alive',
+        alias: ['online', 'status'],
+        react: '🟢',
+        desc: 'Check bot online status',
+        category: 'main',
+        filename: __filename
+    },
 
-        /* =================================================
-         * ALIVE MESSAGE — ORIGINAL STYLE
-         * ================================================= */
+    async (conn, mek, m, { from }) => {
+        try {
+            const uptime = runtime(process.uptime());
 
-        const aliveMessage = `
-🟢 *ALIVE NOW* 🟢
+            const usedMemory = (
+                process.memoryUsage().rss / 1024 / 1024
+            ).toFixed(2);
 
-👋 HELLOW... *${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+            const totalMemory = (
+                os.totalmem() / 1024 / 1024 / 1024
+            ).toFixed(2);
 
-✅ *CYBER THENULA X MD IS ONLINE* ✅
+            const ownerNumber = '94772194789';
 
-╭┈───────────────•
-│
-│  ◦ 🕒 *Runtime* : ${runtime(process.uptime())}
-│  ◦ ⚡ *Mode* : *[${config.MODE || 'public'}]*
-│  ◦ ⚙️ *Prefix* : *[${config.PREFIX || '.'}]*
-│  ◦ 🤖 *Name Bot* : *THENUVA XMD*
-│  ◦ 👤 *Creator* : *Thenula/Dilshan*
-│  ◦ 📌 *Version* : *ᴠ.2.0.0*
-│
-╰┈───────────────•
+            const channelUrl =
+                'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
 
-> © ⚡ *POWERED by CYBER THENUWA*
-        `.trim();
+            const imageUrl =
+                'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-        /* =================================================
-         * SEND ALIVE IMAGE + FULL MESSAGE
-         * ================================================= */
+            const caption = `
+╭━━━〔 🟢 ALIVE 〕━━━╮
+┃
+┃ 🤖 *BOT* : THENUVA X MD
+┃ ⚡ *STATUS* : ONLINE
+┃ ⏱️ *UPTIME* : ${uptime}
+┃ 💾 *RAM USED* : ${usedMemory} MB
+┃ 🖥️ *TOTAL RAM* : ${totalMemory} GB
+┃
+┃ ✅ *SYSTEM ONLINE*
+┃ 🔥 *BOT IS WORKING*
+┃
+╰━━━━━━━━━━━━━━━━━━╯
 
-        await conn.sendMessage(
-            from,
-            {
-                image: {
-                    url: ALIVE_IMAGE
-                },
-                caption: aliveMessage,
-                contextInfo: {
-                    mentionedJid: m.sender ? [m.sender] : [],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: NEWSLETTER_JID,
-                        newsletterName: NEWSLETTER_NAME,
-                        serverMessageId: 143
-                    }
-                }
-            },
-            {
-                quoted: mek
-            }
-        );
+🌐 *THENUVA X MD*
 
-        /* =================================================
-         * CONTACT ME + VIEW CHANNEL ONLY
-         * ================================================= */
+Choose Contact Me or View Channel below.
+            `.trim();
 
-        await conn.sendMessage(
-            from,
-            {
-                text: `🌐 *${BOT_NAME}*\n\nChoose Contact Me or View Channel below.`,
-                footer: `⚡ POWERED BY ${CREATOR}`,
+            await conn.sendMessage(from, {
+                image: { url: imageUrl },
+                caption,
+                footer: '⚡ Powered by THENUVA X MD',
                 templateButtons: [
                     {
                         index: 1,
                         urlButton: {
                             displayText: '👤 Contact Me',
-                            url: CONTACT_URL
+                            url: `https://wa.me/${ownerNumber}`
                         }
                     },
                     {
                         index: 2,
                         urlButton: {
                             displayText: '📢 View Channel',
-                            url: CHANNEL_URL
+                            url: channelUrl
                         }
                     }
-                ]
-            },
-            {
-                quoted: mek
-            }
-        );
+                ],
+                headerType: 4
+            });
 
-    } catch (error) {
+        } catch (error) {
+            console.error('[ALIVE ERROR]', error);
 
-        console.error('[ALIVE ERROR]', error);
-
-        try {
-            await reply(
-                `❌ *ALIVE ERROR*\n\n${error?.message || error}`
-            );
-        } catch (replyError) {
-            console.error('[ALIVE REPLY ERROR]', replyError);
+            await conn.sendMessage(from, {
+                text:
+                    `❌ *ALIVE ERROR*\n\n` +
+                    `${error.message || 'Unknown error'}`
+            });
         }
     }
-});
+);
