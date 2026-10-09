@@ -111,7 +111,7 @@ async (conn, mek, m, { from, pushName }) => {
             buttonText: '📋 ᴏᴘᴇɴ ᴍᴇɴᴜ',
             sections,
             footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
-            image: 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg',
+            image: 'https://i.ibb.co/BV4dPxkT/ad40079469ef.jpg',
             hideListButton: false
         }, mek);
 
