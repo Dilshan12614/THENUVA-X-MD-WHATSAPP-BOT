@@ -28,16 +28,17 @@ cmd(
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             const aliveText = `👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
-╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──╮
-│
-│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
-│ 👤 *ᴜsᴇʀ*    : ${userName}
-│ 📁 *ʀᴀᴍ*     : ${usedMemory} MB
-│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
-│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
-│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
-│
-╰──────────────────────╯
+
+╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+ │
+ │ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+ │ 👤 *ᴜsᴇʀ*    : ${userName}
+ │ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+ │ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+ │ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+ │ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+ │
+ ╰──────────────────●●►
 
 🔘 Select an option below.
             `.trim();
