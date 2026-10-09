@@ -1,5 +1,7 @@
 const { cmd } = require('../command');
 const config = require('../config');
+const os = require('os');
+const { runtime } = require('../lib/functions');
 const { sendListMenu } = require('../lib/buttons');
 
 cmd({
@@ -14,6 +16,11 @@ async (conn, mek, m, { from, pushName }) => {
     try {
         const prefix = config.PREFIX || '.';
         const userName = pushName || m?.pushName || 'User';
+        const uptime = runtime(process.uptime());
+
+        const usedMemory = (
+            process.memoryUsage().rss / 1024 / 1024
+        ).toFixed(2);
 
         const sections = [
             {
@@ -83,15 +90,21 @@ async (conn, mek, m, { from, pushName }) => {
             }
         ];
 
+        const menuText = `╭─〔 *STATUS PANEL* 〕──●●►
+│
+│ ⏳ *UPTIME* : ${uptime}
+│ 👤 *USER* : ${userName}
+│ 📁 *RAM* : ${usedMemory}MB
+│ ⚙️ *HOST* : ${os.hostname()}
+│ 👨‍💻 *OWNER* : Dilshan Ashinsa
+│ 🧬 *VERSION* : v2.0.0
+│
+╰────────────────●●►
+
+👇 Tap the button below to open the menu.`;
+
         await sendListMenu(conn, from, {
-            title:
-                `╭━━━〔 *THENUVA X MD* 〕━━━╮\n` +
-                `┃ 👋 Hello, ${userName}\n` +
-                `┃\n` +
-                `┃ 🤖 Interactive Bot Menu\n` +
-                `┃ ⚡ Prefix: ${prefix}\n` +
-                `╰━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-                `👇 Tap the button below to open the menu.`,
+            title: menuText,
             buttonText: '📋 OPEN MENU',
             sections,
             footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
@@ -103,7 +116,7 @@ async (conn, mek, m, { from, pushName }) => {
         console.error('[MENU ERROR]', error);
 
         await conn.sendMessage(from, {
-            text: `❌ Menu error: ${error.message || error}`
+            text: `❌ *MENU ERROR*\n\n${error.message || error}`
         }, { quoted: mek });
     }
 });
