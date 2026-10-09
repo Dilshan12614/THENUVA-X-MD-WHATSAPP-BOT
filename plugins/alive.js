@@ -18,7 +18,6 @@ cmd(
         try {
             const userName = pushName || 'User';
             const prefix = config.PREFIX || '.';
-
             const uptime = runtime(process.uptime());
 
             const usedMemory = (
@@ -28,31 +27,28 @@ cmd(
             const imageUrl =
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-            // Compact STATUS PANEL
-            const aliveText = `
-👋 HELLOW... ${pushname} ❤️
-WELCOME TO THENUVA X MD 🎉
-
-╭━━〔 STATUS PANEL 〕━━●●►
+            const aliveText = `👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──╮
 │
-│ ⏳ UPTIME  : ${uptime}
-│ 👤 USER    : ${userName}
-│ 📂 RAM     : ${usedMemory}MB
-│ ⚙️ HOST    : ${os.hostname()}
-│ 👨‍💻 OWNER   : Dilshan Ashinsa
-│ 🧬 VERSION : v2.0.0
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory} MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
 │
-╰━━━━━━━━━━━━━━━━━●●►
+╰──────────────────────╯
 
- 🔘 Select an option below.
+🔘 Select an option below.
             `.trim();
 
             await sendListMenu(conn, from, {
                 title: aliveText,
                 buttonText: 'OPEN MENU',
                 hideListButton: false,
-                footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
+                footer: '⚡ POWERED BY THENUVA X MD',
                 image: imageUrl,
+
                 sections: [
                     {
                         title: '🤖 THENUVA X MD',
@@ -64,8 +60,8 @@ WELCOME TO THENUVA X MD 🎉
                             },
                             {
                                 id: `${prefix}menu`,
-                                title: '📋 Open Menu',
-                                description: 'Open the complete bot menu'
+                                title: '📋 Main Menu',
+                                description: 'Open complete bot menu'
                             },
                             {
                                 id: `${prefix}about`,
@@ -83,9 +79,9 @@ WELCOME TO THENUVA X MD 🎉
             await conn.sendMessage(
                 from,
                 {
-                    text:
-                        `❌ *ALIVE ERROR*\n\n` +
-                        `⚠️ ${error.message || 'Unknown error'}`
+                    text: `❌ *ALIVE ERROR*\n\n⚠️ ${
+                        error.message || 'Unknown error'
+                    }`
                 },
                 { quoted: mek }
             );
