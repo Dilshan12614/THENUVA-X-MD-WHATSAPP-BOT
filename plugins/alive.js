@@ -1,201 +1,83 @@
-const os = require('os');
+const config = require('../config')
+const { cmd, commands } = require('../command')
+const os = require("os")
+const { runtime } = require('../lib/functions')
 
-const { cmd } = require('../command');
-const config = require('../config');
-const { runtime } = require('../lib/functions');
-const { sendListMenu } = require('../lib/buttons');
+cmd({
+    pattern: "alive",
+    react: "🟢",
+    desc: "Check bot online status",
+    category: "main",
+    filename: __filename
+},
+async(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+try {
 
-cmd(
+let aliveMessage = `🟢 *ALIVE NOW* 🟢
+
+👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+
+✅ *CYBER THENULA X MD IS ONLINE* ✅
+
+╭┈───────────────•* 
+│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
+│  ◦ ⚡ *Mode* :  *[${config.MODE}]*
+│  ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
+│  ◦ 🤖 *Name Bot* : *THENUVA XMD*
+│  ◦ 👤 *Creator* : *Thenula/Dilshan*
+│  ◦ 📌 *Version* : *ᴠ.2.0.0*
+╰┈───────────────•*
+
+> © ⚡*POWERED by CYBER THENUWA*`;
+
+// Image එක සහ Newsletter Forwarding එක සමඟ සෙන්ඩ් කිරීම
+await conn.sendMessage(
+    from,
     {
-        pattern: 'alive',
-        alias: ['online', 'status'],
-        react: '🟢',
-        desc: 'Check bot online status',
-        category: 'main',
-        filename: __filename
+        image: { url: `https://i.ibb.co/qPDNmSY/5cdec1f68264.jpg` },
+        caption: aliveMessage,
+        contextInfo: {
+            mentionedJid: [m.sender],
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: '120363403804248705@newsletter',
+                newsletterName: 'THENUWA XMD',
+                serverMessageId: 143
+            }
+        }
     },
-
-    async (
-        conn,
-        mek,
-        m,
-        {
-            from,
-            quoted,
-            pushname,
-            reply
-        }
-    ) => {
-        try {
-
-            /*
-            |-----------------------------------------
-            | System information
-            |-----------------------------------------
-            */
-
-            const uptime =
-                runtime(
-                    process.uptime()
-                );
-
-            const ram =
-                (
-                    process.memoryUsage()
-                        .rss /
-                    1024 /
-                    1024
-                ).toFixed(2);
-
-            const totalRam =
-                (
-                    os.totalmem() /
-                    1024 /
-                    1024 /
-                    1024
-                ).toFixed(2);
-
-            const hostname =
-                os.hostname();
-
-            const owner =
-                config.OWNER_NAME ||
-                'Dilshan Ashinsa';
-
-            const user =
-                pushname ||
-                'User';
-
-            /*
-            |-----------------------------------------
-            | Alive message
-            |-----------------------------------------
-            */
-
-            const text =
-                `╭━━━〔 🟢 THENUVA X MD 〕━━━╮
-┃
-┃  👋 Hello *${user}*
-┃
-┃  🤖 *BOT STATUS*
-┃  ├─ 🟢 Status : *ONLINE*
-┃  ├─ ⚡ Speed  : *ACTIVE*
-┃  └─ ⏱️ Uptime : *${uptime}*
-┃
-┃  💻 *SYSTEM*
-┃  ├─ 💾 RAM : *${ram} MB*
-┃  ├─ 🧠 Total : *${totalRam} GB*
-┃  └─ 🖥️ Host : *${hostname}*
-┃
-┃  👑 *OWNER*
-┃  └─ ${owner}
-┃
-┃  ✨ *THENUVA X MD*
-┃  ⚡ Powered by *Dilshan Ashinsa*
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`;
-
-            /*
-            |-----------------------------------------
-            | Interactive Alive Menu
-            |-----------------------------------------
-            */
-
-            await sendListMenu(
-                conn,
-                from,
-                {
-                    title:
-                        `╭━━━〔 🟢 THENUVA X MD 〕━━━╮
-┃
-┃ 🤖 *BOT IS ONLINE*
-┃
-┃ ⚡ Fast • Stable • Active
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`,
-
-                    buttonText:
-                        'BOT STATUS',
-
-                    footer:
-                        '⚡ Powered by THENUVA X MD',
-
-                    sections: [
-                        {
-                            title:
-                                '🟢 SYSTEM STATUS',
-
-                            rows: [
-                                {
-                                    id:
-                                        `${config.PREFIX}ping`,
-
-                                    title:
-                                        '⚡ Ping',
-
-                                    description:
-                                        'Check bot response speed'
-                                },
-
-                                {
-                                    id:
-                                        `${config.PREFIX}menu`,
-
-                                    title:
-                                        '📋 Main Menu',
-
-                                    description:
-                                        'Open THENUVA X MD menu'
-                                },
-
-                                {
-                                    id:
-                                        `${config.PREFIX}about`,
-
-                                    title:
-                                        '🤖 About Bot',
-
-                                    description:
-                                        'View bot information'
-                                }
-                            ]
-                        }
-                    ]
-                },
-
-                quoted
-            );
-
-            /*
-            |-----------------------------------------
-            | Send detailed alive information
-            |-----------------------------------------
-            */
-
-            await conn.sendMessage(
-                from,
-                {
-                    text
-                },
-                {
-                    quoted
-                }
-            );
-
-        } catch (error) {
-
-            console.error(
-                '[ALIVE ERROR]',
-                error
-            );
-
-            return reply(
-                `╭━━━〔 ❌ THENUVA X MD 〕━━━╮
-┃
-┃ Unable to get bot status.
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`
-            );
-        }
-    }
+    { quoted: mek }
 );
+
+// Contact Me / View Channel buttons
+await conn.sendMessage(
+    from,
+    {
+        text: '👇 *CONTACT & CHANNEL*',
+        footer: 'THENUVA X MD',
+        templateButtons: [
+            {
+                index: 1,
+                urlButton: {
+                    displayText: '👤 Contact Me',
+                    url: 'https://wa.me/94742876482'
+                }
+            },
+            {
+                index: 2,
+                urlButton: {
+                    displayText: '📢 View Channel',
+                    url: 'https://whatsapp.com/channel/120363403804248705'
+                }
+            }
+        ]
+    },
+    { quoted: mek }
+);
+
+} catch (e) {
+    console.log(e);
+    reply(`${e}`);
+}
+});
