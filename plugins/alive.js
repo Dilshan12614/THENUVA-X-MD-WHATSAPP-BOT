@@ -30,7 +30,7 @@ cmd(
 
             // Compact STATUS PANEL
             const aliveText = `
-👋 HELLOW... ${userName} ❤️
+👋 HELLOW... ${pushname} ❤️
 WELCOME TO THENUVA X MD 🎉
 
 ╭━━〔 STATUS PANEL 〕━━●●►
@@ -42,9 +42,9 @@ WELCOME TO THENUVA X MD 🎉
 │ 👨‍💻 OWNER   : Dilshan Ashinsa
 │ 🧬 VERSION : v2.0.0
 │
-╰━━━━━━━━━━━━━━━━━━━━●●►
+╰━━━━━━━━━━━━━━━━━●●►
 
-> 🔘 Select an option below.
+ 🔘 Select an option below.
             `.trim();
 
             await sendListMenu(conn, from, {
