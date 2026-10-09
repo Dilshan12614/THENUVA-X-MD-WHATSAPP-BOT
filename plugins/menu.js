@@ -62,7 +62,7 @@ WELCOME TO THENUVA X MD 🎉
                         title: '🤖 THENUVA X MD',
                         rows: [
                             {
-                                id: `${prefix}menu2`,
+                                id: `${prefix}menu`,
                                 title: '📋 Open Menu',
                                 description: 'View all bot commands'
                             },
