@@ -25,7 +25,7 @@ cmd(
             const botName = 'THENUVA X MD';
 
             const aboutText = `
-╭──〔 *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}* 〕──●●►
+╭─〔 *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}* 〕─●●►
 │
 │ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
 │
@@ -34,7 +34,7 @@ cmd(
 │ ⚡ Ready to make your WhatsApp
 │    experience more amazing!
 │
-├──〔 *ᴀʙᴏᴜᴛ ᴍᴇ* 〕
+├─〔 *ᴀʙᴏᴜᴛ ᴍᴇ* 〕
 │
 │ 👨‍💻 *ᴅᴇᴠᴇʟᴏᴘᴇʀ* : Dilshan Ashinsa
 │ 🚀 *ʙᴏᴛ ɴᴀᴍᴇ* : ${botName}
@@ -44,7 +44,7 @@ cmd(
 │ 💌 Thank you for choosing us!
 │ ✨ Enjoy the experience!
 │
-╰──〔━━━━━━━━━━━━━━〕──●●►
+╰─────────●●►
 
 🔘 *Choose your option below.*
             `.trim();
