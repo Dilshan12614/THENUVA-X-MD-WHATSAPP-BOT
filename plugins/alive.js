@@ -38,21 +38,18 @@ cmd(
 
             // ALIVE STATUS TEXT
             const aliveText = `
-👋 HELLOW... *${userName}* ❤️
-I am ALIVE NOW CYBER X THENULA
+╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+│
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+│
+╰──────────────●●►
 
-╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
- │
- │ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
- │ 👤 *ᴜsᴇʀ*    : ${userName}
- │ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
- │ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
- │ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
- │ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
- │
- ╰──────────────────●●►
-
-🔘 Select an option below.
+🔘 Select an option.
             `.trim();
 
             // INTERACTIVE LIST MENU
