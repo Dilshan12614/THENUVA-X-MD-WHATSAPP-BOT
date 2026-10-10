@@ -52,7 +52,7 @@ cmd(
 
             await sendListMenu(conn, from, {
                 title: aboutText,
-                buttonText: 'OPEN MENU',
+                buttonText: 'OPEN COMMOND',
                 footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                 image: 'https://i.ibb.co/Qv01hMpz/e605876ded5b.jpg',
 
