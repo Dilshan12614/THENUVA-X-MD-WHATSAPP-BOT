@@ -37,7 +37,9 @@ cmd(
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             // ALIVE STATUS TEXT
-            const aliveText = `👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA 
+            const aliveText = `
+👋 HELLOW... *${userName}* ❤️
+I am ALIVE NOW CYBER X THENULA
 
 ╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
  │
