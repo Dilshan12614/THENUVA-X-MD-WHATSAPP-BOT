@@ -1,23 +1,18 @@
-const { sendPluginButtons } = require('../lib/buttons');
-const config = require('../config');
 const { cmd } = require('../command');
+const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
 
 cmd(
     {
         pattern: 'about',
         alias: ['developer', 'ownerinfo'],
         react: '👑',
-        desc: 'Get bot developer information',
+        desc: 'Get bot information',
         category: 'main',
         filename: __filename
     },
 
-    async (conn, mek, m, {
-        from,
-        pushname,
-        pushName,
-        reply
-    }) => {
+    async (conn, mek, m, { from, pushName, pushname }) => {
         try {
             // USER NAME
             const userName =
@@ -27,73 +22,84 @@ cmd(
                 m?.pushname ||
                 'User';
 
-            // BOT CONFIG
-            const botName = 'THENUVA X MD';
+            // BOT SETTINGS
             const prefix = config.PREFIX || '.';
+            const botName = 'THENUVA X MD';
 
-            // ABOUT PANEL
+            // ABOUT / WELCOME MESSAGE
             const aboutText = `
-╭──〔 *ᴀʙᴏᴜᴛ ᴘᴀɴᴇʟ* 〕──●●►
+╭──〔 *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}* 〕──●●►
 │
-│ 👋 *ʜᴇʟʟᴏ* : ${userName} ❤️
-│ 🤖 *ʙᴏᴛ* : ${botName}
+│ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
 │
-├──〔 *ᴅᴇᴠᴇʟᴏᴘᴇʀ ɪɴғᴏ* 〕
+│ 💖 Welcome to *${botName}*
+│ 🤖 Your smart WhatsApp assistant
+│ ⚡ Ready to make your WhatsApp
+│    experience more amazing!
+│
+├──〔 *ᴀʙᴏᴜᴛ ᴍᴇ* 〕
 │
 │ 👨‍💻 *ᴅᴇᴠᴇʟᴏᴘᴇʀ* : Dilshan Ashinsa
-│ ⚙️ *ᴛʏᴘᴇ* : WhatsApp Bot
-│ 🌐 *sᴛᴀᴛᴜs* : Online Project
+│ 🚀 *ʙᴏᴛ ɴᴀᴍᴇ* : ${botName}
 │ 🧩 *ᴘʀᴇғɪx* : ${prefix}
+│ 🌟 *sᴛᴀᴛᴜs* : Always Ready
 │
-├──〔 *ᴛʜᴀɴᴋ ʏᴏᴜ* 〕
+│ 💌 Thank you for choosing us!
+│ ✨ Enjoy the experience!
 │
-│ 💖 Thanks for using
-│ *${botName}*
-│
-╰────────────●●►
+╰──────────────●●►
 
-🔘 Select an option.
+🔘 *Choose your option below.*
             `.trim();
 
-            await conn.sendMessage(
-                from,
-                {
-                    image: {
-                        url: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg'
-                    },
-                    caption: aboutText,
-                    contextInfo: {
-                        forwardingScore: 999,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid:
-                                config.NEWSLETTER_JID ||
-                                '120363403804248705@newsletter',
-                            newsletterName: botName,
-                            serverMessageId: 143
-                        }
-                    }
-                },
-                { quoted: mek }
-            );
+            // IMAGE + TEXT + LIST MENU IN ONE MESSAGE
+            await sendListMenu(conn, from, {
+                title: aboutText,
+                buttonText: 'OPEN MENU',
+                footer: '⚡ POWERED BY THENUVA X MD',
+                image: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg',
 
-            // INTERACTIVE BUTTONS
-            await sendPluginButtons(conn, from, 'about', mek);
+                sections: [
+                    {
+                        title: '🤖 THENUVA X MD',
+                        rows: [
+                            {
+                                id: `${prefix}alive`,
+                                title: '🟢 Alive',
+                                description: 'Check bot online status'
+                            },
+                            {
+                                id: `${prefix}ping`,
+                                title: '🏓 Ping',
+                                description: 'Check bot response speed'
+                            },
+                            {
+                                id: `${prefix}menu`,
+                                title: '📋 Main Menu',
+                                description: 'Open all bot commands'
+                            },
+                            {
+                                id: `${prefix}about`,
+                                title: '👑 About',
+                                description: 'View bot information'
+                            }
+                        ]
+                    }
+                ]
+            });
 
         } catch (error) {
             console.error('[ABOUT ERROR]', error);
 
-            if (typeof reply === 'function') {
-                reply(`❌ About Error: ${error.message || 'Unknown error'}`);
-            } else {
-                await conn.sendMessage(
-                    from,
-                    {
-                        text: `❌ About Error: ${error.message || 'Unknown error'}`
-                    },
-                    { quoted: mek }
-                );
-            }
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `❌ *ABOUT ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
+                },
+                { quoted: mek }
+            );
         }
     }
 );
