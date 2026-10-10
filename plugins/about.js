@@ -26,7 +26,7 @@ cmd(
 
             const aboutText = `👋 HELLOW...*${userName || 'User'}*  I am ABOUT NOW CYBER X THENULA🎉️
 
-╭─(*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}*)─●●►
+╭──〔 *${botName}* 〕──●●►   
 │
 │ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
 │
