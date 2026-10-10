@@ -4,331 +4,347 @@ const { ytmp3 } = require('@vreden/youtube_scraper');
 const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
 
-const BOT_NAME = 'THENUVA X MD';
-const OWNER_NAME = 'Dilshan Ashinsa';
-const SONG_IMAGE =
-    'https://i.ibb.co/7JWk0d08/11625411f042.jpg';
+const BOT = 'THENUVA X MD';
+const OWNER = 'Dilshan Ashinsa';
+const LINE = '━━━━━━━━━━━━━━━━';
 
-const LINE = '━━━━━━━━━━━━━━━━━━';
+function getYouTubeId(input) {
+    const text = String(input || '').trim();
 
-function formatSongPanel(title, userName, duration, views, uploaded, status) {
-    return `
-╭─〔 *${BOT_NAME}* 〕─➤
-│
-│ 🎶 *SONG DOWNLOADER*
-│ 👋 Hello, *${userName}* ❤️
-│
-├─〔 *SONG DETAILS* 〕─➤
-│
-│ 🎵 *Title:* ${title}
-│ ⏱️ *Duration:* ${duration}
-│ 👁️ *Views:* ${views}
-│ 📅 *Uploaded:* ${uploaded}
-│
-├─〔 *DOWNLOAD STATUS* 〕─➤
-│
-│ ${status}
-│
-╰─${LINE}─➤
+    if (/^[a-zA-Z0-9_-]{11}$/.test(text)) return text;
 
-> ⚡ *POWERED BY ${BOT_NAME}*
-> 👑 *${OWNER_NAME}*
-`.trim();
+    try {
+        const url = new URL(text);
+        let id = '';
+
+        if (url.hostname === 'youtu.be' ||
+            url.hostname.endsWith('.youtu.be')) {
+            id = url.pathname.split('/').filter(Boolean)[0] || '';
+        } else if (
+            url.hostname.includes('youtube.com') ||
+            url.hostname.includes('youtube-nocookie.com')
+        ) {
+            id = url.searchParams.get('v') || '';
+
+            if (!id) {
+                const parts = url.pathname.split('/').filter(Boolean);
+                if (['shorts', 'embed', 'live'].includes(parts[0])) {
+                    id = parts[1] || '';
+                }
+            }
+        }
+
+        return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+    } catch {
+        return null;
+    }
 }
 
-function getDurationSeconds(timestamp = '') {
+function getSeconds(timestamp) {
+    if (!timestamp) return 0;
+
     const parts = String(timestamp).split(':').map(Number);
 
-    if (!parts.length || parts.some(Number.isNaN)) return 0;
+    if (parts.some(Number.isNaN)) return 0;
 
     return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
-function safeFileName(name = 'song') {
-    return String(name)
+function safeName(name) {
+    return String(name || 'THENUVA-SONG')
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-        .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 150) || 'song';
+        .slice(0, 140) || 'THENUVA-SONG';
 }
 
-cmd(
-    {
-        pattern: 'song',
-        alias: ['play', 'music', 'ytmp3'],
-        react: '🎶',
-        desc: 'Download YouTube songs as MP3',
-        category: 'download',
-        filename: __filename
-    },
+function makePanel(title, user, duration, views, status) {
+    return `
+╭──〔 *${BOT}* 〕──➤
+│
+│ 🎶 *sᴏɴɢ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*
+│ 👋 ʜᴇʟʟᴏ, *${user}* ❤️
+│
+├──〔 *sᴏɴɢ ɪɴғᴏ* 〕──➤
+│
+│ 🎵 *ᴛɪᴛʟᴇ* : ${title}
+│ ⏱️ *ᴅᴜʀᴀᴛɪᴏɴ* : ${duration || 'Unknown'}
+│ 👁️ *ᴠɪᴇᴡs* : ${views || 'Unknown'}
+│
+├──〔 *sᴛᴀᴛᴜs* 〕──➤
+│
+│ ${status}
+│
+╰──${LINE}──➤
 
-    async (conn, mek, m, { from, q, pushName, pushname, reply }) => {
-        let loadingMsg;
+> ⚡ *POWERED BY ${BOT}*
+> 👑 *${OWNER}*
+`.trim();
+}
 
-        try {
-            if (!q) {
-                return reply(
-                    `╭─〔 *${BOT_NAME}* 〕─➤\n` +
-                    `│\n` +
-                    `│ ⚠️ *SONG NAME REQUIRED*\n` +
-                    `│\n` +
-                    `│ 🎵 Example: .song Shape of You\n` +
-                    `│ 🔗 Or send a YouTube link\n` +
-                    `│\n` +
-                    `╰─${LINE}─➤`
-                );
-            }
+async function showSongMenu(conn, from, data, user, prefix, status) {
+    const text = makePanel(
+        data.title,
+        user,
+        data.timestamp,
+        Number(data.views || 0).toLocaleString(),
+        status
+    );
 
-            const userName =
-                pushName ||
-                pushname ||
-                m?.pushName ||
-                m?.pushname ||
-                'User';
+    return sendListMenu(conn, from, {
+        title: text,
+        buttonText: '🎶 SONG OPTIONS',
+        footer: `⚡ ${BOT} • ${OWNER}`,
+        image: data.thumbnail,
 
-            const prefix = config.PREFIX || '.';
-            const query = String(q).trim();
-
-            // ━━━ SEARCHING ━━━
-            loadingMsg = await conn.sendMessage(
-                from,
-                {
-                    text:
-                        `╭─〔 *${BOT_NAME}* 〕─➤\n` +
-                        `│\n` +
-                        `│ 🔎 *SEARCHING SONG*\n` +
-                        `│ 🎵 ${query}\n` +
-                        `│\n` +
-                        `│ ⏳ Please wait...\n` +
-                        `│\n` +
-                        `╰─${LINE}─➤`
-                },
-                { quoted: mek }
-            );
-
-            // ━━━ YOUTUBE SEARCH ━━━
-            const search = await yts(query);
-
-            if (!search.videos || search.videos.length === 0) {
-                await conn.sendMessage(
-                    from,
+        sections: [
+            {
+                title: '🎧 MUSIC CONTROL',
+                rows: [
                     {
-                        text:
-                            `╭─〔 *${BOT_NAME}* 〕─➤\n` +
-                            `│\n` +
-                            `│ ❌ *SONG NOT FOUND*\n` +
-                            `│ ➜ Try another song name.\n` +
-                            `│\n` +
-                            `╰─${LINE}─➤`
+                        id: `${prefix}song ${data.url}`,
+                        title: '🎵 Download Again',
+                        description: 'Download this song again'
                     },
-                    { quoted: mek }
-                );
-                return;
-            }
-
-            const data = search.videos[0];
-            const videoUrl = data.url;
-
-            // ━━━ DURATION CHECK ━━━
-            const totalSeconds = getDurationSeconds(data.timestamp);
-
-            if (totalSeconds > 1800) {
-                await conn.sendMessage(
-                    from,
                     {
-                        text:
-                            `╭─〔 *${BOT_NAME}* 〕─➤\n` +
-                            `│\n` +
-                            `│ ⏳ *SONG TOO LONG*\n` +
-                            `│ ➜ Maximum duration: 30 minutes\n` +
-                            `│\n` +
-                            `╰─${LINE}─➤`
+                        id: `${prefix}song`,
+                        title: '🔎 Search Song',
+                        description: 'Search for another song'
                     },
-                    { quoted: mek }
-                );
-                return;
-            }
-
-            // ━━━ SONG DETAILS + MENU ━━━
-            const detailsText = formatSongPanel(
-                data.title,
-                userName,
-                data.timestamp || 'Unknown',
-                Number(data.views || 0).toLocaleString(),
-                data.ago || 'Unknown',
-                '🔄 Preparing MP3 download...'
-            );
-
-            await sendListMenu(conn, from, {
-                title: detailsText,
-                buttonText: '🎶 SONG OPTIONS',
-                footer: `⚡ ${BOT_NAME} • BY ${OWNER_NAME}`,
-                image: data.thumbnail || SONG_IMAGE,
-
-                sections: [
                     {
-                        title: '🎧 SONG ACTIONS',
-                        rows: [
-                            {
-                                id: `${prefix}song ${videoUrl}`,
-                                title: '🎵 Download MP3',
-                                description: 'Download this song again'
-                            },
-                            {
-                                id: `${prefix}menu`,
-                                title: '📋 Main Menu',
-                                description: 'Explore all bot commands'
-                            },
-                            {
-                                id: `${prefix}alive`,
-                                title: '🟢 Bot Status',
-                                description: 'Check bot uptime and status'
-                            }
-                        ]
+                        id: `${prefix}menu`,
+                        title: '📋 Main Menu',
+                        description: 'Explore all commands'
+                    },
+                    {
+                        id: `${prefix}alive`,
+                        title: '🟢 Bot Status',
+                        description: 'Check bot status'
                     }
                 ]
-            });
-
-            // ━━━ UPDATE SEARCH MESSAGE ━━━
-            if (loadingMsg?.key) {
-                try {
-                    await conn.sendMessage(
-                        from,
-                        {
-                            text: `🎧 *Preparing:* ${data.title}`,
-                            edit: loadingMsg.key
-                        }
-                    );
-                } catch (_) {
-                    // Some Baileys versions do not support editing messages.
-                }
             }
+        ]
+    });
+}
 
-            // ━━━ GET MP3 ━━━
-            const songData = await ytmp3(videoUrl, '192');
-
-            const downloadUrl =
-                songData?.download?.url ||
-                songData?.download_url ||
-                songData?.url;
-
-            if (!downloadUrl) {
-                throw new Error(
-                    'The MP3 provider did not return a download URL.'
-                );
-            }
-
-            const fileName = `${safeFileName(data.title)}.mp3`;
-
-            // ━━━ SEND MP3 AUDIO ━━━
-            await conn.sendMessage(
-                from,
-                {
-                    audio: { url: downloadUrl },
-                    mimetype: 'audio/mpeg',
-                    fileName,
-                    ptt: false
-                },
-                { quoted: mek }
-            );
-
-            // ━━━ SEND MP3 DOCUMENT ━━━
-            const documentCaption = `
-╭─〔 *MP3 FILE READY* 〕─➤
-│
-│ 🎵 *${data.title}*
-│ 🎧 Format: MP3 Audio
-│ 📁 File: ${fileName}
-│
-│ ✅ Your music file is ready!
-│
-╰─${LINE}─➤
-
-> ⚡ *${BOT_NAME}*
-> 👑 *${OWNER_NAME}*
-`.trim();
-
-            await conn.sendMessage(
-                from,
-                {
-                    document: { url: downloadUrl },
-                    mimetype: 'audio/mpeg',
-                    fileName,
-                    caption: documentCaption
-                },
-                { quoted: mek }
-            );
-
-            // ━━━ DOWNLOAD COMPLETE MENU ━━━
-            const doneText = `
-╭─〔 *DOWNLOAD COMPLETE* 〕─➤
-│
-│ ✅ Song downloaded successfully!
-│
-│ 🎵 *Title:* ${data.title}
-│ ⏱️ *Duration:* ${data.timestamp || 'Unknown'}
-│ 📁 *Format:* MP3
-│
-╰─${LINE}─➤
-
-> 🎶 ENJOY YOUR MUSIC!
-> ⚡ POWERED BY ${BOT_NAME}
-`.trim();
-
-            await sendListMenu(conn, from, {
-                title: doneText,
-                buttonText: '⚡ MORE OPTIONS',
-                footer: `👑 ${OWNER_NAME} • ${BOT_NAME}`,
-                image: data.thumbnail || SONG_IMAGE,
-
-                sections: [
-                    {
-                        title: '🎶 WHAT NEXT?',
-                        rows: [
-                            {
-                                id: `${prefix}song ${videoUrl}`,
-                                title: '🔁 Download Again',
-                                description: 'Send this song again'
-                            },
-                            {
-                                id: `${prefix}song`,
-                                title: '🔎 Search Another Song',
-                                description: 'Enter another song name'
-                            },
-                            {
-                                id: `${prefix}menu`,
-                                title: '📋 Main Menu',
-                                description: 'Browse all commands'
-                            },
-                            {
-                                id: `${prefix}alive`,
-                                title: '🟢 Bot Status',
-                                description: 'View bot status'
-                            }
-                        ]
-                    }
-                ]
-            });
-
-        } catch (error) {
-            console.error('[SONG ERROR]', error);
-
-            await conn.sendMessage(
-                from,
-                {
-                    text:
-                        `╭─〔 *${BOT_NAME} ERROR* 〕─➤\n` +
-                        `│\n` +
-                        `│ ❌ *MP3 DOWNLOAD FAILED*\n` +
-                        `│\n` +
-                        `│ ⚠️ ${error.message || 'Unknown error'}\n` +
-                        `│\n` +
-                        `│ ➜ Please try again later.\n` +
-                        `│\n` +
-                        `╰─${LINE}─➤`
-                },
-                { quoted: mek }
+cmd({
+    pattern: 'song',
+    alias: ['play', 'music', 'ytmp3'],
+    react: '🎶',
+    desc: 'Search and download songs as MP3',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, pushName, pushname, reply }) => {
+    try {
+        if (!q || !String(q).trim()) {
+            return reply(
+                `╭──〔 *${BOT}* 〕──➤\n` +
+                `│\n` +
+                `│ 🎶 *SONG DOWNLOADER*\n` +
+                `│\n` +
+                `│ ➤ .song song name\n` +
+                `│ ➤ .song YouTube link\n` +
+                `│\n` +
+                `╰──${LINE}──➤`
             );
         }
+
+        const prefix = config.PREFIX || '.';
+        const user =
+            pushName ||
+            pushname ||
+            m?.pushName ||
+            m?.pushname ||
+            'User';
+
+        const query = String(q).trim();
+
+        const loading = await conn.sendMessage(from, {
+            text:
+                `╭──〔 *${BOT}* 〕──➤\n` +
+                `│\n` +
+                `│ 🔎 *SEARCHING MUSIC*\n` +
+                `│\n` +
+                `│ 🎵 ${query}\n` +
+                `│ ⏳ Please wait...\n` +
+                `│\n` +
+                `╰──${LINE}──➤`
+        }, { quoted: mek });
+
+        // ━━━ SEARCH / DIRECT VIDEO LINK ━━━
+        let video = null;
+        const videoId = getYouTubeId(query);
+
+        if (videoId) {
+            try {
+                const result = await yts({ videoId });
+                if (result && result.title) video = result;
+            } catch (err) {
+                console.log('[SONG VIDEO LOOKUP]', err.message);
+            }
+        } else {
+            // Try the standard yt-search query first.
+            try {
+                let result = await yts(query);
+
+                if (!result?.videos?.length) {
+                    result = await yts({ query });
+                }
+
+                if (result?.videos?.length) {
+                    video = result.videos[0];
+                }
+            } catch (err) {
+                console.log('[SONG SEARCH FIRST TRY]', err.message);
+
+                // One fallback attempt.
+                try {
+                    const result = await yts({ query });
+                    if (result?.videos?.length) {
+                        video = result.videos[0];
+                    }
+                } catch (fallbackError) {
+                    console.log('[SONG SEARCH FALLBACK]', fallbackError.message);
+                }
+            }
+        }
+
+        if (!video) {
+            await conn.sendMessage(from, {
+                text:
+                    `╭──〔 *${BOT}* 〕──➤\n` +
+                    `│\n` +
+                    `│ ❌ *SEARCH UNAVAILABLE*\n` +
+                    `│\n` +
+                    `│ ➤ Check the song name or YouTube link.\n` +
+                    `│ ➤ Try again in a little while.\n` +
+                    `│\n` +
+                    `╰──${LINE}──➤`
+            }, { quoted: mek });
+            return;
+        }
+
+        const id = video.videoId || getYouTubeId(video.url);
+        const videoUrl = video.url ||
+            (id ? `https://www.youtube.com/watch?v=${id}` : '');
+
+        if (!videoUrl) {
+            throw new Error('Could not determine the YouTube video URL.');
+        }
+
+        const timestamp =
+            video.timestamp ||
+            video.duration?.timestamp ||
+            'Unknown';
+
+        const data = {
+            title: video.title || 'Unknown title',
+            url: videoUrl,
+            timestamp,
+            views: video.views || 0,
+            thumbnail: video.thumbnail ||
+                video.image ||
+                `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+        };
+
+        // ━━━ CHECK DURATION ━━━
+        const seconds = getSeconds(timestamp);
+
+        if (seconds > 1800) {
+            await conn.sendMessage(from, {
+                text:
+                    `╭──〔 *${BOT}* 〕──➤\n` +
+                    `│\n` +
+                    `│ ⏳ *SONG TOO LONG*\n` +
+                    `│ ➤ Maximum supported duration: 30 minutes.\n` +
+                    `│\n` +
+                    `╰──${LINE}──➤`
+            }, { quoted: mek });
+            return;
+        }
+
+        // ━━━ BEAUTIFUL SONG MENU ━━━
+        await showSongMenu(
+            conn,
+            from,
+            data,
+            user,
+            prefix,
+            '🔄 Finding your MP3 file...'
+        );
+
+        // ━━━ DOWNLOAD MP3 ━━━
+        const result = await ytmp3(data.url, '192');
+
+        const downloadUrl =
+            result?.download?.url ||
+            result?.download_url ||
+            result?.url;
+
+        if (!downloadUrl) {
+            throw new Error(
+                'The MP3 service did not return a download URL.'
+            );
+        }
+
+        const fileName = `${safeName(data.title)}.mp3`;
+
+        // ━━━ SEND AUDIO ━━━
+        await conn.sendMessage(from, {
+            audio: { url: downloadUrl },
+            mimetype: 'audio/mpeg',
+            fileName,
+            ptt: false
+        }, { quoted: mek });
+
+        // ━━━ SEND MP3 DOCUMENT ━━━
+        const documentCaption = `
+╭──〔 *ᴍᴘ3 ғɪʟᴇ* 〕──➤
+│
+│ 🎵 *${data.title}*
+│
+├──〔 *ғɪʟᴇ ɪɴғᴏ* 〕──➤
+│
+│ 📁 *ғᴏʀᴍᴀᴛ* : MP3 Audio
+│ 💾 *ғɪʟᴇ* : ${fileName}
+│ ✅ *sᴛᴀᴛᴜs* : Ready
+│
+╰──${LINE}──➤
+
+> ⚡ *${BOT}*
+> 👑 *${OWNER}*
+`.trim();
+
+        await conn.sendMessage(from, {
+            document: { url: downloadUrl },
+            mimetype: 'audio/mpeg',
+            fileName,
+            caption: documentCaption
+        }, { quoted: mek });
+
+        // ━━━ COMPLETION MENU ━━━
+        await showSongMenu(
+            conn,
+            from,
+            data,
+            user,
+            prefix,
+            '✅ MP3 download completed successfully!'
+        );
+
+    } catch (error) {
+        console.error('[SONG DOWNLOAD ERROR]', error);
+
+        await conn.sendMessage(from, {
+            text:
+                `╭──〔 *${BOT} ERROR* 〕──➤\n` +
+                `│\n` +
+                `│ ❌ *DOWNLOAD FAILED*\n` +
+                `│\n` +
+                `│ ⚠️ ${error.message || 'Unknown error'}\n` +
+                `│\n` +
+                `│ ➤ Please try again later.\n` +
+                `│\n` +
+                `╰──${LINE}──➤`
+        }, { quoted: mek });
     }
-);
+});
