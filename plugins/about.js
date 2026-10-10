@@ -24,7 +24,8 @@ cmd(
             const prefix = config.PREFIX || '.';
             const botName = 'THENUVA X MD';
 
-            const aboutText = `
+            const aboutText = `👋 HELLOW...*${userName || 'User'}*  I am ABOUT NOW CYBER X THENULA🎉️
+
 ╭─(*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}*)─●●►
 │
 │ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
