@@ -38,6 +38,8 @@ cmd(
 
             // ALIVE STATUS TEXT
             const aliveText = `
+👋 HELLOW...*${userName || 'User'}*  I am ALIVE NOW CYBER X THENULA🎉️
+
 ╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
 │
 │ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
