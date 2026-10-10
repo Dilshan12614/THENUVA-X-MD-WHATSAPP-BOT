@@ -14,7 +14,6 @@ cmd(
 
     async (conn, mek, m, { from, pushName, pushname }) => {
         try {
-            // USER NAME
             const userName =
                 pushName ||
                 pushname ||
@@ -22,11 +21,9 @@ cmd(
                 m?.pushname ||
                 'User';
 
-            // BOT SETTINGS
             const prefix = config.PREFIX || '.';
             const botName = 'THENUVA X MD';
 
-            // ABOUT / WELCOME MESSAGE
             const aboutText = `
 ╭──〔 *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}* 〕──●●►
 │
@@ -47,16 +44,15 @@ cmd(
 │ 💌 Thank you for choosing us!
 │ ✨ Enjoy the experience!
 │
-╰──────────────●●►
+╰──〔━━━━━━━━━━━━━━〕──●●►
 
 🔘 *Choose your option below.*
             `.trim();
 
-            // IMAGE + TEXT + LIST MENU IN ONE MESSAGE
             await sendListMenu(conn, from, {
                 title: aboutText,
                 buttonText: 'OPEN MENU',
-                footer: '⚡ POWERED BY THENUVA X MD',
+                footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
                 image: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg',
 
                 sections: [
