@@ -25,7 +25,7 @@ cmd(
             const botName = 'THENUVA X MD';
 
             const aboutText = `
-╭[*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}* ]─●●►
+╭─(*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ${botName}*)─●●►
 │
 │ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
 │
@@ -44,7 +44,7 @@ cmd(
 │ 💌 Thank you for choosing us!
 │ ✨ Enjoy the experience!
 │
-╰─────────●●►
+╰───────────────●●►
 
 🔘 *Choose your option below.*
             `.trim();
