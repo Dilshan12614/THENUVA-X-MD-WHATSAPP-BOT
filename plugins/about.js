@@ -52,7 +52,7 @@ cmd(
             await sendListMenu(conn, from, {
                 title: aboutText,
                 buttonText: 'OPEN MENU',
-                footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
+                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                 image: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg',
 
                 sections: [
