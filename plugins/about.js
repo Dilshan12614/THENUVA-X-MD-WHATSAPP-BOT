@@ -54,7 +54,7 @@ cmd(
                 title: aboutText,
                 buttonText: 'OPEN MENU',
                 footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
-                image: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg',
+                image: 'https://kommodo.ai/i/9XFslDn4q5NKCBZhaS8u',
 
                 sections: [
                     {
