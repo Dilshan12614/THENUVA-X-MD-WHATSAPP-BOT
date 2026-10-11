@@ -13,7 +13,7 @@ const OWNER_NAME =
     'Dilshan Ashinsa';
 
 const OWNER_IMAGE_URL =
-    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+    'https://i.ibb.co/PzTVhgr3/551a590b92a1.jpg';
 
 cmd(
     {
