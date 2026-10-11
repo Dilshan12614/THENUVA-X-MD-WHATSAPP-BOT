@@ -232,6 +232,8 @@ cmd(
     '│ ➤ .restart\n' +
     '│ ➤ .menu\n' +
     '│ ➤ .shutdown\n' +
+    '│ ➤ .block 947xxxxxxxxx\n' +
+    '│ ➤ .unblock 947xxxxxxxx\n' +
     '│\n' +
     '╰────────────────●●►\n\n' +
     
