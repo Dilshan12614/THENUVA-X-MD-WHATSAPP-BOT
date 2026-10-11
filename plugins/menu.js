@@ -2,258 +2,190 @@ const { cmd } = require('../command');
 const config = require('../config');
 const os = require('os');
 const { runtime } = require('../lib/functions');
-const { sendListMenu } = require('../lib/buttons');
+const { sendButtons } = require('../lib/buttons');
 
-cmd({
-    pattern: 'menu',
-    alias: ['help', 'commands'],
-    react: '📋',
-    desc: 'THENUVA X MD interactive menu',
-    category: 'main',
-    filename: __filename
-},
-async (conn, mek, m, { from, pushName }) => {
-    try {
-        const prefix = config.PREFIX || '.';
+cmd(
+    {
+        pattern: 'menu',
+        alias: ['help'],
+        react: '📜',
+        desc: 'Show THENUVA X MD button menu',
+        category: 'main',
+        filename: __filename
+    },
 
-        const userName =
-            pushName ||
-            m?.pushName ||
-            m?.pushname ||
-            'User';
+    async (conn, mek, m, { from, pushName }) => {
+        try {
+            const prefix = config.PREFIX || '.';
+            const user = pushName || 'User';
+            const bot = 'THENUVA X MD';
+            const owner = 'Dilshan Ashinsa';
+            const image = 'https://i.ibb.co/BV4dPxkT/ad40079469ef.jpg';
 
-        const uptime = runtime(process.uptime());
+            const header = `
+╭─〔 *${bot}* 〕──●●►
+│
+│ 👋 Hello, ${user}
+│
+│ 🤖 *BOT STATUS*
+│ ├─ Bot : ${bot}
+│ ├─ Owner : ${owner}
+│ ├─ Version : v2.0.0
+│ ├─ Prefix : ${prefix}
+│ ├─ Platform : ${os.platform()}
+│ └─ Uptime : ${runtime(process.uptime())}
+│
+╰──────────────●●►
+`;
 
-        const ram = (
-            process.memoryUsage().rss / 1024 / 1024
-        ).toFixed(2);
+            // MAIN CATEGORY BUTTONS
+            await sendButtons(
+                conn,
+                from,
+                header + '\n╭─〔 *MAIN MENU* 〕──●●►',
+                [
+                    { buttonId: `${prefix}menuall`, buttonText: { displayText: '📜 MENU ALL' }, type: 1 },
+                    { buttonId: `${prefix}alive`, buttonText: { displayText: '🟢 ALIVE' }, type: 1 },
+                    { buttonId: `${prefix}ping`, buttonText: { displayText: '🏓 PING' }, type: 1 }
+                ],
+                `${bot} • POWERED BY ${owner}`,
+                mek
+            );
 
-        const sections = [
-            // MAIN MENU
-            {
-                title: '🏠 MAIN MENU',
-                rows: [
-                    {
-                        id: `${prefix}menuall`,
-                        title: '📚 All Commands',
-                        description: 'View all available bot commands'
-                    },
-                    {
-                        id: `${prefix}alive`,
-                        title: '🟢 Bot Status',
-                        description: 'Check bot online status'
-                    },
-                    {
-                        id: `${prefix}ping`,
-                        title: '🏓 Ping',
-                        description: 'Check bot response speed'
-                    },
-                    {
-                        id: `${prefix}about`,
-                        title: '💖 About Bot',
-                        description: 'Information about THENUVA X MD'
-                    },
-                    {
-                        id: `${prefix}calendar`,
-                        title: '📅 Calendar',
-                        description: 'Calendar command'
-                    },
-                    {
-                        id: `${prefix}owner`,
-                        title: '👑 Owner',
-                        description: 'Contact bot owner'
-                    }
-                ]
-            },
+            // MAIN COMMANDS
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *MAIN COMMANDS* 〕──●●►\n│\n│ ℹ️ About • 📅 Calendar • 👤 Owner\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}about`, buttonText: { displayText: 'ℹ️ ABOUT' }, type: 1 },
+                    { buttonId: `${prefix}calendar`, buttonText: { displayText: '📅 CALENDAR' }, type: 1 },
+                    { buttonId: `${prefix}owner`, buttonText: { displayText: '👤 OWNER' }, type: 1 }
+                ],
+                `${bot} • MAIN`,
+                mek
+            );
 
             // DOWNLOAD MENU
-            {
-                title: '📥 DOWNLOAD MENU',
-                rows: [
-                    {
-                        id: `${prefix}song`,
-                        title: '🎵 Song Downloader',
-                        description: 'Search and download MP3 songs'
-                    },
-                    {
-                        id: `${prefix}playvideo`,
-                        title: '🎬 Play Video',
-                        description: 'Search and download videos'
-                    },
-                    {
-                        id: `${prefix}video`,
-                        title: '📹 Video Downloader',
-                        description: 'Video download command'
-                    },
-                    {
-                        id: `${prefix}fb`,
-                        title: '📘 Facebook Downloader',
-                        description: 'Download Facebook media'
-                    },
-                    {
-                        id: `${prefix}apk`,
-                        title: '📱 APK Downloader',
-                        description: 'APK download command'
-                    }
-                ]
-            },
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *DOWNLOAD MENU* 〕──●●►\n│\n│ 🎵 Song • 🎬 Video • 📘 Facebook • 📱 APK\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}song`, buttonText: { displayText: '🎵 SONG' }, type: 1 },
+                    { buttonId: `${prefix}video`, buttonText: { displayText: '🎬 VIDEO' }, type: 1 },
+                    { buttonId: `${prefix}fb`, buttonText: { displayText: '📘 FACEBOOK' }, type: 1 }
+                ],
+                `${bot} • DOWNLOADS`,
+                mek
+            );
+
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *MORE DOWNLOADS* 〕──●●►',
+                [
+                    { buttonId: `${prefix}apk`, buttonText: { displayText: '📱 APK' }, type: 1 },
+                    { buttonId: `${prefix}playvideo`, buttonText: { displayText: '▶️ PLAY VIDEO' }, type: 1 },
+                    { buttonId: `${prefix}song`, buttonText: { displayText: '🎧 MUSIC' }, type: 1 }
+                ],
+                `${bot} • DOWNLOADS`,
+                mek
+            );
 
             // GROUP MENU
-            {
-                title: '👥 GROUP MENU',
-                rows: [
-                    {
-                        id: `${prefix}groupmenu`,
-                        title: '👥 Group Menu',
-                        description: 'View group commands'
-                    },
-                    {
-                        id: `${prefix}tagall`,
-                        title: '📢 Tag All',
-                        description: 'Mention group members'
-                    },
-                    {
-                        id: `${prefix}admins`,
-                        title: '🛡️ Admins',
-                        description: 'Group admin command'
-                    },
-                    {
-                        id: `${prefix}groupinfo`,
-                        title: 'ℹ️ Group Info',
-                        description: 'View group information'
-                    }
-                ]
-            },
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *GROUP MENU* 〕──●●►\n│\n│ 👥 Group tools and management\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}groupmenu`, buttonText: { displayText: '👥 GROUP MENU' }, type: 1 },
+                    { buttonId: `${prefix}tagall`, buttonText: { displayText: '📢 TAG ALL' }, type: 1 },
+                    { buttonId: `${prefix}admins`, buttonText: { displayText: '🛡️ ADMINS' }, type: 1 }
+                ],
+                `${bot} • GROUP`,
+                mek
+            );
+
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *GROUP TOOLS* 〕──●●►',
+                [
+                    { buttonId: `${prefix}groupinfo`, buttonText: { displayText: 'ℹ️ GROUP INFO' }, type: 1 },
+                    { buttonId: `${prefix}admins`, buttonText: { displayText: '👮 ADMINS' }, type: 1 },
+                    { buttonId: `${prefix}tagall`, buttonText: { displayText: '📣 TAG MEMBERS' }, type: 1 }
+                ],
+                `${bot} • GROUP`,
+                mek
+            );
 
             // TOOLS MENU
-            {
-                title: '🛠️ TOOLS MENU',
-                rows: [
-                    {
-                        id: `${prefix}calc`,
-                        title: '🧮 Calculator',
-                        description: 'Calculate expressions'
-                    },
-                    {
-                        id: `${prefix}jid`,
-                        title: '🆔 JID',
-                        description: 'Get chat ID'
-                    },
-                    {
-                        id: `${prefix}sticker`,
-                        title: '🎨 Sticker Maker',
-                        description: 'Create stickers from media'
-                    },
-                    {
-                        id: `${prefix}tts`,
-                        title: '🗣️ Text To Speech',
-                        description: 'Convert text to speech'
-                    },
-                    {
-                        id: `${prefix}translate`,
-                        title: '🌐 Translator',
-                        description: 'Translate text'
-                    }
-                ]
-            },
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *TOOLS MENU* 〕──●●►\n│\n│ 🧮 Calculator • 🆔 JID • 🎨 Sticker\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}calc`, buttonText: { displayText: '🧮 CALCULATOR' }, type: 1 },
+                    { buttonId: `${prefix}jid`, buttonText: { displayText: '🆔 JID' }, type: 1 },
+                    { buttonId: `${prefix}sticker`, buttonText: { displayText: '🎨 STICKER' }, type: 1 }
+                ],
+                `${bot} • TOOLS`,
+                mek
+            );
+
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *MORE TOOLS* 〕──●●►',
+                [
+                    { buttonId: `${prefix}tts`, buttonText: { displayText: '🗣️ TTS' }, type: 1 },
+                    { buttonId: `${prefix}translate`, buttonText: { displayText: '🌐 TRANSLATE' }, type: 1 },
+                    { buttonId: `${prefix}jid`, buttonText: { displayText: '🆔 GET JID' }, type: 1 }
+                ],
+                `${bot} • TOOLS`,
+                mek
+            );
 
             // SEARCH MENU
-            {
-                title: '🔎 SEARCH MENU',
-                rows: [
-                    {
-                        id: `${prefix}searchmenu`,
-                        title: '🔎 Search Menu',
-                        description: 'Open search options'
-                    },
-                    {
-                        id: `${prefix}ytsearch`,
-                        title: '▶️ YouTube Search',
-                        description: 'Search YouTube'
-                    },
-                    {
-                        id: `${prefix}google`,
-                        title: '🌍 Google Search',
-                        description: 'Search the web'
-                    }
-                ]
-            },
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *SEARCH MENU* 〕──●●►\n│\n│ 🔎 Search tools\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}searchmenu`, buttonText: { displayText: '🔎 SEARCH MENU' }, type: 1 },
+                    { buttonId: `${prefix}ytsearch`, buttonText: { displayText: '▶️ YOUTUBE' }, type: 1 },
+                    { buttonId: `${prefix}google`, buttonText: { displayText: '🌐 GOOGLE' }, type: 1 }
+                ],
+                `${bot} • SEARCH`,
+                mek
+            );
 
             // OWNER MENU
-            {
-                title: '👑 OWNER MENU',
-                rows: [
-                    {
-                        id: `${prefix}ownermenu`,
-                        title: '👑 Owner Commands',
-                        description: 'View owner options'
-                    },
-                    {
-                        id: `${prefix}setting`,
-                        title: '⚙️ Settings',
-                        description: 'Bot configuration options'
-                    },
-                    {
-                        id: `${prefix}restart`,
-                        title: '🔄 Restart',
-                        description: 'Restart command'
-                    }
-                ]
-            },
+            await sendButtons(
+                conn,
+                from,
+                '╭─〔 *OWNER MENU* 〕──●●►\n│\n│ 👑 Owner controls\n╰──────────────●●►',
+                [
+                    { buttonId: `${prefix}ownermenu`, buttonText: { displayText: '👑 OWNER MENU' }, type: 1 },
+                    { buttonId: `${prefix}setting`, buttonText: { displayText: '⚙️ SETTINGS' }, type: 1 },
+                    { buttonId: `${prefix}restart`, buttonText: { displayText: '🔄 RESTART' }, type: 1 }
+                ],
+                `${bot} • OWNER`,
+                mek
+            );
 
-            // ANTIDELETE MENU
-            {
-                title: '🛡️ ANTIDELETE MENU',
-                rows: [
-                    {
-                        id: `${prefix}antidelete on`,
-                        title: '✅ Enable AntiDelete',
-                        description: 'Enable AntiDelete'
-                    },
-                    {
-                        id: `${prefix}antidelete off`,
-                        title: '❌ Disable AntiDelete',
-                        description: 'Disable AntiDelete'
-                    },
-                    {
-                        id: `${prefix}antidelete status`,
-                        title: '📊 AntiDelete Status',
-                        description: 'Check AntiDelete settings'
-                    }
-                ]
-            }
-        ];
+        } catch (error) {
+            console.error('[MENU ERROR]', error);
 
-        const menuText = `👋 *ʜᴇʟʟᴏ... ${userName}* ❤️
-*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 🎉
-
-╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
-│
-│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
-│ 👤 *ᴜsᴇʀ*    : ${userName}
-│ 📁 *ʀᴀᴍ*     : ${ram} MB
-│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
-│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
-│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
-│
-╰─────────────●●►
-
-🔘 *choose an option below.*`;
-
-        await sendListMenu(conn, from, {
-            title: menuText,
-            buttonText: '📋 OPEN MENU',
-            sections,
-            footer: 'THENUVA X MD • POWERED BY Dilshan Ashinsa',
-            image: 'https://i.ibb.co/BV4dPxkT/ad40079469ef.jpg',
-            hideListButton: false
-        }, mek);
-
-    } catch (error) {
-        console.error('[MENU ERROR]', error);
-
-        await conn.sendMessage(from, {
-            text: `❌ *MENU ERROR*\n\n${error.message || error}`
-        }, { quoted: mek });
+            await conn.sendMessage(
+                from,
+                {
+                    text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.\n\n' +
+                          'Error: ' + (error.message || error)
+                },
+                { quoted: mek }
+            );
+        }
     }
-});
+);
