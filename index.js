@@ -673,6 +673,8 @@ if (!isReact && senderNumber === botNumber) {
 
         throw error;
     }
+
+// Send buttons
 conn.sendButtonText = async (
     jid,
     buttons = [],
@@ -681,38 +683,25 @@ conn.sendButtonText = async (
     quoted = null,
     options = {}
 ) => {
-    try {
-        const message = {
-            text,
-            footer,
-            buttons,
-            headerType: 1,
-            ...options
-        };
+    const message = {
+        text,
+        footer,
+        buttons,
+        headerType: 1,
+        ...options
+    };
 
-        const sendOptions = {};
+    const sendOptions = {};
+    if (quoted) sendOptions.quoted = quoted;
 
-        if (quoted) {
-            sendOptions.quoted = quoted;
-        }
-
-        return await conn.sendMessage(
-            jid,
-            message,
-            sendOptions
-        );
-
-    } catch (error) {
-        console.error(
-            '❌ sendButtonText Error:',
-            error
-        );
-
-        throw error;
-    }
+    return await conn.sendMessage(
+        jid,
+        message,
+        sendOptions
+    );
 };
 
-//=====================================================
+// Send image with buttons
 conn.send5ButImg = async (
     jid,
     text = '',
@@ -722,17 +711,22 @@ conn.send5ButImg = async (
     thumb,
     options = {}
 ) => {
-    let message = await prepareWAMessageMedia(
-        { image: img, jpegThumbnail: thumb },
-        { upload: conn.waUploadToServer }
+    const media = await prepareWAMessageMedia(
+        {
+            image: img,
+            jpegThumbnail: thumb
+        },
+        {
+            upload: conn.waUploadToServer
+        }
     );
 
-    var template = generateWAMessageFromContent(
+    const template = generateWAMessageFromContent(
         jid,
         proto.Message.fromObject({
             templateMessage: {
                 hydratedTemplate: {
-                    imageMessage: message.imageMessage,
+                    imageMessage: media.imageMessage,
                     hydratedContentText: text,
                     hydratedFooterText: footer,
                     hydratedButtons: but
@@ -742,12 +736,17 @@ conn.send5ButImg = async (
         options
     );
 
-    conn.relayMessage(
+    return await conn.relayMessage(
         jid,
         template.message,
-        { messageId: template.key.id }
+        {
+            messageId: template.key.id
+        }
     );
-}
+};
+
+//=====================================================
+
           //========================================================================================================================================
       conn.sendMessage(jid, buttonMessage, { quoted, ...options })
     }
