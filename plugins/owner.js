@@ -4,10 +4,12 @@ const { sendListMenu } = require('../lib/buttons');
 
 const OWNER_NUMBER = String(
     config.OWNER_NUMBER ||
-    config.OWNER ||
     process.env.OWNER_NUMBER ||
     '94772194789'
 ).replace(/\D/g, '');
+
+const CHANNEL_URL =
+    'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
 
 cmd(
     {
@@ -19,11 +21,10 @@ cmd(
         filename: __filename
     },
 
-    async (conn, mek, m, { from, quoted, pushName }) => {
+    async (conn, mek, m, { from, pushName }) => {
         try {
             const ownerName =
                 config.OWNER_NAME ||
-                config.OWNER ||
                 'Dilshan Ashinsa';
 
             const ownerText =
@@ -35,8 +36,8 @@ cmd(
                 '┃ ⚡ sᴛᴀᴛᴜs : ᴏғғɪᴄɪᴀʟ\n' +
                 '┃\n' +
                 '╰━━━━━━━━━━━━━━╯\n\n' +
-                
-                '> ✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
+                `👋 ʜᴇʟʟᴏ ${pushName || 'ᴜsᴇʀ'}!\n\n` +
+                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
 
             const sections = [
                 {
@@ -44,18 +45,19 @@ cmd(
                     rows: [
                         {
                             title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                            description: 'ᴏᴘᴇɴ ᴏᴡɴᴇʀ ᴄᴏɴᴛᴀᴄᴛ',
+                            description: 'ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ',
                             id: 'thenuva:ownercontact'
                         },
                         {
                             title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                            description: 'ᴠɪsɪᴛ ᴛʜᴇ ᴡʜᴀᴛsᴀᴘᴘ ᴄʜᴀɴɴᴇʟ',
+                            description: 'ᴠɪsɪᴛ ᴛʜᴇ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
                             id: 'thenuva:ownerchannel'
                         }
                     ]
                 }
             ];
 
+            // Send owner menu using the existing button helper.
             await sendListMenu(
                 conn,
                 from,
@@ -63,21 +65,17 @@ cmd(
                     title: ownerText,
                     buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
                     sections,
-                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
-                },
-                quoted || mek
+                    footer: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ'
+                }
             );
 
         } catch (error) {
             console.error('[OWNER COMMAND ERROR]', error);
 
-            await conn.sendMessage(
-                from,
-                {
-                    text: '❌ ᴏᴡɴᴇʀ ᴍᴇɴᴜ ᴇʀʀᴏʀ'
-                },
-                { quoted: mek }
-            );
+            await conn.sendMessage(from, {
+                text: '❌ ᴏᴡɴᴇʀ ᴍᴇɴᴜ ᴇʀʀᴏʀ\n\n' +
+                    'ᴘʟᴇᴀsᴇ ᴄʜᴇᴄᴋ ᴛʜᴇ ʙᴏᴛ ʟᴏɢs.'
+            });
         }
     }
 );
