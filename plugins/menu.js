@@ -1,163 +1,175 @@
+
 const { cmd } = require('../command');
 const config = require('../config');
-const { sendButtons } = require('../lib/buttons');
+const { sendListMenu } = require('../lib/buttons');
 
-const BOT_NAME = 'THENUVA X MD';
-const OWNER_NAME = 'Dilshan Ashinsa';
-const PREFIX = config.PREFIX || '.';
+const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-const footer = `${BOT_NAME} • POWERED BY ${OWNER_NAME}`;
-
-async function sendCategory(conn, from, mek, title, description, buttons) {
-    const text = [
-        `╭─〔 *${title}* 〕──●●►`,
-        '',
-        description,
-        '',
-        '╰────────────────●●►'
-    ].join('\n');
-
-    // sendButtons supports a maximum of 3 buttons per message.
-    for (let i = 0; i < buttons.length; i += 3) {
-        const chunk = buttons.slice(i, i + 3);
-
-        await sendButtons(
-            conn,
-            from,
-            {
-                text,
-                buttons: chunk.map(([id, label]) => ({
-                    id: `thenuva:${id}`,
-                    text: label
-                })),
-                footer,
-                prefix: PREFIX
-            },
-            mek
-        );
+const CATEGORIES = [
+    {
+        title: '👑 Owner Menu',
+        id: 'thenuva:owner',
+        description: 'Owner commands and bot settings'
+    },
+    {
+        title: '👥 Group Menu',
+        id: 'thenuva:group',
+        description: 'Group management commands'
+    },
+    {
+        title: '📥 Download Menu',
+        id: 'thenuva:downloads',
+        description: 'Download videos, songs and files'
+    },
+    {
+        title: '🛠️ Tools Menu',
+        id: 'thenuva:tools',
+        description: 'Useful tools and utilities'
+    },
+    {
+        title: '🔎 Search Menu',
+        id: 'thenuva:search',
+        description: 'Search the web and YouTube'
+    },
+    {
+        title: '🏠 Main Menu',
+        id: 'thenuva:menu',
+        description: 'Return to the main menu'
     }
-}
+];
 
-cmd({
-    pattern: 'menu',
-    alias: ['help'],
-    react: '📂',
-    desc: 'Show the main menu',
-    category: 'main',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        'THENUVA X MD • MAIN MENU',
-        '👋 Welcome to THENUVA X MD!\n\nSelect a category to view its commands.',
-        [
-            ['owner', '👑 OWNER MENU'],
-            ['group', '👥 GROUP MENU'],
-            ['downloads', '📥 DOWNLOAD MENU'],
-            ['tools', '🛠️ TOOLS MENU'],
-            ['search', '🔎 SEARCH MENU'],
-            ['alive', '🟢 ALIVE'],
-            ['ping', '🏓 PING'],
-            ['about', 'ℹ️ ABOUT'],
-            ['calendar', '📅 CALENDAR'],
-            ['jid', '🆔 JID']
-        ]
-    );
-});
+cmd(
+    {
+        pattern: 'menu',
+        alias: ['help'],
+        react: '📂',
+        desc: 'Show bot menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from, pushName }) => {
+        try {
+            const owner = config.OWNER_NAME || 'Dilshan Ashinsa';
 
-cmd({
-    pattern: 'ownermenu',
-    desc: 'Show owner commands',
-    category: 'owner',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        '👑 OWNER MENU',
-        'Owner-related commands:',
-        [
-            ['setting', '⚙️ SETTING'],
-            ['restart', '🔄 RESTART'],
-            ['menu', '🏠 MAIN MENU']
-        ]
-    );
-});
+            const text = `
+╭─〔 *ＴＨＥＮＵＶＡ Ｘ ＭＤ* 〕─●●►
 
-cmd({
-    pattern: 'groupmenu',
-    desc: 'Show group commands',
-    category: 'group',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        '👥 GROUP MENU',
-        'Group management commands:',
-        [
-            ['tagall', '📢 TAG ALL'],
-            ['admins', '🛡️ ADMINS'],
-            ['groupinfo', 'ℹ️ GROUP INFO'],
-            ['menu', '🏠 MAIN MENU']
-        ]
-    );
-});
+👋 Hello, *${pushName || 'User'}*!
 
-cmd({
-    pattern: 'downloadmenu',
-    desc: 'Show download commands',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        '📥 DOWNLOAD MENU',
-        'Choose a download command:',
-        [
-            ['video', '🎬 VIDEO'],
-            ['playvideo', '▶️ PLAY VIDEO'],
-            ['fb', '📘 FACEBOOK'],
-            ['apk', '📱 APK'],
-            ['song', '🎵 SONG'],
-            ['menu', '🏠 MAIN MENU']
-        ]
-    );
-});
+📌 *Select a category below*
 
-cmd({
-    pattern: 'toolsmenu',
-    desc: 'Show tools commands',
-    category: 'tools',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        '🛠️ TOOLS MENU',
-        'Available utility commands:',
-        [
-            ['calc', '🧮 CALCULATOR'],
-            ['jid', '🆔 JID'],
-            ['sticker', '🖼️ STICKER'],
-            ['tts', '🔊 TEXT TO SPEECH'],
-            ['translate', '🌐 TRANSLATE'],
-            ['menu', '🏠 MAIN MENU']
-        ]
-    );
-});
+╭───────────────
+│ 👑 Owner Menu
+│ 👥 Group Menu
+│ 📥 Download Menu
+│ 🛠️ Tools Menu
+│ 🔎 Search Menu
+│ 🏠 Main Menu
+╰───────────────
 
-cmd({
-    pattern: 'searchmenu',
-    desc: 'Show search commands',
-    category: 'search',
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await sendCategory(
-        conn, from, mek,
-        '🔎 SEARCH MENU',
-        'Search the web and YouTube:',
-        [
-            ['ytsearch', '▶️ YOUTUBE SEARCH'],
-            ['google', '🌐 GOOGLE SEARCH'],
-            ['menu', '🏠 MAIN MENU']
-        ]
-    );
-});
+ᴘᴏᴡᴇʀᴇᴅ ʙʏ *${owner}*
+╰━━━━━━━━━━━━━━━●●►`;
+
+            await sendListMenu(
+                conn,
+                from,
+                {
+                    title: 'THENUVA X MD',
+                    text,
+                    footer: 'POWERED BY DILSHAN ASHINSA',
+                    buttonText: 'Select Category',
+                    sections: [
+                        {
+                            title: '📂 MENU CATEGORIES',
+                            rows: CATEGORIES
+                        }
+                    ],
+                    image: MENU_IMAGE
+                },
+                mek
+            );
+        } catch (error) {
+            console.error('[MENU ERROR]', error);
+            await conn.sendMessage(
+                from,
+                { text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.' },
+                { quoted: mek }
+            );
+        }
+    }
+);
+
+cmd(
+    {
+        pattern: 'ownermenu',
+        react: '👑',
+        desc: 'Show owner menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(from, {
+            text: '👑 *OWNER MENU*\n\n. setting\n. restart\n. menu'
+        }, { quoted: mek });
+    }
+);
+
+cmd(
+    {
+        pattern: 'groupmenu',
+        react: '👥',
+        desc: 'Show group menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(from, {
+            text: '👥 *GROUP MENU*\n\n. tagall\n. admins\n. groupinfo\n. menu'
+        }, { quoted: mek });
+    }
+);
+
+cmd(
+    {
+        pattern: 'downloadmenu',
+        react: '📥',
+        desc: 'Show download menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(from, {
+            text: '📥 *DOWNLOAD MENU*\n\n. video\n. playvideo\n. fb\n. apk\n. song\n. menu'
+        }, { quoted: mek });
+    }
+);
+
+cmd(
+    {
+        pattern: 'toolsmenu',
+        react: '🛠️',
+        desc: 'Show tools menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(from, {
+            text: '🛠️ *TOOLS MENU*\n\n. calc\n. jid\n. sticker\n. tts\n. translate\n. menu'
+        }, { quoted: mek });
+    }
+);
+
+cmd(
+    {
+        pattern: 'searchmenu',
+        react: '🔎',
+        desc: 'Show search menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(from, {
+            text: '🔎 *SEARCH MENU*\n\n. ytsearch\n. google\n. menu'
+        }, { quoted: mek });
+    }
+);
