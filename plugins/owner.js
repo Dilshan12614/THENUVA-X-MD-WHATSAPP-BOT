@@ -1,4 +1,3 @@
-const config = require('../config');
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 
@@ -21,7 +20,7 @@ cmd(
     async (conn, mek, m, { from, pushName }) => {
         try {
             const ownerText =
-                '╭━━〔 👑 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►\n' +
+                '╭━━〔 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►\n' +
                 '┃\n' +
                 `┃ 👤 ᴏᴡɴᴇʀ  : ${OWNER_NAME}\n` +
                 `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}\n` +
@@ -32,21 +31,16 @@ cmd(
                 `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!\n\n` +
                 '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ\n' +
                 '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.\n\n' +
-                '╰━━〔 ⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━●●►';
 
+            // List button එක නැතිව, අදාළ URL buttons දෙක පමණයි
             const sections = [
                 {
-                    title: '👑 ᴏᴡɴᴇʀ ᴏᴘᴛɪᴏɴs',
+                    title: 'ᴏᴡɴᴇʀ ɪɴғᴏ',
                     rows: [
                         {
                             title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                            description: 'View owner contact details',
+                            description: 'Owner contact details',
                             id: 'thenuva:ownercontact'
-                        },
-                        {
-                            title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                            description: 'Visit our official channel',
-                            id: 'thenuva:ownerchannel'
                         }
                     ]
                 }
@@ -54,17 +48,20 @@ cmd(
 
             await sendListMenu(conn, from, {
                 title: ownerText,
-                buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
+                buttonText: 'OWNER MENU',
                 sections,
-                footer: '⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ',
-                image: OWNER_IMAGE_URL
+                footer:
+                    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                image: OWNER_IMAGE_URL,
+                hideListButton: true
             });
 
         } catch (error) {
             console.error('[OWNER COMMAND ERROR]', error);
 
             await conn.sendMessage(from, {
-                text: '❌ Owner menu එක යැවීමට නොහැකි වුණා. Logs පරීක්ෂා කරන්න.'
+                text:
+                    '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා.'
             });
         }
     }
