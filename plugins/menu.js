@@ -1,167 +1,163 @@
 const { cmd } = require('../command');
 const config = require('../config');
-const os = require('os');
-const { runtime } = require('../lib/functions');
 const { sendButtons } = require('../lib/buttons');
 
-cmd(
-    {
-        pattern: 'menu',
-        alias: ['help'],
-        react: '📜',
-        desc: 'Show THENUVA X MD button menu',
-        category: 'main',
-        filename: __filename
-    },
+const BOT_NAME = 'THENUVA X MD';
+const OWNER_NAME = 'Dilshan Ashinsa';
+const PREFIX = config.PREFIX || '.';
 
-    async (conn, mek, m, { from, pushName }) => {
-        try {
-            const prefix = config.PREFIX || '.';
-            const user = pushName || 'User';
-            const bot = 'THENUVA X MD';
-            const owner = 'Dilshan Ashinsa';
+const footer = `${BOT_NAME} • POWERED BY ${OWNER_NAME}`;
 
-            const sendCategory = async (text, buttons) => {
-                return sendButtons(
-                    conn,
-                    from,
-                    {
-                        text,
-                        buttons: buttons.map(([action, label]) => ({
-                            id: `thenuva:${action}`,
-                            text: label
-                        })),
-                        footer: `${bot} • POWERED BY ${owner}`,
-                        prefix
-                    },
-                    mek
-                );
-            };
+async function sendCategory(conn, from, mek, title, description, buttons) {
+    const text = [
+        `╭─〔 *${title}* 〕──●●►`,
+        '',
+        description,
+        '',
+        '╰────────────────●●►'
+    ].join('\n');
 
-            const header = `
-╭─〔 *${bot}* 〕──●●►
-│
-│ 👋 Hello, ${user}
-│
-│ 🤖 *BOT STATUS*
-│ ├─ Owner : ${owner}
-│ ├─ Version : v2.0.0
-│ ├─ Prefix : ${prefix}
-│ ├─ Platform : ${os.platform()}
-│ └─ Uptime : ${runtime(process.uptime())}
-│
-╰──────────────●●►
-`;
+    // sendButtons supports a maximum of 3 buttons per message.
+    for (let i = 0; i < buttons.length; i += 3) {
+        const chunk = buttons.slice(i, i + 3);
 
-            // MAIN MENU
-            await sendCategory(
-                `${header}
-╭─〔 *MAIN MENU* 〕──●●►`,
-                [
-                    ['menu', '📜 MENU'],
-                    ['alive', '🟢 ALIVE'],
-                    ['ping', '🏓 PING']
-                ]
-            );
-
-            await sendCategory(
-                '╭─〔 *MAIN COMMANDS* 〕──●●►',
-                [
-                    ['about', 'ℹ️ ABOUT'],
-                    ['calendar', '📅 CALENDAR'],
-                    ['jid', '🆔 JID']
-                ]
-            );
-
-            // DOWNLOAD MENU
-            await sendCategory(
-                '╭─〔 *DOWNLOAD MENU* 〕──●●►',
-                [
-                    ['video', '🎬 VIDEO'],
-                    ['playvideo', '▶️ PLAY VIDEO'],
-                    ['fb', '📘 FACEBOOK']
-                ]
-            );
-
-            await sendCategory(
-                '╭─〔 *MORE DOWNLOADS* 〕──●●►',
-                [
-                    ['apk', '📱 APK'],
-                    ['song', '🎵 SONG'],
-                    ['playvideo', '🎥 PLAY VIDEO']
-                ]
-            );
-
-            // GROUP MENU
-            await sendCategory(
-                '╭─〔 *GROUP MENU* 〕──●●►',
-                [
-                    ['group', '👥 GROUP MENU'],
-                    ['tagall', '📢 TAG ALL'],
-                    ['admins', '🛡️ ADMINS']
-                ]
-            );
-
-            await sendCategory(
-                '╭─〔 *GROUP TOOLS* 〕──●●►',
-                [
-                    ['groupinfo', 'ℹ️ GROUP INFO'],
-                    ['tagall', '📣 TAG MEMBERS'],
-                    ['admins', '👮 ADMINS']
-                ]
-            );
-
-            // TOOLS MENU
-            await sendCategory(
-                '╭─〔 *TOOLS MENU* 〕──●●►',
-                [
-                    ['calc', '🧮 CALCULATOR'],
-                    ['jid', '🆔 GET JID'],
-                    ['sticker', '🎨 STICKER']
-                ]
-            );
-
-            await sendCategory(
-                '╭─〔 *MORE TOOLS* 〕──●●►',
-                [
-                    ['tts', '🗣️ TTS'],
-                    ['translate', '🌐 TRANSLATE'],
-                    ['about', 'ℹ️ ABOUT']
-                ]
-            );
-
-            // SEARCH MENU
-            await sendCategory(
-                '╭─〔 *SEARCH MENU* 〕──●●►',
-                [
-                    ['search', '🔎 SEARCH MENU'],
-                    ['ytsearch', '▶️ YOUTUBE'],
-                    ['google', '🌐 GOOGLE']
-                ]
-            );
-
-            // OWNER MENU
-            await sendCategory(
-                '╭─〔 *OWNER MENU* 〕──●●►',
-                [
-                    ['owner', '👑 OWNER'],
-                    ['setting', '⚙️ SETTINGS'],
-                    ['restart', '🔄 RESTART']
-                ]
-            );
-
-        } catch (error) {
-            console.error('[MENU ERROR]', error);
-
-            await conn.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.\n\n' +
-                        `Error: ${error.message || error}`
-                },
-                { quoted: mek }
-            );
-        }
+        await sendButtons(
+            conn,
+            from,
+            {
+                text,
+                buttons: chunk.map(([id, label]) => ({
+                    id: `thenuva:${id}`,
+                    text: label
+                })),
+                footer,
+                prefix: PREFIX
+            },
+            mek
+        );
     }
-);
+}
+
+cmd({
+    pattern: 'menu',
+    alias: ['help'],
+    react: '📂',
+    desc: 'Show the main menu',
+    category: 'main',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        'THENUVA X MD • MAIN MENU',
+        '👋 Welcome to THENUVA X MD!\n\nSelect a category to view its commands.',
+        [
+            ['owner', '👑 OWNER MENU'],
+            ['group', '👥 GROUP MENU'],
+            ['downloads', '📥 DOWNLOAD MENU'],
+            ['tools', '🛠️ TOOLS MENU'],
+            ['search', '🔎 SEARCH MENU'],
+            ['alive', '🟢 ALIVE'],
+            ['ping', '🏓 PING'],
+            ['about', 'ℹ️ ABOUT'],
+            ['calendar', '📅 CALENDAR'],
+            ['jid', '🆔 JID']
+        ]
+    );
+});
+
+cmd({
+    pattern: 'ownermenu',
+    desc: 'Show owner commands',
+    category: 'owner',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        '👑 OWNER MENU',
+        'Owner-related commands:',
+        [
+            ['setting', '⚙️ SETTING'],
+            ['restart', '🔄 RESTART'],
+            ['menu', '🏠 MAIN MENU']
+        ]
+    );
+});
+
+cmd({
+    pattern: 'groupmenu',
+    desc: 'Show group commands',
+    category: 'group',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        '👥 GROUP MENU',
+        'Group management commands:',
+        [
+            ['tagall', '📢 TAG ALL'],
+            ['admins', '🛡️ ADMINS'],
+            ['groupinfo', 'ℹ️ GROUP INFO'],
+            ['menu', '🏠 MAIN MENU']
+        ]
+    );
+});
+
+cmd({
+    pattern: 'downloadmenu',
+    desc: 'Show download commands',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        '📥 DOWNLOAD MENU',
+        'Choose a download command:',
+        [
+            ['video', '🎬 VIDEO'],
+            ['playvideo', '▶️ PLAY VIDEO'],
+            ['fb', '📘 FACEBOOK'],
+            ['apk', '📱 APK'],
+            ['song', '🎵 SONG'],
+            ['menu', '🏠 MAIN MENU']
+        ]
+    );
+});
+
+cmd({
+    pattern: 'toolsmenu',
+    desc: 'Show tools commands',
+    category: 'tools',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        '🛠️ TOOLS MENU',
+        'Available utility commands:',
+        [
+            ['calc', '🧮 CALCULATOR'],
+            ['jid', '🆔 JID'],
+            ['sticker', '🖼️ STICKER'],
+            ['tts', '🔊 TEXT TO SPEECH'],
+            ['translate', '🌐 TRANSLATE'],
+            ['menu', '🏠 MAIN MENU']
+        ]
+    );
+});
+
+cmd({
+    pattern: 'searchmenu',
+    desc: 'Show search commands',
+    category: 'search',
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    await sendCategory(
+        conn, from, mek,
+        '🔎 SEARCH MENU',
+        'Search the web and YouTube:',
+        [
+            ['ytsearch', '▶️ YOUTUBE SEARCH'],
+            ['google', '🌐 GOOGLE SEARCH'],
+            ['menu', '🏠 MAIN MENU']
+        ]
+    );
+});
