@@ -1,31 +1,39 @@
-const { cmd } = require('../command');
-const config = require('../config');
 
-const OWNER_NUMBER = String(
-    process.env.OWNER_NUMBER ||
-    config.OWNER_NUMBER ||
-    config.OWNER_NUM ||
-    '94772194789'
-).replace(/\D/g, '');
+const { cmd } = require('../command');
+
+const OWNER_NUMBER = '94772194789';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO =
     process.env.GITHUB_REPO ||
     '';
 
-// මෙය ඔයාගේ repository එකේ සැබෑ workflow filename එකට
-// වෙනස් කරන්න. උදා: deploy.yml හෝ main.yml
 const GITHUB_WORKFLOW =
     process.env.GITHUB_WORKFLOW || 'main.yml';
 
 const GITHUB_BRANCH =
     process.env.GITHUB_BRANCH || 'add-menu-bottons';
 
+// Normalize Sri Lankan mobile numbers and Baileys JIDs
 function cleanNumber(value = '') {
-    return String(value)
+    let number = String(value)
         .split('@')[0]
         .split(':')[0]
         .replace(/\D/g, '');
+
+    if (number.startsWith('00')) {
+        number = number.slice(2);
+    }
+
+    if (number.startsWith('0') && number.length === 10) {
+        number = '94' + number.slice(1);
+    }
+
+    return number;
+}
+
+function isOwner(sender) {
+    return cleanNumber(sender) === cleanNumber(OWNER_NUMBER);
 }
 
 cmd(
@@ -33,24 +41,28 @@ cmd(
         pattern: 'update',
         alias: ['checkupdate'],
         react: '🔄',
-        desc: 'Check and trigger GitHub workflow',
+        desc: 'Trigger GitHub update workflow',
         category: 'owner',
         filename: __filename
     },
+
     async (conn, mek, m, { from, sender }) => {
         try {
             // Owner permission check
-            const owner = cleanNumber(
-                sender ||
-                m?.key?.participant ||
-                m?.participant ||
-                ''
-            );
+            const possibleSenders = [
+                sender,
+                m?.key?.participant,
+                m?.participant
+            ].filter(Boolean);
 
-            if (!owner || owner !== OWNER_NUMBER) {
+            const allowed = possibleSenders.some(isOwner);
+
+            if (!allowed) {
                 return await conn.sendMessage(
                     from,
-                    { text: '⛔ This command is only for the bot owner.' },
+                    {
+                        text: '⛔ This command is only available to the bot owner.'
+                    },
                     { quoted: mek }
                 );
             }
@@ -61,35 +73,48 @@ cmd(
                     {
                         text:
                             '❌ GITHUB_TOKEN is missing.\n\n' +
-                            'Add it to Railway Variables before using .update.'
+                            'Add GITHUB_TOKEN in Railway Variables.'
                     },
                     { quoted: mek }
                 );
             }
 
-            const parts = GITHUB_REPO.split('/');
+            const repoParts = GITHUB_REPO.split('/');
+
             if (
-                parts.length !== 2 ||
-                parts.some(part => !/^[A-Za-z0-9_.-]+$/.test(part))
+                repoParts.length !== 2 ||
+                repoParts.some(part =>
+                    !/^[A-Za-z0-9_.-]+$/.test(part)
+                )
             ) {
                 throw new Error('Invalid GITHUB_REPO setting.');
             }
+
+            const [owner, repo] = repoParts;
 
             await conn.sendMessage(
                 from,
                 {
                     text:
-                        '🔄 *THENUVA X MD — UPDATE*\n\n' +
-                        'Checking GitHub workflow...\n' +
-                        `📦 Repository: ${GITHUB_REPO}\n` +
-                        `🌿 Branch: ${GITHUB_BRANCH}`
+                        '╭─〔 *THENUVA X MD* 〕\n' +
+                        '│ 🔄 *UPDATE REQUEST*\n' +
+                        '├──────────────\n' +
+                        `│ 📦 Repository: ${repo}\n` +
+                        `│ 🌿 Branch: ${GITHUB_BRANCH}\n` +
+                        '│ ⏳ Triggering workflow...\n' +
+                        '╰──────────────'
                 },
                 { quoted: mek }
             );
 
+            const workflowPath = GITHUB_WORKFLOW
+                .split('/')
+                .map(encodeURIComponent)
+                .join('/');
+
             const url =
-                `https://api.github.com/repos/${parts[0]}/${parts[1]}` +
-                `/actions/workflows/${encodeURIComponent(GITHUB_WORKFLOW)}/dispatches`;
+                `https://api.github.com/repos/${owner}/${repo}` +
+                `/actions/workflows/${workflowPath}/dispatches`;
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -110,7 +135,7 @@ cmd(
                 const details = await response.text();
 
                 console.error(
-                    '[UPDATE] GitHub API error:',
+                    '[UPDATE ERROR]',
                     response.status,
                     details
                 );
@@ -119,10 +144,10 @@ cmd(
                     from,
                     {
                         text:
-                            '❌ *Update workflow failed.*\n\n' +
+                            '❌ *GitHub workflow failed!*\n\n' +
                             `HTTP Status: ${response.status}\n` +
-                            'Check workflow filename, branch, token permissions ' +
-                            'and workflow_dispatch configuration.'
+                            'Check the workflow filename, branch, ' +
+                            'token permissions and workflow_dispatch.'
                     },
                     { quoted: mek }
                 );
@@ -132,24 +157,26 @@ cmd(
                 from,
                 {
                     text:
-                        '✅ *GitHub workflow triggered successfully!*\n\n' +
-                        `📦 Repo: ${GITHUB_REPO}\n` +
-                        `🌿 Branch: ${GITHUB_BRANCH}\n` +
-                        `⚙️ Workflow: ${GITHUB_WORKFLOW}\n\n` +
-                        'ℹ️ This confirms that GitHub accepted the workflow ' +
-                        'request. It does not confirm that the build or ' +
-                        'Railway deployment has completed.'
+                        '╭─〔 *THENUVA X MD* 〕\n' +
+                        '│ ✅ *UPDATE REQUEST ACCEPTED*\n' +
+                        '├──────────────\n' +
+                        `│ 📦 Repository: ${repo}\n` +
+                        `│ 🌿 Branch: ${GITHUB_BRANCH}\n` +
+                        '│ ⚙️ GitHub workflow triggered.\n' +
+                        '│ ℹ️ Build/deployment is not yet confirmed.\n' +
+                        '╰──────────────'
                 },
                 { quoted: mek }
             );
+
         } catch (error) {
-            console.error('[UPDATE ERROR]', error);
+            console.error('[UPDATE COMMAND ERROR]', error);
 
             return await conn.sendMessage(
                 from,
                 {
                     text:
-                        '❌ Update request failed.\n' +
+                        '❌ *UPDATE ERROR*\n\n' +
                         String(error.message || error).slice(0, 250)
                 },
                 { quoted: mek }
