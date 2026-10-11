@@ -1,0 +1,107 @@
+name: Node.js CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - add-menu-bottons
+
+  pull_request:
+    branches:
+      - add-menu-bottons
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: thenuva-x-md-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      # CHECKOUT REPOSITORY
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # NODE.JS
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # SYSTEM DEPENDENCIES
+      - name: Install FFmpeg and ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+
+          echo "FFmpeg:"
+          ffmpeg -version | head -n 1
+
+          echo "FFprobe:"
+          ffprobe -version | head -n 1
+
+          echo "ImageMagick:"
+          convert -version | head -n 1
+
+      # NODE DEPENDENCIES
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # ENVIRONMENT CHECK
+      - name: Verify environment
+        run: |
+          echo "================================"
+          echo "THENUVA X MD Environment"
+          echo "================================"
+
+          node --version
+          npm --version
+
+          test -f index.js || {
+            echo "ERROR: index.js not found"
+            exit 1
+          }
+
+          echo "Environment ready"
+
+      # SESSION ID CHECK
+      - name: Check SESSION_ID
+        if: github.event_name != 'pull_request'
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
+        run: |
+          if [ -z "$SESSION_ID" ]; then
+            echo "ERROR: SESSION_ID secret is missing"
+            exit 1
+          fi
+
+          echo "SESSION_ID is configured"
+
+      # START BOT
+      - name: Start THENUVA X MD
+        if: github.event_name != 'pull_request'
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_OWNER: ${{ github.repository_owner }}
+          GH_REPO: ${{ github.event.repository.name }}
+          GH_WORKFLOW_FILE: nodejs.yml
+          GH_BRANCH: add-menu-bottons
+        run: |
+          echo "================================"
+          echo "Starting THENUVA X MD"
+          echo "================================"
+
+          node index.js
