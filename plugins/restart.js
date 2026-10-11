@@ -46,7 +46,8 @@ cmd(
                 '│ ➤ ʀᴇǫᴜᴇsᴛɪɴɢ ʀᴇsᴛᴀʀᴛ...\n' +
                 '│\n' +
                 '╰────────────────●●►\n\n' +
-                'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
+                
+                '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
             );
 
             const data = JSON.stringify({ ref: branch });
