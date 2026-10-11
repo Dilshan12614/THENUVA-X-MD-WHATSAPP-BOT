@@ -49,18 +49,15 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from, pushName }) => {
-        try {
-            const userName = pushName || 'User';
-            const uptime = runtime(process.uptime());
-            const usedMemory = (
-                process.memoryUsage().heapUsed /
-                1024 /
-                1024
-            ).toFixed(2);
+    try {
+        const userName =
+            pushName ||
+            m?.pushName ||
+            mek?.pushName ||
+            mek?.verifiedBizName ||
+            'WhatsApp User';
 
-            const text = `
-👋 *ʜᴇʟʟᴏ... ${userName}*
-*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+            const text = `👋 HELLOW...*${pushname || 'User'}* *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
 
 ╭─〔*ＴＨＥＮＵＶＡ Ｘ ＭＤ*〕──●●►
 │
