@@ -1,9 +1,12 @@
-const settings = require('../settings');
+const config = require('../config');
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 
 const OWNER_NUMBER = String(
-    settings.ownerNumber || '94772194789'
+    config.OWNER_NUMBER ||
+    config.OWNER ||
+    process.env.OWNER_NUMBER ||
+    '94772194789'
 ).replace(/\D/g, '');
 
 cmd(
@@ -16,9 +19,12 @@ cmd(
         filename: __filename
     },
 
-    async (conn, mek, m, { from, quoted }) => {
+    async (conn, mek, m, { from, quoted, pushName }) => {
         try {
-            const ownerName = settings.ownerName || 'Dilshan Ashinsa';
+            const ownerName =
+                config.OWNER_NAME ||
+                config.OWNER ||
+                'Dilshan Ashinsa';
 
             const ownerText =
                 '╭━━〔 👑 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━╮\n' +
@@ -30,7 +36,7 @@ cmd(
                 '┃\n' +
                 '╰━━━━━━━━━━━━━━╯\n\n' +
                 
-                '✨> ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
+                '> ✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
 
             const sections = [
                 {
