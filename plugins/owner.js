@@ -8,6 +8,13 @@ const OWNER_NUMBER = String(
     '94772194789'
 ).replace(/\D/g, '');
 
+const OWNER_NAME =
+    config.OWNER_NAME ||
+    'Dilshan Ashinsa';
+
+const OWNER_IMAGE_URL =
+    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+
 const CHANNEL_URL =
     'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
 
@@ -23,21 +30,19 @@ cmd(
 
     async (conn, mek, m, { from, pushName }) => {
         try {
-            const ownerName =
-                config.OWNER_NAME ||
-                'Dilshan Ashinsa';
-
             const ownerText =
-                '╭━━〔 👑 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━╮\n' +
+                '╭━━〔 👑 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►\n' +
                 '┃\n' +
-                `┃ 👤 ᴏᴡɴᴇʀ : ${ownerName}\n` +
+                `┃ 👤 ᴏᴡɴᴇʀ  : ${OWNER_NAME}\n` +
                 `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}\n` +
-                '┃ 🤖 ʙᴏᴛ : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-                '┃ ⚡ sᴛᴀᴛᴜs : ᴏғғɪᴄɪᴀʟ\n' +
+                '┃ 🤖 ʙᴏᴛ    : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
+                '┃ ⚡ sᴛᴀᴛᴜs  : ᴏғғɪᴄɪᴀʟ\n' +
                 '┃\n' +
-                '╰━━━━━━━━━━━━━━╯\n\n' +
-                `👋 ʜᴇʟʟᴏ ${pushName || 'ᴜsᴇʀ'}!\n\n` +
-                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
+                '╰━━━━━━━━━━━━━━●●►\n\n' +
+                `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!\n\n` +
+                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ\n' +
+                '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.\n\n' +
+                '╭━━〔 ⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━●●►';
 
             const sections = [
                 {
@@ -45,37 +50,47 @@ cmd(
                     rows: [
                         {
                             title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                            description: 'ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ',
+                            description:
+                                'Chat with the official bot owner',
                             id: 'thenuva:ownercontact'
                         },
                         {
                             title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                            description: 'ᴠɪsɪᴛ ᴛʜᴇ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
+                            description:
+                                'Visit THENUVA X MD updates',
                             id: 'thenuva:ownerchannel'
                         }
                     ]
                 }
             ];
 
-            // Send owner menu using the existing button helper.
             await sendListMenu(
                 conn,
                 from,
                 {
                     title: ownerText,
-                    buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
+                    buttonText: 'ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
                     sections,
-                    footer: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ'
+                    footer:
+                        'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                    image: OWNER_IMAGE_URL
                 }
             );
 
         } catch (error) {
-            console.error('[OWNER COMMAND ERROR]', error);
+            console.error(
+                '[OWNER COMMAND ERROR]',
+                error
+            );
 
-            await conn.sendMessage(from, {
-                text: '❌ ᴏᴡɴᴇʀ ᴍᴇɴᴜ ᴇʀʀᴏʀ\n\n' +
-                    'ᴘʟᴇᴀsᴇ ᴄʜᴇᴄᴋ ᴛʜᴇ ʙᴏᴛ ʟᴏɢs.'
-            });
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා.\n' +
+                        'කරුණාකර logs පරීක්ෂා කරන්න.'
+                }
+            );
         }
     }
 );
