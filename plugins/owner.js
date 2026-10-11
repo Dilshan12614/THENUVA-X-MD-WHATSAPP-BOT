@@ -1,8 +1,10 @@
+
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 
 const OWNER_NAME = 'ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ';
-const OWNER_NUMBER = '94742876482';
+const OWNER_NUMBER = '94772194789';
+
 const OWNER_IMAGE_URL =
     'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
@@ -15,8 +17,17 @@ cmd(
         category: 'main',
         filename: __filename
     },
+
     async (conn, mek, m, { from, pushName }) => {
         try {
+            // Get the user's WhatsApp display name
+            const displayName = String(
+                pushName ||
+                mek?.pushName ||
+                m?.pushName ||
+                'whatsapp user'
+            ).trim();
+
             const ownerText = [
                 '╭━━〔 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►',
                 '┃',
@@ -27,11 +38,10 @@ cmd(
                 '┃',
                 '╰━━━━━━━━━━━━━━●●►',
                 '',
-                `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!`,
+                `👋 ʜᴇʟʟᴏ, ${displayName}! ❤️`,
                 '',
                 '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ',
                 '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.',
-                '',
                 ''
             ].join('\n');
 
@@ -51,8 +61,8 @@ cmd(
             await sendListMenu(conn, from, {
                 title: ownerText,
                 buttonText: 'OWNER MENU',
-                sections: sections,
-                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                sections,
+                footer: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                 image: OWNER_IMAGE_URL,
                 hideListButton: true
             });
