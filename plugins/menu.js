@@ -20,7 +20,23 @@ cmd(
             const user = pushName || 'User';
             const bot = 'THENUVA X MD';
             const owner = 'Dilshan Ashinsa';
-            const image = 'https://i.ibb.co/BV4dPxkT/ad40079469ef.jpg';
+
+            const sendCategory = async (text, buttons) => {
+                return sendButtons(
+                    conn,
+                    from,
+                    {
+                        text,
+                        buttons: buttons.map(([action, label]) => ({
+                            id: `thenuva:${action}`,
+                            text: label
+                        })),
+                        footer: `${bot} • POWERED BY ${owner}`,
+                        prefix
+                    },
+                    mek
+                );
+            };
 
             const header = `
 ╭─〔 *${bot}* 〕──●●►
@@ -28,7 +44,6 @@ cmd(
 │ 👋 Hello, ${user}
 │
 │ 🤖 *BOT STATUS*
-│ ├─ Bot : ${bot}
 │ ├─ Owner : ${owner}
 │ ├─ Version : v2.0.0
 │ ├─ Prefix : ${prefix}
@@ -38,141 +53,101 @@ cmd(
 ╰──────────────●●►
 `;
 
-            // MAIN CATEGORY BUTTONS
-            await sendButtons(
-                conn,
-                from,
-                header + '\n╭─〔 *MAIN MENU* 〕──●●►',
+            // MAIN MENU
+            await sendCategory(
+                `${header}
+╭─〔 *MAIN MENU* 〕──●●►`,
                 [
-                    { buttonId: `${prefix}menuall`, buttonText: { displayText: '📜 MENU ALL' }, type: 1 },
-                    { buttonId: `${prefix}alive`, buttonText: { displayText: '🟢 ALIVE' }, type: 1 },
-                    { buttonId: `${prefix}ping`, buttonText: { displayText: '🏓 PING' }, type: 1 }
-                ],
-                `${bot} • POWERED BY ${owner}`,
-                mek
+                    ['menu', '📜 MENU'],
+                    ['alive', '🟢 ALIVE'],
+                    ['ping', '🏓 PING']
+                ]
             );
 
-            // MAIN COMMANDS
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *MAIN COMMANDS* 〕──●●►\n│\n│ ℹ️ About • 📅 Calendar • 👤 Owner\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *MAIN COMMANDS* 〕──●●►',
                 [
-                    { buttonId: `${prefix}about`, buttonText: { displayText: 'ℹ️ ABOUT' }, type: 1 },
-                    { buttonId: `${prefix}calendar`, buttonText: { displayText: '📅 CALENDAR' }, type: 1 },
-                    { buttonId: `${prefix}owner`, buttonText: { displayText: '👤 OWNER' }, type: 1 }
-                ],
-                `${bot} • MAIN`,
-                mek
+                    ['about', 'ℹ️ ABOUT'],
+                    ['calendar', '📅 CALENDAR'],
+                    ['jid', '🆔 JID']
+                ]
             );
 
             // DOWNLOAD MENU
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *DOWNLOAD MENU* 〕──●●►\n│\n│ 🎵 Song • 🎬 Video • 📘 Facebook • 📱 APK\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *DOWNLOAD MENU* 〕──●●►',
                 [
-                    { buttonId: `${prefix}song`, buttonText: { displayText: '🎵 SONG' }, type: 1 },
-                    { buttonId: `${prefix}video`, buttonText: { displayText: '🎬 VIDEO' }, type: 1 },
-                    { buttonId: `${prefix}fb`, buttonText: { displayText: '📘 FACEBOOK' }, type: 1 }
-                ],
-                `${bot} • DOWNLOADS`,
-                mek
+                    ['video', '🎬 VIDEO'],
+                    ['playvideo', '▶️ PLAY VIDEO'],
+                    ['fb', '📘 FACEBOOK']
+                ]
             );
 
-            await sendButtons(
-                conn,
-                from,
+            await sendCategory(
                 '╭─〔 *MORE DOWNLOADS* 〕──●●►',
                 [
-                    { buttonId: `${prefix}apk`, buttonText: { displayText: '📱 APK' }, type: 1 },
-                    { buttonId: `${prefix}playvideo`, buttonText: { displayText: '▶️ PLAY VIDEO' }, type: 1 },
-                    { buttonId: `${prefix}song`, buttonText: { displayText: '🎧 MUSIC' }, type: 1 }
-                ],
-                `${bot} • DOWNLOADS`,
-                mek
+                    ['apk', '📱 APK'],
+                    ['song', '🎵 SONG'],
+                    ['playvideo', '🎥 PLAY VIDEO']
+                ]
             );
 
             // GROUP MENU
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *GROUP MENU* 〕──●●►\n│\n│ 👥 Group tools and management\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *GROUP MENU* 〕──●●►',
                 [
-                    { buttonId: `${prefix}groupmenu`, buttonText: { displayText: '👥 GROUP MENU' }, type: 1 },
-                    { buttonId: `${prefix}tagall`, buttonText: { displayText: '📢 TAG ALL' }, type: 1 },
-                    { buttonId: `${prefix}admins`, buttonText: { displayText: '🛡️ ADMINS' }, type: 1 }
-                ],
-                `${bot} • GROUP`,
-                mek
+                    ['group', '👥 GROUP MENU'],
+                    ['tagall', '📢 TAG ALL'],
+                    ['admins', '🛡️ ADMINS']
+                ]
             );
 
-            await sendButtons(
-                conn,
-                from,
+            await sendCategory(
                 '╭─〔 *GROUP TOOLS* 〕──●●►',
                 [
-                    { buttonId: `${prefix}groupinfo`, buttonText: { displayText: 'ℹ️ GROUP INFO' }, type: 1 },
-                    { buttonId: `${prefix}admins`, buttonText: { displayText: '👮 ADMINS' }, type: 1 },
-                    { buttonId: `${prefix}tagall`, buttonText: { displayText: '📣 TAG MEMBERS' }, type: 1 }
-                ],
-                `${bot} • GROUP`,
-                mek
+                    ['groupinfo', 'ℹ️ GROUP INFO'],
+                    ['tagall', '📣 TAG MEMBERS'],
+                    ['admins', '👮 ADMINS']
+                ]
             );
 
             // TOOLS MENU
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *TOOLS MENU* 〕──●●►\n│\n│ 🧮 Calculator • 🆔 JID • 🎨 Sticker\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *TOOLS MENU* 〕──●●►',
                 [
-                    { buttonId: `${prefix}calc`, buttonText: { displayText: '🧮 CALCULATOR' }, type: 1 },
-                    { buttonId: `${prefix}jid`, buttonText: { displayText: '🆔 JID' }, type: 1 },
-                    { buttonId: `${prefix}sticker`, buttonText: { displayText: '🎨 STICKER' }, type: 1 }
-                ],
-                `${bot} • TOOLS`,
-                mek
+                    ['calc', '🧮 CALCULATOR'],
+                    ['jid', '🆔 GET JID'],
+                    ['sticker', '🎨 STICKER']
+                ]
             );
 
-            await sendButtons(
-                conn,
-                from,
+            await sendCategory(
                 '╭─〔 *MORE TOOLS* 〕──●●►',
                 [
-                    { buttonId: `${prefix}tts`, buttonText: { displayText: '🗣️ TTS' }, type: 1 },
-                    { buttonId: `${prefix}translate`, buttonText: { displayText: '🌐 TRANSLATE' }, type: 1 },
-                    { buttonId: `${prefix}jid`, buttonText: { displayText: '🆔 GET JID' }, type: 1 }
-                ],
-                `${bot} • TOOLS`,
-                mek
+                    ['tts', '🗣️ TTS'],
+                    ['translate', '🌐 TRANSLATE'],
+                    ['about', 'ℹ️ ABOUT']
+                ]
             );
 
             // SEARCH MENU
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *SEARCH MENU* 〕──●●►\n│\n│ 🔎 Search tools\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *SEARCH MENU* 〕──●●►',
                 [
-                    { buttonId: `${prefix}searchmenu`, buttonText: { displayText: '🔎 SEARCH MENU' }, type: 1 },
-                    { buttonId: `${prefix}ytsearch`, buttonText: { displayText: '▶️ YOUTUBE' }, type: 1 },
-                    { buttonId: `${prefix}google`, buttonText: { displayText: '🌐 GOOGLE' }, type: 1 }
-                ],
-                `${bot} • SEARCH`,
-                mek
+                    ['search', '🔎 SEARCH MENU'],
+                    ['ytsearch', '▶️ YOUTUBE'],
+                    ['google', '🌐 GOOGLE']
+                ]
             );
 
             // OWNER MENU
-            await sendButtons(
-                conn,
-                from,
-                '╭─〔 *OWNER MENU* 〕──●●►\n│\n│ 👑 Owner controls\n╰──────────────●●►',
+            await sendCategory(
+                '╭─〔 *OWNER MENU* 〕──●●►',
                 [
-                    { buttonId: `${prefix}ownermenu`, buttonText: { displayText: '👑 OWNER MENU' }, type: 1 },
-                    { buttonId: `${prefix}setting`, buttonText: { displayText: '⚙️ SETTINGS' }, type: 1 },
-                    { buttonId: `${prefix}restart`, buttonText: { displayText: '🔄 RESTART' }, type: 1 }
-                ],
-                `${bot} • OWNER`,
-                mek
+                    ['owner', '👑 OWNER'],
+                    ['setting', '⚙️ SETTINGS'],
+                    ['restart', '🔄 RESTART']
+                ]
             );
 
         } catch (error) {
@@ -181,8 +156,9 @@ cmd(
             await conn.sendMessage(
                 from,
                 {
-                    text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.\n\n' +
-                          'Error: ' + (error.message || error)
+                    text:
+                        '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.\n\n' +
+                        `Error: ${error.message || error}`
                 },
                 { quoted: mek }
             );
