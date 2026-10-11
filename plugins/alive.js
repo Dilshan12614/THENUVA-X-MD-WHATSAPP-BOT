@@ -12,9 +12,9 @@ const ALIVE_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 const REMIX_SEARCHES = [
     'RU CHAYA Sinhala DJ remix',
     'RU CHAYA remix songs',
-    'Sinhala DJ remix songs',
-    'Sinhala nonstop remix',
-    'Sinhala party DJ songs',
+    'RU CHAYA remix songs',
+    'RU CHAYA remix songs',
+    'RU CHAYA remix songs',
     'Sinhala trending remix songs',
     'Sinhala bass boosted remix'
 ];
