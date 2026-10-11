@@ -1,4 +1,3 @@
-
 const { cmd } = require('../command');
 const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
@@ -29,7 +28,7 @@ const CATEGORIES = [
     {
         title: '🔎 Search Menu',
         id: 'thenuva:search',
-        description: 'Search the web and YouTube'
+        description: 'Search YouTube and Google'
     },
     {
         title: '🏠 Main Menu',
@@ -49,8 +48,6 @@ cmd(
     },
     async (conn, mek, m, { from, pushName }) => {
         try {
-            const owner = config.OWNER_NAME || 'Dilshan Ashinsa';
-
             const text = `
 ╭─〔 *ＴＨＥＮＵＶＡ Ｘ ＭＤ* 〕─●●►
 
@@ -67,17 +64,18 @@ cmd(
 │ 🏠 Main Menu
 ╰───────────────
 
-ᴘᴏᴡᴇʀᴇᴅ ʙʏ *${owner}*
-╰━━━━━━━━━━━━━━━●●►`;
+⚡ *Version:* v2.0.0
+👨‍💻 *Owner:* Dilshan Ashinsa
+
+╰━━━━━━━━━━━━━━●●►`;
 
             await sendListMenu(
                 conn,
                 from,
                 {
-                    title: 'THENUVA X MD',
-                    text,
-                    footer: 'POWERED BY DILSHAN ASHINSA',
+                    title: text,
                     buttonText: 'Select Category',
+                    footer: 'POWERED BY DILSHAN ASHINSA',
                     sections: [
                         {
                             title: '📂 MENU CATEGORIES',
@@ -90,15 +88,19 @@ cmd(
             );
         } catch (error) {
             console.error('[MENU ERROR]', error);
+
             await conn.sendMessage(
                 from,
-                { text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.' },
+                {
+                    text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.'
+                },
                 { quoted: mek }
             );
         }
     }
 );
 
+// OWNER MENU
 cmd(
     {
         pattern: 'ownermenu',
@@ -108,12 +110,21 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(from, {
-            text: '👑 *OWNER MENU*\n\n. setting\n. restart\n. menu'
-        }, { quoted: mek });
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '👑 *OWNER MENU*\n\n' +
+                    '⚙️ .setting\n' +
+                    '🔄 .restart\n' +
+                    '🏠 .menu'
+            },
+            { quoted: mek }
+        );
     }
 );
 
+// GROUP MENU
 cmd(
     {
         pattern: 'groupmenu',
@@ -123,12 +134,22 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(from, {
-            text: '👥 *GROUP MENU*\n\n. tagall\n. admins\n. groupinfo\n. menu'
-        }, { quoted: mek });
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '👥 *GROUP MENU*\n\n' +
+                    '📢 .tagall\n' +
+                    '👮 .admins\n' +
+                    'ℹ️ .groupinfo\n' +
+                    '🏠 .menu'
+            },
+            { quoted: mek }
+        );
     }
 );
 
+// DOWNLOAD MENU
 cmd(
     {
         pattern: 'downloadmenu',
@@ -138,12 +159,24 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(from, {
-            text: '📥 *DOWNLOAD MENU*\n\n. video\n. playvideo\n. fb\n. apk\n. song\n. menu'
-        }, { quoted: mek });
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '📥 *DOWNLOAD MENU*\n\n' +
+                    '🎬 .video\n' +
+                    '▶️ .playvideo\n' +
+                    '📘 .fb\n' +
+                    '📦 .apk\n' +
+                    '🎵 .song\n' +
+                    '🏠 .menu'
+            },
+            { quoted: mek }
+        );
     }
 );
 
+// TOOLS MENU
 cmd(
     {
         pattern: 'toolsmenu',
@@ -153,12 +186,24 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(from, {
-            text: '🛠️ *TOOLS MENU*\n\n. calc\n. jid\n. sticker\n. tts\n. translate\n. menu'
-        }, { quoted: mek });
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '🛠️ *TOOLS MENU*\n\n' +
+                    '🧮 .calc\n' +
+                    '🆔 .jid\n' +
+                    '🎨 .sticker\n' +
+                    '🗣️ .tts\n' +
+                    '🌐 .translate\n' +
+                    '🏠 .menu'
+            },
+            { quoted: mek }
+        );
     }
 );
 
+// SEARCH MENU
 cmd(
     {
         pattern: 'searchmenu',
@@ -168,8 +213,16 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(from, {
-            text: '🔎 *SEARCH MENU*\n\n. ytsearch\n. google\n. menu'
-        }, { quoted: mek });
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '🔎 *SEARCH MENU*\n\n' +
+                    '▶️ .ytsearch\n' +
+                    '🌐 .google\n' +
+                    '🏠 .menu'
+            },
+            { quoted: mek }
+        );
     }
 );
