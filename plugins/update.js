@@ -3,17 +3,10 @@ const { cmd } = require('../command');
 const OWNER_NUMBER = '94772194789';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO =
-    process.env.GITHUB_REPO ||
-    'https://github.com/Dilshan12614/THENUVA-X-MD-WHATSAPP-BOT.git';
+const GITHUB_REPO = 'Dilshan12614/THENUVA-X-MD-WHATSAPP-BOT';
+const GITHUB_WORKFLOW = process.env.GITHUB_WORKFLOW || 'main.yml';
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'add-menu-bottons';
 
-const GITHUB_WORKFLOW =
-    process.env.GITHUB_WORKFLOW || 'main.yml';
-
-const GITHUB_BRANCH =
-    process.env.GITHUB_BRANCH || 'add-menu-bottons';
-
-// Normalize Sri Lankan mobile numbers and Baileys JIDs
 function cleanNumber(value = '') {
     let number = String(value)
         .split('@')[0]
@@ -47,16 +40,15 @@ cmd(
 
     async (conn, mek, m, { from, sender }) => {
         try {
-            // Owner permission check
+            // OWNER CHECK
             const possibleSenders = [
                 sender,
                 m?.key?.participant,
-                m?.participant
+                m?.participant,
+                m?.key?.remoteJid
             ].filter(Boolean);
 
-            const allowed = possibleSenders.some(isOwner);
-
-            if (!allowed) {
+            if (!possibleSenders.some(isOwner)) {
                 return await conn.sendMessage(
                     from,
                     {
@@ -66,30 +58,43 @@ cmd(
                 );
             }
 
+            // TOKEN CHECK
             if (!GITHUB_TOKEN) {
                 return await conn.sendMessage(
                     from,
                     {
                         text:
-                            '❌ GITHUB_TOKEN is missing.\n\n' +
+                            '❌ GITHUB_TOKEN is missing!\n\n' +
                             'Add GITHUB_TOKEN in Railway Variables.'
                     },
                     { quoted: mek }
                 );
             }
 
-            const repoParts = GITHUB_REPO.split('/');
+            // FIXED REPOSITORY PARSING
+            const repoParts = GITHUB_REPO.trim().split('/');
 
             if (
                 repoParts.length !== 2 ||
-                repoParts.some(part =>
-                    !/^[A-Za-z0-9_.-]+$/.test(part)
-                )
+                !repoParts[0] ||
+                !repoParts[1]
             ) {
-                throw new Error('Invalid GITHUB_REPO setting.');
+                throw new Error(
+                    'Invalid repository format. Expected owner/repository.'
+                );
             }
 
-            const [owner, repo] = repoParts;
+            const [githubOwner, githubRepo] = repoParts;
+
+            // WORKFLOW PATH
+            const workflowPath = GITHUB_WORKFLOW
+                .split('/')
+                .map(encodeURIComponent)
+                .join('/');
+
+            const url =
+                `https://api.github.com/repos/${githubOwner}/${githubRepo}` +
+                `/actions/workflows/${workflowPath}/dispatches`;
 
             await conn.sendMessage(
                 from,
@@ -98,23 +103,15 @@ cmd(
                         '╭─〔 *THENUVA X MD* 〕\n' +
                         '│ 🔄 *UPDATE REQUEST*\n' +
                         '├──────────────\n' +
-                        `│ 📦 Repository: ${repo}\n` +
+                        `│ 📦 Repository: ${githubRepo}\n` +
                         `│ 🌿 Branch: ${GITHUB_BRANCH}\n` +
-                        '│ ⏳ Triggering workflow...\n' +
+                        '│ ⏳ Triggering GitHub workflow...\n' +
                         '╰──────────────'
                 },
                 { quoted: mek }
             );
 
-            const workflowPath = GITHUB_WORKFLOW
-                .split('/')
-                .map(encodeURIComponent)
-                .join('/');
-
-            const url =
-                `https://api.github.com/repos/${owner}/${repo}` +
-                `/actions/workflows/${workflowPath}/dispatches`;
-
+            // TRIGGER GITHUB ACTIONS
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -143,10 +140,14 @@ cmd(
                     from,
                     {
                         text:
-                            '❌ *GitHub workflow failed!*\n\n' +
-                            `HTTP Status: ${response.status}\n` +
-                            'Check the workflow filename, branch, ' +
-                            'token permissions and workflow_dispatch.'
+                            '❌ *GITHUB WORKFLOW FAILED*\n\n' +
+                            `HTTP Status: ${response.status}\n\n` +
+                            'Check these settings:\n' +
+                            '• GITHUB_TOKEN permissions\n' +
+                            '• Workflow filename\n' +
+                            '• Repository access\n' +
+                            '• Branch name\n' +
+                            '• workflow_dispatch enabled'
                     },
                     { quoted: mek }
                 );
@@ -159,11 +160,13 @@ cmd(
                         '╭─〔 *THENUVA X MD* 〕\n' +
                         '│ ✅ *UPDATE REQUEST ACCEPTED*\n' +
                         '├──────────────\n' +
-                        `│ 📦 Repository: ${repo}\n` +
+                        `│ 📦 Repository: ${githubRepo}\n` +
                         `│ 🌿 Branch: ${GITHUB_BRANCH}\n` +
-                        '│ ⚙️ GitHub workflow triggered.\n' +
-                        '│ ℹ️ Build/deployment is not yet confirmed.\n' +
-                        '╰──────────────'
+                        `│ ⚙️ Workflow: ${GITHUB_WORKFLOW}\n` +
+                        '│ 🚀 GitHub Actions triggered!\n' +
+                        '╰──────────────\n\n' +
+                        'ℹ️ Build සහ Railway deployment එක සාර්ථකදැයි ' +
+                        'GitHub Actions logs වලින් පරීක්ෂා කරන්න.'
                 },
                 { quoted: mek }
             );
