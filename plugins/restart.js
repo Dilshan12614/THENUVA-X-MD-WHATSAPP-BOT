@@ -26,7 +26,7 @@ cmd(
             const owner = process.env.GITHUB_OWNER;
             const repo = process.env.GITHUB_REPO;
             const workflow = process.env.GITHUB_WORKFLOW_FILE || 'main.yml';
-            const branch = process.env.GITHUB_BRANCH || 'main';
+            const branch = process.env.GITHUB_BRANCH || 'add-menu-bottons';
 
             if (!token || !owner || !repo) {
                 return await reply(
