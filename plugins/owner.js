@@ -3,7 +3,6 @@ const { sendListMenu } = require('../lib/buttons');
 
 const OWNER_NAME = 'ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ';
 const OWNER_NUMBER = '94742876482';
-
 const OWNER_IMAGE_URL =
     'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
@@ -16,23 +15,26 @@ cmd(
         category: 'main',
         filename: __filename
     },
-
     async (conn, mek, m, { from, pushName }) => {
         try {
-            const ownerText =
-                '╭━━〔 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►\n' +
-                '┃\n' +
-                `┃ 👤 ᴏᴡɴᴇʀ  : ${OWNER_NAME}\n` +
-                `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}\n` +
-                '┃ 🤖 ʙᴏᴛ    : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-                '┃ ⚡ sᴛᴀᴛᴜs  : ᴏғғɪᴄɪᴀʟ\n' +
-                '┃\n' +
-                '╰━━━━━━━━━━━━━━●●►\n\n' +
-                `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!\n\n` +
-                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ\n' +
-                '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.\n\n' +
+            const ownerText = [
+                '╭━━〔 ᴏᴡɴᴇʀ ɪɴғᴏ 〕━━●●►',
+                '┃',
+                `┃ 👤 ᴏᴡɴᴇʀ  : ${OWNER_NAME}`,
+                `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}`,
+                '┃ 🤖 ʙᴏᴛ    : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
+                '┃ ⚡ sᴛᴀᴛᴜs  : ᴏғғɪᴄɪᴀʟ',
+                '┃',
+                '╰━━━━━━━━━━━━━━●●►',
+                '',
+                `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!`,
+                '',
+                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ',
+                '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.',
+                '',
+                ''
+            ].join('\n');
 
-            // List button එක නැතිව, අදාළ URL buttons දෙක පමණයි
             const sections = [
                 {
                     title: 'ᴏᴡɴᴇʀ ɪɴғᴏ',
@@ -49,9 +51,8 @@ cmd(
             await sendListMenu(conn, from, {
                 title: ownerText,
                 buttonText: 'OWNER MENU',
-                sections,
-                footer:
-                    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                sections: sections,
+                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                 image: OWNER_IMAGE_URL,
                 hideListButton: true
             });
@@ -60,8 +61,7 @@ cmd(
             console.error('[OWNER COMMAND ERROR]', error);
 
             await conn.sendMessage(from, {
-                text:
-                    '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා.'
+                text: '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා.'
             });
         }
     }
