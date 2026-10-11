@@ -231,6 +231,7 @@ cmd(
     '│ ➤ .setting\n' +
     '│ ➤ .restart\n' +
     '│ ➤ .menu\n' +
+    '│ ➤ .shutdown\n' +
     '│\n' +
     '╰────────────────●●►\n\n' +
     
