@@ -2,18 +2,11 @@ const config = require('../config');
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 
-const OWNER_NUMBER = String(
-    config.OWNER_NUMBER ||
-    process.env.OWNER_NUMBER ||
-    '94772194789'
-).replace(/\D/g, '');
-
-const OWNER_NAME =
-    config.OWNER_NAME ||
-    'Dilshan Ashinsa';
+const OWNER_NAME = 'ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ';
+const OWNER_NUMBER = '94742876482';
 
 const OWNER_IMAGE_URL =
-    'https://i.ibb.co/PzTVhgr3/551a590b92a1.jpg';
+    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
 cmd(
     {
@@ -39,6 +32,7 @@ cmd(
                 `👋 ʜᴇʟʟᴏ, ${pushName || 'ᴜsᴇʀ'}!\n\n` +
                 '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ\n' +
                 '📢 ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.\n\n' +
+                '╰━━〔 ⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━●●►';
 
             const sections = [
                 {
@@ -46,12 +40,12 @@ cmd(
                     rows: [
                         {
                             title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                            description: 'Chat with the bot owner',
+                            description: 'View owner contact details',
                             id: 'thenuva:ownercontact'
                         },
                         {
                             title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                            description: 'Visit THENUVA X MD updates',
+                            description: 'Visit our official channel',
                             id: 'thenuva:ownerchannel'
                         }
                     ]
@@ -60,9 +54,9 @@ cmd(
 
             await sendListMenu(conn, from, {
                 title: ownerText,
-                buttonText: 'ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
+                buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
                 sections,
-                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                footer: '⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ',
                 image: OWNER_IMAGE_URL
             });
 
@@ -70,7 +64,7 @@ cmd(
             console.error('[OWNER COMMAND ERROR]', error);
 
             await conn.sendMessage(from, {
-                text: '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා. Logs පරීක්ෂා කරන්න.'
+                text: '❌ Owner menu එක යැවීමට නොහැකි වුණා. Logs පරීක්ෂා කරන්න.'
             });
         }
     }
