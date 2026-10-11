@@ -1,57 +1,103 @@
-const config = require('../config')
-const { cmd, commands } = require('../command')
-const os = require("os")
-const { runtime } = require('../lib/functions')
+const { cmd } = require('../command');
+const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
+const os = require('os');
+const { runtime } = require('../lib/functions');
 
-cmd({
-    pattern: "alive",
-    react: "🟢",
-    desc: "Check bot online status",
-    category: "main",
-    filename: __filename
-},
-async(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
-try {
-
-let aliveMessage = `🟢 *ALIVE NOW* 🟢
-
-👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
-
-✅ *CYBER THENULA X MD IS ONLINE* ✅
-
-╭┈───────────────•* 
-│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
-│  ◦ ⚡ *Mode* :  *[${config.MODE}]*
-│  ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
-│  ◦ 🤖 *Name Bot* : *THENUWA XMD*
-│  ◦ 👤 *Creator* : *Thenula/Dilshan*
-│  ◦ 📌 *Version* : *ᴠ.2.0.0*
-╰┈───────────────•*
-
-> © ⚡*POWERED by CYBER THENUWA*`;
-
-// Image එක සහ Newsletter Forwarding එක සමඟ සෙන්ඩ් කිරීම
-await conn.sendMessage(
-    from,
+cmd(
     {
-        image: { url: `https://i.ibb.co/qPDNmSY/5cdec1f68264.jpg` },
-        caption: aliveMessage,
-        contextInfo: {
-            mentionedJid: [m.sender],
-            forwardingScore: 999,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363403804248705@newsletter',
-                newsletterName: 'THENUWA XMD',
-                serverMessageId: 143
-            }
-        }
+        pattern: 'alive',
+        alias: ['online', 'status'],
+        react: '🟢',
+        desc: 'Check bot online status',
+        category: 'main',
+        filename: __filename
     },
-    { quoted: mek }
-);
 
-} catch (e) {
-    console.log(e);
-    reply(`${e}`);
-}
-});
+    async (conn, mek, m, { from, pushName }) => {
+        try {
+            // USER INFORMATION
+            const userName =
+                pushName ||
+                m?.pushName ||
+                m?.pushname ||
+                m?.senderName ||
+                'User';
+
+            const prefix = config.PREFIX || '.';
+            const uptime = runtime(process.uptime());
+
+            // MEMORY USAGE
+            const usedMemory = (
+                process.memoryUsage().rss / 1024 / 1024
+            ).toFixed(2);
+
+            // STATUS IMAGE
+            const imageUrl =
+                'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+
+            // ALIVE STATUS TEXT
+            const aliveText = `
+👋 HELLOW...*${userName || 'User'}*  I am ALIVE NOW CYBER X THENULA🎉️
+
+╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+│
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+│
+╰──────────────●●►
+
+🔘 Select an option.
+            `.trim();
+
+            // INTERACTIVE LIST MENU
+            await sendListMenu(conn, from, {
+                title: aliveText,
+                buttonText: 'OPEN MENU',
+                hideListButton: false,
+                footer: '⚡ POWERED BY THENUVA X MD',
+                image: imageUrl,
+
+                sections: [
+                    {
+                        title: '🤖 THENUVA X MD',
+                        rows: [
+                            {
+                                id: `${prefix}ping`,
+                                title: '🏓 Ping',
+                                description: 'Check bot response speed'
+                            },
+                            {
+                                id: `${prefix}menu`,
+                                title: '📋 Main Menu',
+                                description: 'Open complete bot menu'
+                            },
+                            {
+                                id: `${prefix}about`,
+                                title: 'ℹ️ About',
+                                description: 'View bot information'
+                            }
+                        ]
+                    }
+                ]
+            });
+
+        } catch (error) {
+            console.error('[ALIVE ERROR]', error);
+
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `❌ *ALIVE ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
+                },
+                { quoted: mek }
+            );
+        }
+    }
+);

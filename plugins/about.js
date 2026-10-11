@@ -1,47 +1,102 @@
-const config = require('../config')
-const {cmd , commands} = require('../command')
+const { cmd } = require('../command');
+const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
 
-cmd({
-    pattern: "about",
-    react: "👑",
-    desc: "get owner dec",
-    category: "main",
-    filename: __filename
-},
-async(conn, mek, m,{from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply}) => {
-try{
-let madeMenu = `👋 *HELLOW, ${pushname}!* ❤️ welcome to CYBER X THENULA...
+cmd(
+    {
+        pattern: 'about',
+        alias: ['developer', 'ownerinfo'],
+        react: '👑',
+        desc: 'Get bot information',
+        category: 'main',
+        filename: __filename
+    },
 
+    async (conn, mek, m, { from, pushName, pushname }) => {
+        try {
+            const userName =
+                pushName ||
+                pushname ||
+                m?.pushName ||
+                m?.pushname ||
+                'User';
 
-🌟 *DEVELOPER DETAILS* 🌟
-─────────────────────
-👨‍💻 *Developer:* THENULA AND DILSHAN
-🔞 *Age:* 19 Years Old
-🙈 *Location:* Personal Hai 😁
-🤖 *Status:* Simple WhatsApp Bot Developer
-──────────────────────
+            const prefix = config.PREFIX || '.';
+            const botName = 'THENUVA X MD';
 
- 💡 *Thank you for using my bot!*...
+            const aboutText = `👋 HELLOW...*${userName || 'User'}*  I am ABOUT NOW CYBER X THENULA🎉️
 
+╭──〔 *${botName}* 〕──●●►   
+│
+│ 👋 ʜᴇʟʟᴏ, *${userName}* ❤️
+│
+│ 💖 Welcome to *${botName}*
+│ 🤖 Your smart WhatsApp assistant
+│ ⚡ Ready to make your WhatsApp
+│    experience more amazing!
+│
+├─〔 *ᴀʙᴏᴜᴛ ᴍᴇ* 〕
+│
+│ 👨‍💻 *ᴅᴇᴠᴇʟᴏᴘᴇʀ* : Dilshan Ashinsa
+│ 🚀 *ʙᴏᴛ ɴᴀᴍᴇ* : ${botName}
+│ 🧩 *ᴘʀᴇғɪx* : ${prefix}
+│ 🌟 *sᴛᴀᴛᴜs* : Always Ready
+│
+│ 💌 Thank you for choosing us!
+│ ✨ Enjoy the experience!
+│
+╰───────────────●●►
 
-> *⚡ Powered By CYBER X THENULA*`
+🔘 *Choose your option below.*
+            `.trim();
 
-await conn.sendMessage(from, {
-    image: { url: 'https://i.ibb.co/7JWk0d08/11625411f042.jpg' },
-    caption: madeMenu,
-    contextInfo: {
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: config.NEWSLETTER_JID || '120363403804248705@newsletter',
-            newsletterName: 'CYBER XMD',
-            serverMessageId: 143
+            await sendListMenu(conn, from, {
+                title: aboutText,
+                buttonText: 'OPEN COMMOND',
+                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                image: 'https://i.ibb.co/Qv01hMpz/e605876ded5b.jpg',
+
+                sections: [
+                    {
+                        title: '🤖 THENUVA X MD',
+                        rows: [
+                            {
+                                id: `${prefix}alive`,
+                                title: '🟢 Alive',
+                                description: 'Check bot online status'
+                            },
+                            {
+                                id: `${prefix}ping`,
+                                title: '🏓 Ping',
+                                description: 'Check bot response speed'
+                            },
+                            {
+                                id: `${prefix}menu`,
+                                title: '📋 Main Menu',
+                                description: 'Open all bot commands'
+                            },
+                            {
+                                id: `${prefix}about`,
+                                title: '👑 About',
+                                description: 'View bot information'
+                            }
+                        ]
+                    }
+                ]
+            });
+
+        } catch (error) {
+            console.error('[ABOUT ERROR]', error);
+
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `❌ *ABOUT ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
+                },
+                { quoted: mek }
+            );
         }
     }
-}, { quoted: mek })
-
-}catch(e){
-console.log(e)
-reply(`${e}`)
-}
-})
+);
