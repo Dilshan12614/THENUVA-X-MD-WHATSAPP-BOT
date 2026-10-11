@@ -1,66 +1,76 @@
 const settings = require('../settings');
+const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 
 const OWNER_NUMBER = String(
     settings.ownerNumber || '94772194789'
 ).replace(/\D/g, '');
 
-async function ownerCommand(sock, from, msg) {
-    try {
-        const ownerName = settings.ownerName || 'Dilshan Ashinsa';
+cmd(
+    {
+        pattern: 'owner',
+        alias: ['ownerinfo', 'ownerbutton'],
+        react: '👑',
+        desc: 'Show bot owner information',
+        category: 'main',
+        filename: __filename
+    },
 
-        const ownerText =
-            '╭━━〔 👑 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━╮\n' +
-            '┃\n' +
-            `┃ 👤 ᴏᴡɴᴇʀ : ${ownerName}\n` +
-            `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}\n` +
-            '┃ 🤖 ʙᴏᴛ : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-            '┃ ⚡ sᴛᴀᴛᴜs : ᴏғғɪᴄɪᴀʟ\n' +
-            '┃\n' +
-            '╰━━━━━━━━━━━━━━╯\n\n' +
-            '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
+    async (conn, mek, m, { from, quoted }) => {
+        try {
+            const ownerName = settings.ownerName || 'Dilshan Ashinsa';
 
-        const sections = [
-            {
-                title: '👑 ᴏᴡɴᴇʀ ᴏᴘᴛɪᴏɴs',
-                rows: [
-                    {
-                        title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                        description: 'ᴏᴘᴇɴ ᴏᴡɴᴇʀ ᴄᴏɴᴛᴀᴄᴛ',
-                        id: 'thenuva:ownercontact'
-                    },
-                    {
-                        title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                        description: 'ᴠɪsɪᴛ ᴏᴜʀ ᴡʜᴀᴛsᴀᴘᴘ ᴄʜᴀɴɴᴇʟ',
-                        id: 'thenuva:ownerchannel'
-                    }
-                ]
-            }
-        ];
+            const ownerText =
+                '╭━━〔 👑 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━╮\n' +
+                '┃\n' +
+                `┃ 👤 ᴏᴡɴᴇʀ : ${ownerName}\n` +
+                `┃ 📱 ɴᴜᴍʙᴇʀ : +${OWNER_NUMBER}\n` +
+                '┃ 🤖 ʙᴏᴛ : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
+                '┃ ⚡ sᴛᴀᴛᴜs : ᴏғғɪᴄɪᴀʟ\n' +
+                '┃\n' +
+                '╰━━━━━━━━━━━━━━╯\n\n' +
+                '✨ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ ᴠɪsɪᴛ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ.';
 
-        await sendListMenu(
-            sock,
-            from,
-            {
-                title: ownerText,
-                buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
-                sections,
-                footer: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ'
-            },
-            msg
-        );
+            const sections = [
+                {
+                    title: '👑 ᴏᴡɴᴇʀ ᴏᴘᴛɪᴏɴs',
+                    rows: [
+                        {
+                            title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
+                            description: 'ᴏᴘᴇɴ ᴏᴡɴᴇʀ ᴄᴏɴᴛᴀᴄᴛ',
+                            id: 'thenuva:ownercontact'
+                        },
+                        {
+                            title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
+                            description: 'ᴠɪsɪᴛ ᴛʜᴇ ᴡʜᴀᴛsᴀᴘᴘ ᴄʜᴀɴɴᴇʟ',
+                            id: 'thenuva:ownerchannel'
+                        }
+                    ]
+                }
+            ];
 
-    } catch (error) {
-        console.error('[OWNER COMMAND ERROR]', error);
+            await sendListMenu(
+                conn,
+                from,
+                {
+                    title: ownerText,
+                    buttonText: '👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
+                    sections,
+                    footer: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟsʜᴀɴ ᴀsʜɪɴsᴀ'
+                },
+                quoted || mek
+            );
 
-        await sock.sendMessage(
-            from,
-            {
-                text: '❌ ᴏᴡɴᴇʀ ᴍᴇɴᴜ ᴇʀʀᴏʀ'
-            },
-            { quoted: msg }
-        );
+        } catch (error) {
+            console.error('[OWNER COMMAND ERROR]', error);
+
+            await conn.sendMessage(
+                from,
+                {
+                    text: '❌ ᴏᴡɴᴇʀ ᴍᴇɴᴜ ᴇʀʀᴏʀ'
+                },
+                { quoted: mek }
+            );
+        }
     }
-}
-
-module.exports = ownerCommand;
+);
