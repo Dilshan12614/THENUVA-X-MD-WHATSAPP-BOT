@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
-
   workflow_dispatch:
 
 # Allow the workflow token to trigger another workflow run.
@@ -42,10 +40,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
-
           echo "FFmpeg:"
           ffmpeg -version | head -n 1
-
           echo "FFprobe:"
           ffprobe -version | head -n 1
 
@@ -63,7 +59,6 @@ jobs:
 
       # SESSION CHECK
       - name: Check SESSION_ID
-        if: github.event_name != 'pull_request'
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
         run: |
@@ -75,7 +70,6 @@ jobs:
 
       # START BOT
       - name: Start THENUVA X MD
-        if: github.event_name != 'pull_request'
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
