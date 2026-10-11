@@ -4,7 +4,7 @@ const { sendListMenu } = require('../lib/buttons');
 const { runtime } = require('../lib/functions');
 const os = require('os');
 
-const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+const MENU_IMAGE = 'https://i.ibb.co/PzTVhgr3/551a590b92a1.jpg';
 
 const CATEGORIES = [
     {
