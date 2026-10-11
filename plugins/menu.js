@@ -49,8 +49,7 @@ cmd(
     async (conn, mek, m, { from, pushName }) => {
         try {
             const text = `
-👋 *ʜᴇʟʟᴏ... ${pushname}* 
-*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+👋 *ʜᴇʟʟᴏ... ${pushName || 'User'}* *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
 
 ╭─〔*ＴＨＥＮＵＶＡ Ｘ ＭＤ*〕──●●►
 │
