@@ -15,9 +15,6 @@ const OWNER_NAME =
 const OWNER_IMAGE_URL =
     'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-const CHANNEL_URL =
-    'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
-
 cmd(
     {
         pattern: 'owner',
@@ -50,47 +47,32 @@ cmd(
                     rows: [
                         {
                             title: '📱 ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ',
-                            description:
-                                'Chat with the official bot owner',
+                            description: 'Chat with the bot owner',
                             id: 'thenuva:ownercontact'
                         },
                         {
                             title: '📢 ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ',
-                            description:
-                                'Visit THENUVA X MD updates',
+                            description: 'Visit THENUVA X MD updates',
                             id: 'thenuva:ownerchannel'
                         }
                     ]
                 }
             ];
 
-            await sendListMenu(
-                conn,
-                from,
-                {
-                    title: ownerText,
-                    buttonText: 'ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
-                    sections,
-                    footer:
-                        'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
-                    image: OWNER_IMAGE_URL
-                }
-            );
+            await sendListMenu(conn, from, {
+                title: ownerText,
+                buttonText: 'ᴏᴡɴᴇʀ ᴍᴇɴᴜ',
+                sections,
+                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                image: OWNER_IMAGE_URL
+            });
 
         } catch (error) {
-            console.error(
-                '[OWNER COMMAND ERROR]',
-                error
-            );
+            console.error('[OWNER COMMAND ERROR]', error);
 
-            await conn.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා.\n' +
-                        'කරුණාකර logs පරීක්ෂා කරන්න.'
-                }
-            );
+            await conn.sendMessage(from, {
+                text: '❌ Owner menu එක යැවීමේදී දෝෂයක් ඇතිවුණා. Logs පරීක්ෂා කරන්න.'
+            });
         }
     }
 );
