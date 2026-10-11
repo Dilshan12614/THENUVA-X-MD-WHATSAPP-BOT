@@ -12,7 +12,9 @@ const SEARCH_TERMS = [
     'Sinhala remix songs',
     'Sinhala love songs',
     'English hit songs',
-    'popular music'
+    'popular music',
+    'Sinhala trending songs',
+    'Sinhala new songs'
 ];
 
 const CATEGORIES = [
@@ -53,7 +55,6 @@ const CATEGORIES = [
     }
 ];
 
-// Convert duration to seconds
 function durationToSeconds(timestamp) {
     if (!timestamp || typeof timestamp !== 'string') {
         return Infinity;
@@ -72,29 +73,26 @@ function durationToSeconds(timestamp) {
     return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
-// Select a random YouTube song and send its audio
+// Send a random song every time .menu is used
 async function sendRandomSong(conn, from, mek) {
     try {
-        const randomQuery =
-            SEARCH_TERMS[
-                Math.floor(Math.random() * SEARCH_TERMS.length)
-            ];
+        const query =
+            SEARCH_TERMS[Math.floor(Math.random() * SEARCH_TERMS.length)];
 
-        console.log(`[MENU MUSIC] Searching: ${randomQuery}`);
+        console.log(`[MENU MUSIC] Searching: ${query}`);
 
-        const search = await yts(randomQuery);
+        const search = await yts(query);
 
         if (!search?.videos?.length) {
-            console.log('[MENU MUSIC] No search results.');
+            console.log('[MENU MUSIC] No songs found.');
             return;
         }
 
-        // Randomly select from the first 10 results
         const candidates = search.videos
             .slice(0, 10)
             .filter(video => {
                 const seconds = durationToSeconds(video.timestamp);
-                return seconds > 0 && seconds <= 1800;
+                return seconds > 0 && seconds <= 1800 && video.url;
             });
 
         if (!candidates.length) {
@@ -108,13 +106,15 @@ async function sendRandomSong(conn, from, mek) {
         console.log(`[MENU MUSIC] Selected: ${video.title}`);
 
         const songData = await ytmp3(video.url, '192');
+
         const audioUrl = songData?.download?.url;
 
         if (!audioUrl) {
-            console.log('[MENU MUSIC] MP3 download URL unavailable.');
+            console.log('[MENU MUSIC] Download URL not available.');
             return;
         }
 
+        // Send only the audio file: no thumbnail, caption or document
         await conn.sendMessage(
             from,
             {
@@ -126,7 +126,7 @@ async function sendRandomSong(conn, from, mek) {
             { quoted: mek }
         );
 
-        console.log('[MENU MUSIC] Audio sent successfully.');
+        console.log(`[MENU MUSIC] Sent: ${video.title}`);
     } catch (error) {
         console.error('[MENU MUSIC ERROR]', error.message || error);
     }
@@ -138,16 +138,14 @@ cmd(
         pattern: 'menu',
         alias: ['help'],
         react: '📂',
-        desc: 'Show bot menu with random music',
+        desc: 'Show menu and send a random song',
         category: 'main',
         filename: __filename
     },
     async (conn, mek, m, { from, pushName, sender }) => {
         try {
             const contact =
-                (sender && conn.store?.contacts?.[sender]) ||
-                (from && conn.store?.contacts?.[from]) ||
-                {};
+                (sender && conn.store?.contacts?.[sender]) || {};
 
             const userName =
                 pushName ||
@@ -155,7 +153,6 @@ cmd(
                 mek?.pushName ||
                 contact?.name ||
                 contact?.notify ||
-                contact?.verifiedName ||
                 'WhatsApp User';
 
             const uptime = runtime(process.uptime());
@@ -183,7 +180,7 @@ cmd(
 
 🔘 Select an option.`;
 
-            // Send the menu first
+            // Send menu first
             await sendListMenu(
                 conn,
                 from,
@@ -203,15 +200,11 @@ cmd(
                 mek
             );
 
-            // Then send a random song
+            // Every .menu call attempts to send a random song
             await sendRandomSong(conn, from, mek);
 
         } catch (error) {
             console.error('[MENU ERROR]', error);
-
-            await conn.sendMessage(from, {
-                text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.'
-            });
         }
     }
 );
@@ -226,17 +219,13 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '👑 *OWNER MENU*\n\n' +
-                    '⚙️ .setting\n' +
-                    '🔄 .restart\n' +
-                    '🏠 .menu'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '👑 *OWNER MENU*\n\n' +
+                '⚙️ .setting\n' +
+                '🔄 .restart\n' +
+                '🏠 .menu'
+        }, { quoted: mek });
     }
 );
 
@@ -250,18 +239,14 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '👥 *GROUP MENU*\n\n' +
-                    '📢 .tagall\n' +
-                    '👮 .admins\n' +
-                    'ℹ️ .groupinfo\n' +
-                    '🏠 .menu'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '👥 *GROUP MENU*\n\n' +
+                '📢 .tagall\n' +
+                '👮 .admins\n' +
+                'ℹ️ .groupinfo\n' +
+                '🏠 .menu'
+        }, { quoted: mek });
     }
 );
 
@@ -275,20 +260,16 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '📥 *DOWNLOAD MENU*\n\n' +
-                    '🎬 .video\n' +
-                    '▶️ .playvideo\n' +
-                    '📘 .fb\n' +
-                    '📦 .apk\n' +
-                    '🎵 .song\n' +
-                    '🏠 .menu'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '📥 *DOWNLOAD MENU*\n\n' +
+                '🎬 .video\n' +
+                '▶️ .playvideo\n' +
+                '📘 .fb\n' +
+                '📦 .apk\n' +
+                '🎵 .song\n' +
+                '🏠 .menu'
+        }, { quoted: mek });
     }
 );
 
@@ -302,20 +283,16 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '🛠️ *TOOLS MENU*\n\n' +
-                    '🧮 .calc\n' +
-                    '🆔 .jid\n' +
-                    '🎨 .sticker\n' +
-                    '🗣️ .tts\n' +
-                    '🌐 .translate\n' +
-                    '🏠 .menu'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '🛠️ *TOOLS MENU*\n\n' +
+                '🧮 .calc\n' +
+                '🆔 .jid\n' +
+                '🎨 .sticker\n' +
+                '🗣️ .tts\n' +
+                '🌐 .translate\n' +
+                '🏠 .menu'
+        }, { quoted: mek });
     }
 );
 
@@ -329,17 +306,13 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '🔎 *SEARCH MENU*\n\n' +
-                    '▶️ .ytsearch\n' +
-                    '🌐 .google\n' +
-                    '🏠 .menu'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '🔎 *SEARCH MENU*\n\n' +
+                '▶️ .ytsearch\n' +
+                '🌐 .google\n' +
+                '🏠 .menu'
+        }, { quoted: mek });
     }
 );
 
@@ -354,19 +327,15 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '╭━━〔 🎵 MUSIC MENU 〕━━●●►\n' +
-                    '┃\n' +
-                    '┃ 🎶 .song <song name>\n' +
-                    '┃ 🔗 .song <YouTube URL>\n' +
-                    '┃\n' +
-                    '╰━━━━━━━━━━━━━━●●►\n\n' +
-                    '🏠 Type .menu to return.'
-            },
-            { quoted: mek }
-        );
+        await conn.sendMessage(from, {
+            text:
+                '╭━━〔 🎵 MUSIC MENU 〕━━●●►\n' +
+                '┃\n' +
+                '┃ 🎶 .song <song name>\n' +
+                '┃ 🔗 .song <YouTube URL>\n' +
+                '┃\n' +
+                '╰━━━━━━━━━━━━━━●●►\n\n' +
+                '🏠 Type .menu to return.'
+        }, { quoted: mek });
     }
 );
