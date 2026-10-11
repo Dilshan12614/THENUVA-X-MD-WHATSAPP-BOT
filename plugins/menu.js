@@ -226,10 +226,15 @@ cmd(
             from,
             {
                 text:
-                    '👑 *OWNER MENU*\n\n' +
-                    '⚙️ .setting\n' +
-                    '🔄 .restart\n' +
-                    '🏠 .menu'
+    '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
+    '│\n' +
+    '│ ➤ .setting\n' +
+    '│ ➤ .restart\n' +
+    '│ ➤ .menu\n' +
+    '│\n' +
+    '╰────────────────●●►\n\n' +
+    
+    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
             },
             { quoted: mek }
         );
