@@ -21,63 +21,69 @@ concurrency:
 
 jobs:
   build:
+    name: Build and Start THENUVA X MD
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20.x]
-
     steps:
-      # CHECKOUT REPOSITORY
+      # 1. CHECKOUT
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
-      # NODE.JS
-      - name: Set up Node.js
+      # 2. SETUP NODE.JS
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
 
-      # SYSTEM DEPENDENCIES
+      # 3. CHECK PROJECT FILES
+      - name: Check project files
+        run: |
+          echo "================================"
+          echo "THENUVA X MD"
+          echo "================================"
+
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Event: $GITHUB_EVENT_NAME"
+
+          if [ ! -f package.json ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+
+          if [ ! -f index.js ]; then
+            echo "ERROR: index.js not found"
+            exit 1
+          fi
+
+          echo "Project files found"
+
+      # 4. INSTALL SYSTEM DEPENDENCIES
       - name: Install FFmpeg and ImageMagick
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
 
-          echo "FFmpeg:"
+          echo "Checking FFmpeg..."
           ffmpeg -version | head -n 1
 
-          echo "FFprobe:"
+          echo "Checking FFprobe..."
           ffprobe -version | head -n 1
 
-          echo "ImageMagick:"
+          echo "Checking ImageMagick..."
           convert -version | head -n 1
 
-      # NODE DEPENDENCIES
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      # ENVIRONMENT CHECK
-      - name: Verify environment
+      # 5. INSTALL NODE MODULES
+      - name: Install Node dependencies
         run: |
-          echo "================================"
-          echo "THENUVA X MD Environment"
-          echo "================================"
-
           node --version
           npm --version
+          npm install --legacy-peer-deps
 
-          test -f index.js || {
-            echo "ERROR: index.js not found"
-            exit 1
-          }
-
-          echo "Environment ready"
-
-      # SESSION ID CHECK
-      - name: Check SESSION_ID
+      # 6. VERIFY SESSION
+      - name: Verify SESSION_ID
         if: github.event_name != 'pull_request'
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
@@ -89,7 +95,7 @@ jobs:
 
           echo "SESSION_ID is configured"
 
-      # START BOT
+      # 7. START BOT
       - name: Start THENUVA X MD
         if: github.event_name != 'pull_request'
         env:
@@ -101,7 +107,7 @@ jobs:
           GH_BRANCH: add-menu-bottons
         run: |
           echo "================================"
-          echo "Starting THENUVA X MD"
+          echo "Starting THENUVA X MD..."
           echo "================================"
 
           node index.js
