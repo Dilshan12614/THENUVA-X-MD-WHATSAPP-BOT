@@ -1,14 +1,19 @@
-
 const { cmd } = require('../command');
-const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
 const { runtime } = require('../lib/functions');
 const os = require('os');
+const yts = require('yt-search');
+const { ytmp3 } = require('@vreden/youtube_scraper');
 
 const MENU_IMAGE = 'https://i.ibb.co/PzTVhgr3/551a590b92a1.jpg';
 
-// Direct MP3 audio URL එක මෙතනට දාන්න
-const MENU_AUDIO_URL = 'https://YOUR-DIRECT-MP3-URL.mp3';
+const SEARCH_TERMS = [
+    'Sinhala hit songs',
+    'Sinhala remix songs',
+    'Sinhala love songs',
+    'English hit songs',
+    'popular music'
+];
 
 const CATEGORIES = [
     {
@@ -37,7 +42,7 @@ const CATEGORIES = [
         description: 'Search YouTube and Google'
     },
     {
-        title: '🎵 Music / Audio',
+        title: '🎵 Music Menu',
         id: 'thenuva:music',
         description: 'Music and MP3 audio'
     },
@@ -48,12 +53,92 @@ const CATEGORIES = [
     }
 ];
 
+// Convert duration to seconds
+function durationToSeconds(timestamp) {
+    if (!timestamp || typeof timestamp !== 'string') {
+        return Infinity;
+    }
+
+    const parts = timestamp.split(':').map(Number);
+
+    if (
+        parts.some(part => !Number.isFinite(part)) ||
+        parts.length < 2 ||
+        parts.length > 3
+    ) {
+        return Infinity;
+    }
+
+    return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
+// Select a random YouTube song and send its audio
+async function sendRandomSong(conn, from, mek) {
+    try {
+        const randomQuery =
+            SEARCH_TERMS[
+                Math.floor(Math.random() * SEARCH_TERMS.length)
+            ];
+
+        console.log(`[MENU MUSIC] Searching: ${randomQuery}`);
+
+        const search = await yts(randomQuery);
+
+        if (!search?.videos?.length) {
+            console.log('[MENU MUSIC] No search results.');
+            return;
+        }
+
+        // Randomly select from the first 10 results
+        const candidates = search.videos
+            .slice(0, 10)
+            .filter(video => {
+                const seconds = durationToSeconds(video.timestamp);
+                return seconds > 0 && seconds <= 1800;
+            });
+
+        if (!candidates.length) {
+            console.log('[MENU MUSIC] No suitable songs found.');
+            return;
+        }
+
+        const video =
+            candidates[Math.floor(Math.random() * candidates.length)];
+
+        console.log(`[MENU MUSIC] Selected: ${video.title}`);
+
+        const songData = await ytmp3(video.url, '192');
+        const audioUrl = songData?.download?.url;
+
+        if (!audioUrl) {
+            console.log('[MENU MUSIC] MP3 download URL unavailable.');
+            return;
+        }
+
+        await conn.sendMessage(
+            from,
+            {
+                audio: { url: audioUrl },
+                mimetype: 'audio/mpeg',
+                fileName: 'THENUVA-X-MD-RANDOM-SONG.mp3',
+                ptt: false
+            },
+            { quoted: mek }
+        );
+
+        console.log('[MENU MUSIC] Audio sent successfully.');
+    } catch (error) {
+        console.error('[MENU MUSIC ERROR]', error.message || error);
+    }
+}
+
+// MAIN MENU
 cmd(
     {
         pattern: 'menu',
         alias: ['help'],
         react: '📂',
-        desc: 'Show bot menu with music',
+        desc: 'Show bot menu with random music',
         category: 'main',
         filename: __filename
     },
@@ -81,9 +166,9 @@ cmd(
                 1024
             ).toFixed(2);
 
-            const text = `
+            const menuText = `
 👋 *ʜᴇʟʟᴏ... ${userName}*
-*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 🎉
 
 ╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►
 │
@@ -98,14 +183,15 @@ cmd(
 
 🔘 Select an option.`;
 
-            // Send the main menu
+            // Send the menu first
             await sendListMenu(
                 conn,
                 from,
                 {
-                    title: text,
+                    title: menuText,
                     buttonText: 'Select Category',
-                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                    footer:
+                        'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                     sections: [
                         {
                             title: '📂 MENU CATEGORIES',
@@ -117,29 +203,8 @@ cmd(
                 mek
             );
 
-            // Send the MP3 audio after the menu
-            if (
-                MENU_AUDIO_URL &&
-                MENU_AUDIO_URL !== 'https://YOUR-DIRECT-MP3-URL.mp3'
-            ) {
-                try {
-                    await conn.sendMessage(from, {
-                        audio: { url: MENU_AUDIO_URL },
-                        mimetype: 'audio/mpeg',
-                        fileName: 'THENUVA-X-MD-MUSIC.mp3',
-                        ptt: false
-                    });
-                } catch (audioError) {
-                    console.error(
-                        '[MENU AUDIO ERROR]',
-                        audioError
-                    );
-                }
-            } else {
-                console.warn(
-                    '[MENU AUDIO] Add a valid direct MP3 URL to MENU_AUDIO_URL.'
-                );
-            }
+            // Then send a random song
+            await sendRandomSong(conn, from, mek);
 
         } catch (error) {
             console.error('[MENU ERROR]', error);
@@ -272,6 +337,34 @@ cmd(
                     '▶️ .ytsearch\n' +
                     '🌐 .google\n' +
                     '🏠 .menu'
+            },
+            { quoted: mek }
+        );
+    }
+);
+
+// MUSIC MENU
+cmd(
+    {
+        pattern: 'musicmenu',
+        alias: ['mp3menu', 'audiomenu'],
+        react: '🎵',
+        desc: 'Show music and audio menu',
+        category: 'main',
+        filename: __filename
+    },
+    async (conn, mek, m, { from }) => {
+        await conn.sendMessage(
+            from,
+            {
+                text:
+                    '╭━━〔 🎵 MUSIC MENU 〕━━●●►\n' +
+                    '┃\n' +
+                    '┃ 🎶 .song <song name>\n' +
+                    '┃ 🔗 .song <YouTube URL>\n' +
+                    '┃\n' +
+                    '╰━━━━━━━━━━━━━━●●►\n\n' +
+                    '🏠 Type .menu to return.'
             },
             { quoted: mek }
         );
