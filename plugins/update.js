@@ -5,7 +5,7 @@ const OWNER_NUMBER = String(
     process.env.OWNER_NUMBER ||
     config.OWNER_NUMBER ||
     config.OWNER_NUM ||
-    '94742876482'
+    '94772194789'
 ).replace(/\D/g, '');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
