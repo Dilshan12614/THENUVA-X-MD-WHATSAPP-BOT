@@ -1,18 +1,17 @@
 const { cmd } = require('../command');
-const { sleep } = require('../lib/functions');
-const { exec } = require('child_process');
+const config = require('../config');
+const https = require('https');
 
 cmd(
     {
         pattern: 'restart',
         alias: ['reboot'],
-        desc: 'Restart the bot',
+        desc: 'Restart bot using GitHub Actions',
         category: 'owner',
         filename: __filename
     },
-    async (conn, mek, m, { from, isOwner, isMe, reply }) => {
+    async (conn, mek, m, { isOwner, isMe, reply }) => {
         try {
-            // Owner permission check
             if (!isOwner && !isMe) {
                 return await reply(
                     '╭─〔 *ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ* 〕─●●►\n' +
@@ -23,31 +22,87 @@ cmd(
                 );
             }
 
+            const token = process.env.GITHUB_TOKEN;
+            const owner = process.env.GITHUB_OWNER;
+            const repo = process.env.GITHUB_REPO;
+            const workflow = process.env.GITHUB_WORKFLOW_FILE || 'main.yml';
+            const branch = process.env.GITHUB_BRANCH || 'main';
+
+            if (!token || !owner || !repo) {
+                return await reply(
+                    '╭─〔 *ᴄᴏɴꜰɪɢ ᴇʀʀᴏʀ* 〕─●●►\n' +
+                    '│\n' +
+                    '│ ➤ GitHub settings missing\n' +
+                    '│ ➤ Check repository secrets\n' +
+                    '│\n' +
+                    '╰────────────────●●►'
+                );
+            }
+
             await reply(
                 '╭─〔 *ʀᴇsᴛᴀʀᴛ ᴘᴀɴᴇʟ* 〕─●●►\n' +
                 '│\n' +
-                '│ ➤ ʙᴏᴛ ʀᴇsᴛᴀʀᴛɪɴɢ...\n' +
-                '│ ➤ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ\n' +
+                '│ ➤ ɢɪᴛʜᴜʙ ᴀᴄᴛɪᴏɴs\n' +
+                '│ ➤ ʀᴇǫᴜᴇsᴛɪɴɢ ʀᴇsᴛᴀʀᴛ...\n' +
                 '│\n' +
                 '╰────────────────●●►\n\n' +
-                
-                '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
+                'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
             );
 
-            await sleep(1500);
+            const data = JSON.stringify({ ref: branch });
 
-            exec('pm2 restart all', (error, stdout, stderr) => {
-                if (error) {
-                    console.error('[RESTART ERROR]', error.message);
-                    return;
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,
+                method: 'POST',
+                headers: {
+                    'User-Agent': 'THENUVA-X-MD',
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': `Bearer ${token}`,
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(data)
                 }
+            };
 
-                console.log('[RESTART]', stdout || stderr || 'Restart command executed.');
+            const request = https.request(options, (response) => {
+                let result = '';
+
+                response.on('data', (chunk) => {
+                    result += chunk;
+                });
+
+                response.on('end', async () => {
+                    if (response.statusCode === 204) {
+                        console.log('[RESTART] Workflow dispatch successful.');
+                        return;
+                    }
+
+                    console.error(
+                        '[RESTART ERROR]',
+                        response.statusCode,
+                        result
+                    );
+                });
             });
+
+            request.on('error', (error) => {
+                console.error('[RESTART ERROR]', error.message);
+            });
+
+            request.write(data);
+            request.end();
 
         } catch (error) {
             console.error('[RESTART ERROR]', error);
-            await reply('❌ Restart failed: ' + error.message);
+
+            await reply(
+                '╭─〔 *ʀᴇsᴛᴀʀᴛ ᴇʀʀᴏʀ* 〕─●●►\n' +
+                '│\n' +
+                `│ ➤ ${error.message}\n` +
+                '│\n' +
+                '╰────────────────●●►'
+            );
         }
     }
 );
