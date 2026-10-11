@@ -71,7 +71,7 @@ cmd(
                 {
                     title: text,
                     buttonText: 'Select Category',
-                    footer: 'POWERED BY DILSHAN ASHINSA',
+                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                     sections: [
                         {
                             title: '📂 MENU CATEGORIES',
