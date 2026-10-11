@@ -3,111 +3,218 @@ name: Node.js CI/CD Workflow
 on:
   push:
     branches:
-      - add-menu-bottons
+      - main
 
   pull_request:
     branches:
-      - add-menu-bottons
+      - main
 
   workflow_dispatch:
 
-permissions:
-  contents: read
-  actions: write
-
-concurrency:
-  group: thenuva-x-md-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
-    name: Build and Start THENUVA X MD
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x]
+
     steps:
-      # 1. CHECKOUT
+
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
 
-      # 2. SETUP NODE.JS
-      - name: Setup Node.js
+
+      # ==========================================
+      # NODE.JS
+      # ==========================================
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
 
-      # 3. CHECK PROJECT FILES
-      - name: Check project files
+
+      # ==========================================
+      # SYSTEM DEPENDENCIES
+      # ==========================================
+
+      - name: Install FFmpeg & ImageMagick
         run: |
-          echo "================================"
-          echo "THENUVA X MD"
-          echo "================================"
+          echo "========================================"
+          echo "Installing FFmpeg & ImageMagick"
+          echo "========================================"
 
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Event: $GITHUB_EVENT_NAME"
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo apt-get clean
 
-          if [ ! -f package.json ]; then
-            echo "ERROR: package.json not found"
-            exit 1
-          fi
+          sudo apt-get update -o Acquire::Retries=5
 
-          if [ ! -f index.js ]; then
-            echo "ERROR: index.js not found"
-            exit 1
-          fi
+          sudo apt-get install -y --fix-missing \
+            ffmpeg \
+            imagemagick
 
-          echo "Project files found"
+          echo ""
+          echo "========================================"
+          echo "Checking FFmpeg"
+          echo "========================================"
 
-      # 4. INSTALL SYSTEM DEPENDENCIES
-      - name: Install FFmpeg and ImageMagick
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
+          command -v ffmpeg
+          command -v ffprobe
 
-          echo "Checking FFmpeg..."
+          echo ""
           ffmpeg -version | head -n 1
-
-          echo "Checking FFprobe..."
           ffprobe -version | head -n 1
 
-          echo "Checking ImageMagick..."
-          convert -version | head -n 1
+          echo ""
+          echo "========================================"
+          echo "Checking ImageMagick"
+          echo "========================================"
 
-      # 5. INSTALL NODE MODULES
-      - name: Install Node dependencies
+          command -v convert || true
+          command -v magick || true
+
+          echo ""
+          echo "========================================"
+          echo "FFmpeg Encoder Check"
+          echo "========================================"
+
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libx264|aac" || true
+
+          echo ""
+          echo "========================================"
+          echo "FFmpeg Installation Complete"
+          echo "========================================"
+
+
+      # ==========================================
+      # TEST FFMPEG
+      # ==========================================
+
+      - name: Test FFmpeg
         run: |
-          node --version
-          npm --version
+          echo "========================================"
+          echo "Testing FFmpeg"
+          echo "========================================"
+
+          echo ""
+          echo "FFmpeg:"
+          ffmpeg -hide_banner -version | head -n 3
+
+          echo ""
+          echo "FFprobe:"
+          ffprobe -hide_banner -version | head -n 3
+
+          echo ""
+          echo "H.264 encoder:"
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep "libx264" || true
+
+          echo ""
+          echo "AAC encoder:"
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep "aac" || true
+
+          echo ""
+          echo "========================================"
+          echo "FFmpeg environment ready"
+          echo "========================================"
+
+
+      # ==========================================
+      # NODE DEPENDENCIES
+      # ==========================================
+
+      - name: Install dependencies
+        run: |
+          echo "========================================"
+          echo "Installing Node.js dependencies"
+          echo "========================================"
+
           npm install --legacy-peer-deps
 
-      # 6. VERIFY SESSION
-      - name: Verify SESSION_ID
-        if: github.event_name != 'pull_request'
+          echo ""
+          echo "========================================"
+          echo "Dependencies installed"
+          echo "========================================"
+
+
+      # ==========================================
+      # ENVIRONMENT CHECK
+      # ==========================================
+
+      - name: Verify environment
+        run: |
+          echo "========================================"
+          echo "Environment Information"
+          echo "========================================"
+
+          echo ""
+          echo "Node.js:"
+          node --version
+
+          echo ""
+          echo "NPM:"
+          npm --version
+
+          echo ""
+          echo "FFmpeg:"
+          ffmpeg -version | head -n 1
+
+          echo ""
+          echo "FFprobe:"
+          ffprobe -version | head -n 1
+
+          echo ""
+          echo "Working directory:"
+          pwd
+
+          echo ""
+          echo "Repository files:"
+          ls -la
+
+          echo ""
+          echo "========================================"
+          echo "Environment check complete"
+          echo "========================================"
+
+
+      # ==========================================
+      # SESSION ID
+      # ==========================================
+
+      - name: Check SESSION_ID
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
+
         run: |
+          echo "========================================"
+          echo "Checking SESSION_ID"
+          echo "========================================"
+
           if [ -z "$SESSION_ID" ]; then
-            echo "ERROR: SESSION_ID secret is missing"
+            echo "❌ SESSION_ID is missing"
             exit 1
           fi
 
-          echo "SESSION_ID is configured"
+          echo "✅ SESSION_ID is set"
 
-      # 7. START BOT
-      - name: Start THENUVA X MD
-        if: github.event_name != 'pull_request'
+
+      # ==========================================
+      # START BOT
+      # ==========================================
+
+      - name: Start application
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_OWNER: ${{ github.repository_owner }}
-          GH_REPO: ${{ github.event.repository.name }}
-          GH_WORKFLOW_FILE: main.yml
-          GH_BRANCH: add-menu-bottons
+
         run: |
-          echo "================================"
-          echo "Starting THENUVA X MD..."
-          echo "================================"
+          echo "========================================"
+          echo "Starting THENUVA X MD"
+          echo "========================================"
 
           node index.js
