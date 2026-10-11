@@ -1,4 +1,3 @@
-
 const { cmd } = require('../command');
 
 const OWNER_NUMBER = '94772194789';
@@ -6,7 +5,7 @@ const OWNER_NUMBER = '94772194789';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO =
     process.env.GITHUB_REPO ||
-    '';
+    'https://github.com/Dilshan12614/THENUVA-X-MD-WHATSAPP-BOT.git';
 
 const GITHUB_WORKFLOW =
     process.env.GITHUB_WORKFLOW || 'main.yml';
