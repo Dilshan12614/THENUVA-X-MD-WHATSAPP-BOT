@@ -97,7 +97,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_OWNER: ${{ github.repository_owner }}
           GH_REPO: ${{ github.event.repository.name }}
-          GH_WORKFLOW_FILE: nodejs.yml
+          GH_WORKFLOW_FILE: main.yml
           GH_BRANCH: add-menu-bottons
         run: |
           echo "================================"
