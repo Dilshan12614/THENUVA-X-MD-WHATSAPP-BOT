@@ -49,25 +49,21 @@ cmd(
     async (conn, mek, m, { from, pushName }) => {
         try {
             const text = `
-╭─〔 *ＴＨＥＮＵＶＡ Ｘ ＭＤ* 〕─●●►
+👋 *ʜᴇʟʟᴏ... ${userName}* 
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
 
-👋 Hello, *${pushName || 'User'}*!
+╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+│
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+│
+╰────────────────●●►
 
-📌 *Select a category below*
-
-╭───────────────
-│ 👑 Owner Menu
-│ 👥 Group Menu
-│ 📥 Download Menu
-│ 🛠️ Tools Menu
-│ 🔎 Search Menu
-│ 🏠 Main Menu
-╰───────────────
-
-⚡ *Version:* v2.0.0
-👨‍💻 *Owner:* Dilshan Ashinsa
-
-╰━━━━━━━━━━━━━━●●►`;
+🔘 Select an option.`;
 
             await sendListMenu(
                 conn,
