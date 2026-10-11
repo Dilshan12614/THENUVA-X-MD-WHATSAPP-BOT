@@ -48,16 +48,33 @@ cmd(
         category: 'main',
         filename: __filename
     },
-    async (conn, mek, m, { from, pushName }) => {
-    try {
-        const userName =
-            pushName ||
-            m?.pushName ||
-            mek?.pushName ||
-            mek?.verifiedBizName ||
-            'WhatsApp User';
+    async (conn, mek, m, { from, pushName, sender }) => {
+        try {
+            const contact =
+                (sender && conn.store?.contacts?.[sender]) ||
+                (from && conn.store?.contacts?.[from]) ||
+                {};
 
-            const text = `👋 HELLOW...*${pushname || 'User'}* *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+            const userName =
+                pushName ||
+                m?.pushName ||
+                mek?.pushName ||
+                contact?.name ||
+                contact?.notify ||
+                contact?.verifiedName ||
+                'WhatsApp User';
+
+            const uptime = runtime(process.uptime());
+
+            const usedMemory = (
+                process.memoryUsage().heapUsed /
+                1024 /
+                1024
+            ).toFixed(2);
+
+            const text = `
+👋 *ʜᴇʟʟᴏ... ${userName}*
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
 
 ╭─〔*ＴＨＥＮＵＶＡ Ｘ ＭＤ*〕──●●►
 │
