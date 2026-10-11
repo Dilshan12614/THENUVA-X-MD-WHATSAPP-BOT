@@ -1,3 +1,4 @@
+
 const { cmd } = require('../command');
 const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
@@ -5,6 +6,9 @@ const { runtime } = require('../lib/functions');
 const os = require('os');
 
 const MENU_IMAGE = 'https://i.ibb.co/PzTVhgr3/551a590b92a1.jpg';
+
+// Direct MP3 audio URL එක මෙතනට දාන්න
+const MENU_AUDIO_URL = 'https://YOUR-DIRECT-MP3-URL.mp3';
 
 const CATEGORIES = [
     {
@@ -33,6 +37,11 @@ const CATEGORIES = [
         description: 'Search YouTube and Google'
     },
     {
+        title: '🎵 Music / Audio',
+        id: 'thenuva:music',
+        description: 'Music and MP3 audio'
+    },
+    {
         title: '🏠 Main Menu',
         id: 'thenuva:menu',
         description: 'Return to the main menu'
@@ -44,7 +53,7 @@ cmd(
         pattern: 'menu',
         alias: ['help'],
         react: '📂',
-        desc: 'Show bot menu',
+        desc: 'Show bot menu with music',
         category: 'main',
         filename: __filename
     },
@@ -89,6 +98,7 @@ cmd(
 
 🔘 Select an option.`;
 
+            // Send the main menu
             await sendListMenu(
                 conn,
                 from,
@@ -106,16 +116,37 @@ cmd(
                 },
                 mek
             );
+
+            // Send the MP3 audio after the menu
+            if (
+                MENU_AUDIO_URL &&
+                MENU_AUDIO_URL !== 'https://YOUR-DIRECT-MP3-URL.mp3'
+            ) {
+                try {
+                    await conn.sendMessage(from, {
+                        audio: { url: MENU_AUDIO_URL },
+                        mimetype: 'audio/mpeg',
+                        fileName: 'THENUVA-X-MD-MUSIC.mp3',
+                        ptt: false
+                    });
+                } catch (audioError) {
+                    console.error(
+                        '[MENU AUDIO ERROR]',
+                        audioError
+                    );
+                }
+            } else {
+                console.warn(
+                    '[MENU AUDIO] Add a valid direct MP3 URL to MENU_AUDIO_URL.'
+                );
+            }
+
         } catch (error) {
             console.error('[MENU ERROR]', error);
 
-            await conn.sendMessage(
-                from,
-                {
-                    text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.'
-                },
-                { quoted: mek }
-            );
+            await conn.sendMessage(from, {
+                text: '❌ Menu එක යැවීමේදී දෝෂයක් ඇති වුණා.'
+            });
         }
     }
 );
