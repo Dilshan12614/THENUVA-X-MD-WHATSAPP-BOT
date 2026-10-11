@@ -1,6 +1,8 @@
 const { cmd } = require('../command');
 const config = require('../config');
 const { sendListMenu } = require('../lib/buttons');
+const { runtime } = require('../lib/functions');
+const os = require('os');
 
 const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
@@ -48,8 +50,17 @@ cmd(
     },
     async (conn, mek, m, { from, pushName }) => {
         try {
+            const userName = pushName || 'User';
+            const uptime = runtime(process.uptime());
+            const usedMemory = (
+                process.memoryUsage().heapUsed /
+                1024 /
+                1024
+            ).toFixed(2);
+
             const text = `
-👋 *ʜᴇʟʟᴏ... ${pushName || 'User'}* *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
+👋 *ʜᴇʟʟᴏ... ${userName}*
+*ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 🎉
 
 ╭─〔*ＴＨＥＮＵＶＡ Ｘ ＭＤ*〕──●●►
 │
