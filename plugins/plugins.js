@@ -10,9 +10,6 @@ const MENU_IMAGE =
 
 const OWNER_NAME = 'Dilshan Ashinsa';
 
-const CHANNEL_URL =
-    'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
-
 function getPluginFiles(dir) {
     let files = [];
 
@@ -98,22 +95,22 @@ cmd({
         }
 
         let output =
-            '╭━━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━━●●►\n' +
+            '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
             '┃\n' +
             '┃ 🧩 *ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ*\n' +
-            '┃ ─────────────────\n' +
+            '┃ ────────\n' +
             `┃ 📁 ᴛᴏᴛᴀʟ ᴘʟᴜɢɪɴ ꜰɪʟᴇꜱ : ${files.length}\n` +
             `┃ ✅ ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ : ${loadedFiles.length}\n` +
             `┃ ⚙️ ʀᴇɢɪꜱᴛᴇʀᴇᴅ ᴄᴏᴍᴍᴀɴᴅꜱ : ${commands.length}\n` +
             '┃\n' +
-            '╰━━━━━━━━━━━━━━━━━━●●►\n\n';
+            '╰━━━━━━━━━━━━●●►\n\n';
 
         if (loadedFiles.length === 0) {
             output +=
                 '⚠️ *ɴᴏ ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ ꜰᴏᴜɴᴅ.*\n\n';
         } else {
             output +=
-                '╭━━〔 *ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ* 〕━━●●►\n\n';
+                '╭─〔 *ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ* 〕─●●►\n\n';
 
             loadedFiles.forEach((file, index) => {
                 const name = path.basename(file);
@@ -130,18 +127,18 @@ cmd({
             });
 
             output +=
-                '╰━━━━━━━━━━━━━━━━━━●●►\n\n';
+                '╰━━━━━━━━━━━━●●►\n\n';
         }
 
         output +=
-            '╭━━〔 *ᴏᴡɴᴇʀ ɪɴꜰᴏ* 〕━━●●►\n' +
+            '╭─〔 *ᴏᴡɴᴇʀ ɪɴꜰᴏ* 〕─●●►\n' +
             `┃ 👑 ᴏᴡɴᴇʀ : ${OWNER_NAME}\n` +
             '┃ 🤖 ʙᴏᴛ : ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-            '╰━━━━━━━━━━━━━━━━━━●●►\n\n' +
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━●●►\n' +
+            '╰━━━━━━━━━━━━●●►\n\n' +
+            '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
             '┃ ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
             '┃ ➜ ᴄʜᴏᴏꜱᴇ ᴀɴ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ\n' +
-            '╰━━━━━━━━━━━━━━━━━━●●►';
+            '╰━━━━━━━━━━━━●●►';
 
         const sections = [
             {
@@ -191,26 +188,22 @@ cmd({
             from,
             {
                 title: output,
-                buttonText: 'Open Menu',
+                buttonText: '',
+                hideListButton: true,
                 sections: sections,
-                footer:
-                    '⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-                    '╰━━━●●► ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟꜱʜᴀɴ',
+                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                 image: MENU_IMAGE
             },
             mek
         );
 
     } catch (error) {
-        console.error(
-            '[PLUGINS ERROR]',
-            error
-        );
+        console.error('[PLUGINS ERROR]', error);
 
         return reply(
             '❌ *ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ ᴇʀʀᴏʀ*\n\n' +
             '┃ ➜ GitHub Actions logs පරීක්ෂා කරන්න.\n' +
-            '╰━━━━━━━━━━━━━━━━━━●●►'
+            '╰━━━━━━━━━━━━●●►'
         );
     }
 });
