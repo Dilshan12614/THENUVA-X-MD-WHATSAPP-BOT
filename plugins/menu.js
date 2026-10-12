@@ -224,7 +224,7 @@ cmd(
     '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
     '│\n' +
     '│ ➤ .`setting`\n' +
-    '│ ➤ .`restart\n' +`
+    '│ ➤ .restart\n' +
     '│ ➤ .menu\n' +
     '│ ➤ .shutdown\n' +
     '│ ➤ .block 947xxxxxxxxx\n' +
