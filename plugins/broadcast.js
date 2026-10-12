@@ -4,7 +4,7 @@ const sleep = ms =>
     new Promise(resolve => setTimeout(resolve, ms));
 
 cmd({
-    pattern: 'sendpm',
+    pattern: 'sendmsg',
     alias: ['privatemsg', 'pmnumber'],
     desc: 'Send one message to multiple numbers',
     category: 'owner',
@@ -23,7 +23,7 @@ cmd({
 
         const input = String(body || '')
             .trim()
-            .replace(/^\.?sendpm(?:\s+|$)/i, '')
+            .replace(/^\.?sendmsg(?:\s+|$)/i, '')
             .trim();
 
         const split = input.split('|');
@@ -31,7 +31,7 @@ cmd({
         if (split.length < 2) {
             return reply(
                 '📌 *භාවිතය:*\n\n' +
-                '.sendpm 94771234567,94770000000 | Hello everyone!\n\n' +
+                '.sendmsg 94771234567,94770000000 | Hello everyone!\n\n' +
                 'Numbers comma (,) මඟින් වෙන් කරන්න.\n' +
                 'Numbers සහ message එක අතර | ලකුණ යොදන්න.'
             );
