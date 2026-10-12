@@ -7,6 +7,60 @@ const API_URL =
 const activeRequests = new Set();
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
+function findDownloadUrl(data) {
+    const seen = new Set();
+
+    function scan(value, depth = 0) {
+        if (!value || depth > 6) return null;
+
+        if (typeof value === 'string') {
+            if (
+                /^https?:\/\//i.test(value) &&
+                /\.(mp4|webm)(?:[?#]|$)/i.test(value)
+            ) {
+                return value;
+            }
+            return null;
+        }
+
+        if (typeof value !== 'object') return null;
+        if (seen.has(value)) return null;
+        seen.add(value);
+
+        const preferredKeys = [
+            'download_url',
+            'downloadUrl',
+            'video_url',
+            'videoUrl',
+            'url',
+            'link',
+            'download',
+            'video',
+            'links',
+            'formats',
+            'data',
+            'result'
+        ];
+
+        for (const key of preferredKeys) {
+            if (value[key] !== undefined) {
+                const found = scan(value[key], depth + 1);
+                if (found) return found;
+            }
+        }
+
+        for (const [key, item] of Object.entries(value)) {
+            if (preferredKeys.includes(key)) continue;
+            const found = scan(item, depth + 1);
+            if (found) return found;
+        }
+
+        return null;
+    }
+
+    return scan(data);
+}
+
 cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo', 'hdvideo'],
@@ -15,7 +69,6 @@ cmd({
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
-
     if (activeRequests.has(from)) {
         return reply(
             '⏳ දැනට video request එකක් ක්‍රියාත්මකයි. ටිකක් ඉන්න.'
@@ -26,8 +79,7 @@ cmd({
         return reply(
             '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
             '📥 YouTube Video Downloader\n\n' +
-            'භාවිතය:\n' +
-            '.video VIDEO_URL'
+            'භාවිතය: .video VIDEO_URL'
         );
     }
 
@@ -39,8 +91,12 @@ cmd({
         return reply('❌ නිවැරදි video URL එකක් ලබා දෙන්න.');
     }
 
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        return reply('❌ Invalid video URL.');
+    if (
+        !['http:', 'https:'].includes(parsedUrl.protocol) ||
+        !['youtube.com', 'www.youtube.com', 'm.youtube.com',
+           'youtu.be', 'www.youtu.be'].includes(parsedUrl.hostname)
+    ) {
+        return reply('❌ වලංගු YouTube URL එකක් ලබා දෙන්න.');
     }
 
     activeRequests.add(from);
@@ -50,68 +106,70 @@ cmd({
 
         if (!apiKey) {
             return reply(
-                '❌ DAVIDCYRIL_API_KEY configure කරලා නැහැ.'
+                '❌ DAVIDCYRIL_API_KEY environment variable එක සකසා නැහැ.'
             );
         }
 
         await reply(
             '⏳ *THENUVA X MD*\n\n' +
             '🎬 Video එක ලබාගනිමින් පවතී...\n' +
-            '📥 Download සූදානම් කරමින්...'
+            '📥 කරුණාකර රැඳී සිටින්න.'
         );
 
-        // 1. Get download URL from the API
         const response = await axios.get(API_URL, {
-            params: {
-                url: parsedUrl.href
-            },
+            params: { url: parsedUrl.href },
             headers: {
                 'X-API-Key': apiKey,
                 Accept: 'application/json'
             },
             timeout: 120000,
-            maxContentLength: 2 * 1024 * 1024
+            maxContentLength: 2 * 1024 * 1024,
+            maxRedirects: 5
         });
 
         const apiData = response.data;
 
         console.log(
-            '[YTDL-RAPID] API success:',
-            apiData?.success
+            '[YTDL-RAPID] Response:',
+            JSON.stringify(apiData).slice(0, 3000)
         );
 
-        if (apiData?.success !== true || !apiData?.data) {
+        if (!apiData || typeof apiData !== 'object') {
+            return reply('❌ API එකෙන් නිවැරදි JSON response එකක් ලැබුණේ නැහැ.');
+        }
+
+        if (apiData.success === false) {
+            return reply(
+                '❌ API download අසාර්ථකයි.\n' +
+                String(apiData.message || 'Video එක ලබාගත නොහැක.')
+            );
+        }
+
+        const result = apiData.data || apiData.result || apiData;
+        const downloadUrl = findDownloadUrl(result);
+        const title = String(
+            result.title || apiData.title || 'THENUVA VIDEO'
+        ).slice(0, 180);
+
+        if (!downloadUrl) {
             console.error(
-                '[YTDL-RAPID] API returned an unsuccessful response.'
+                '[YTDL-RAPID] No direct MP4/WebM URL found.'
             );
 
             return reply(
-                '❌ API එකෙන් video ලබාගත නොහැකි වුණා.\n' +
-                (apiData?.message || 'API response එක පරීක්ෂා කරන්න.')
+                '❌ API response එකේ හඳුනාගත හැකි MP4/WebM download URL එකක් නැහැ.\n\n' +
+                'Railway logs වල [YTDL-RAPID] Response බලන්න. ' +
+                'API එක වෙනස් field එකක URL එකක් දෙනවා නම් ඒ අනුව සකස් කළ යුතුයි.'
             );
         }
 
-        const result = apiData.data;
-        const downloadUrl = result.download_url;
-        const title = result.title || 'THENUVA VIDEO';
+        const target = new URL(downloadUrl);
 
-        console.log('[YTDL-RAPID] Title:', title);
-        console.log(
-            '[YTDL-RAPID] Download URL received:',
-            Boolean(downloadUrl)
-        );
-
-        if (
-            typeof downloadUrl !== 'string' ||
-            !/^https?:\/\//i.test(downloadUrl)
-        ) {
-            return reply(
-                '❌ API response එකේ download URL එක වලංගු නැහැ.'
-            );
+        if (!['http:', 'https:'].includes(target.protocol)) {
+            return reply('❌ Download URL protocol එක වලංගු නැහැ.');
         }
 
-        // 2. Download the returned URL and follow redirects
-        const fileResponse = await axios.get(downloadUrl, {
+        const fileResponse = await axios.get(target.href, {
             responseType: 'arraybuffer',
             timeout: 180000,
             maxContentLength: MAX_VIDEO_SIZE,
@@ -119,52 +177,27 @@ cmd({
             maxRedirects: 10,
             headers: {
                 'User-Agent': 'Mozilla/5.0',
-                Accept: 'video/*, application/octet-stream, */*'
+                Accept: 'video/mp4, video/webm, application/octet-stream'
             },
-            validateStatus: () => true
+            validateStatus: status => status >= 200 && status < 300
         });
-
-        if (fileResponse.status === 403) {
-            console.error(
-                '[YTDL-RAPID] Download server returned HTTP 403.'
-            );
-
-            return reply(
-                '❌ Download server එක access ප්‍රතික්ෂේප කළා (403).\n\n' +
-                'API එකෙන් URL එක ලැබුණත් download server එකෙන් ' +
-                'video file එක ලබාගත නොහැකියි.'
-            );
-        }
-
-        if (fileResponse.status === 429) {
-            return reply(
-                '⏳ Server එක requests සීමා කරලා. පසුව නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (
-            fileResponse.status < 200 ||
-            fileResponse.status >= 300
-        ) {
-            console.error(
-                '[YTDL-RAPID] Download HTTP status:',
-                fileResponse.status
-            );
-
-            return reply(
-                `❌ Video download අසාර්ථකයි. HTTP ${fileResponse.status}`
-            );
-        }
 
         const contentType = String(
             fileResponse.headers['content-type'] || ''
         ).toLowerCase();
 
-        const videoBuffer = Buffer.from(fileResponse.data);
+        const videoBuffer = Buffer.from(fileResponse.data || []);
 
-        // 3. Reject HTML/JSON pages instead of sending them as videos
-        const firstBytes = videoBuffer
-            .subarray(0, 64)
+        if (!videoBuffer.length) {
+            return reply('❌ Download කළ file එක හිස්.');
+        }
+
+        if (videoBuffer.length > MAX_VIDEO_SIZE) {
+            return reply('❌ Video එක 100 MB සීමාව ඉක්මවා ඇත.');
+        }
+
+        const start = videoBuffer
+            .subarray(0, 512)
             .toString('utf8')
             .trimStart()
             .toLowerCase();
@@ -172,27 +205,21 @@ cmd({
         if (
             contentType.includes('text/html') ||
             contentType.includes('application/json') ||
-            firstBytes.startsWith('<!doctype html') ||
-            firstBytes.startsWith('<html') ||
-            firstBytes.startsWith('{')
+            start.startsWith('<!doctype html') ||
+            start.startsWith('<html') ||
+            start.startsWith('{')
         ) {
             console.error(
-                '[YTDL-RAPID] Server returned non-video content:',
-                contentType || 'unknown'
+                '[YTDL-RAPID] Non-video response:',
+                contentType
             );
 
             return reply(
-                '❌ Download URL එකෙන් video එක වෙනුවට webpage එකක් ලැබුණා.\n\n' +
-                'API provider එකේ download URL format එක හෝ download ක්‍රමය ' +
-                'තහවුරු කළ යුතුයි.'
+                '❌ Download URL එකෙන් video file එකක් වෙනුවට webpage/API response එකක් ලැබුණා.\n\n' +
+                'මෙය API provider එකේ download link එක හෝ access එක සම්බන්ධ ගැටලුවක් විය හැකියි.'
             );
         }
 
-        if (!videoBuffer.length) {
-            return reply('❌ ලැබුණු video file එක හිස්.');
-        }
-
-        // 4. Check common MP4 and WebM signatures
         const isMP4 =
             videoBuffer.length >= 12 &&
             videoBuffer.toString('ascii', 4, 8) === 'ftyp';
@@ -201,31 +228,18 @@ cmd({
             videoBuffer.length >= 4 &&
             videoBuffer.toString('hex', 0, 4) === '1a45dfa3';
 
-        const isMP3 =
-            videoBuffer.length >= 3 &&
-            videoBuffer.toString('ascii', 0, 3) === 'ID3';
-
-        if (!isMP4 && !isWebM && !isMP3) {
+        if (!isMP4 && !isWebM) {
             console.error(
-                '[YTDL-RAPID] Unknown file signature.'
+                '[YTDL-RAPID] Unknown file signature:',
+                contentType,
+                videoBuffer.subarray(0, 16).toString('hex')
             );
 
             return reply(
-                '❌ ලැබුණු file එකේ format එක video එකක් බව තහවුරු කළ නොහැක.'
+                '❌ ලැබුණු file එක MP4/WebM video එකක් බව තහවුරු කළ නොහැක.'
             );
         }
 
-        if (isMP3) {
-            return reply(
-                '❌ API එකෙන් video එකක් වෙනුවට MP3 audio එකක් ලැබුණා.'
-            );
-        }
-
-        if (isWebM) {
-            console.log('[YTDL-RAPID] Received WebM video.');
-        }
-
-        // 5. Send the video to WhatsApp
         await conn.sendMessage(from, {
             video: videoBuffer,
             mimetype: isMP4 ? 'video/mp4' : 'video/webm',
@@ -235,7 +249,7 @@ cmd({
             caption:
                 '*🎬 THENUVA X MD*\n\n' +
                 `📌 *Title:* ${title}\n` +
-                `📦 *Size:* ${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB\n` +
+                `📦 *Size:* ${(videoBuffer.length / 1048576).toFixed(2)} MB\n` +
                 '✅ *Download Complete*'
         }, {
             quoted: mek
@@ -247,40 +261,49 @@ cmd({
 
     } catch (error) {
         const status = error.response?.status;
-        const message =
-            error.response?.data?.message ||
-            error.message ||
-            'Unknown error';
 
         console.error('[YTDL-RAPID ERROR]', {
             status: status || 'Unknown',
-            message
+            code: error.code || 'Unknown',
+            message: error.message
         });
 
         if (status === 401 || status === 403) {
             return reply(
-                '❌ API authorization failed. API key සහ access එක පරීක්ෂා කරන්න.'
+                '❌ API/download server access ප්‍රතික්ෂේප කළා. API key සහ අවසර පරීක්ෂා කරන්න.'
             );
         }
 
         if (status === 429) {
             return reply(
-                '⏳ API rate limit එකට පැමිණිලා. පසුව නැවත උත්සාහ කරන්න.'
+                '⏳ Requests සීමාවට පැමිණ ඇත. පසුව නැවත උත්සාහ කරන්න.'
+            );
+        }
+
+        if (error.code === 'ERR_BAD_RESPONSE') {
+            return reply(
+                '❌ Server එකෙන් වැරදි response එකක් ලැබුණා.'
             );
         }
 
         if (
-            error.code === 'ERR_BAD_RESPONSE' ||
-            error.code === 'ECONNABORTED'
+            error.code === 'ECONNABORTED' ||
+            error.code === 'ETIMEDOUT'
         ) {
             return reply(
-                '❌ Server response/timeout ගැටලුවක්. නැවත උත්සාහ කරන්න.'
+                '⏳ Download එකට වැඩි වෙලාවක් ගත වුණා. නැවත උත්සාහ කරන්න.'
+            );
+        }
+
+        if (error.response) {
+            return reply(
+                `❌ Download අසාර්ථකයි. HTTP ${status || 'Error'}`
             );
         }
 
         return reply(
             '❌ Video download අසාර්ථකයි.\n' +
-            message
+            String(error.message || 'Unknown error')
         );
 
     } finally {
