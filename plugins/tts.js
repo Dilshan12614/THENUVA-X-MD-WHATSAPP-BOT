@@ -1,125 +1,163 @@
-const axios = require('axios');
-const config = require('../config');
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
+
+const API_BASE = 'https://sasa-dev-api.xyz/api/tools/tts';
+const API_KEY = process.env.SASA_TTS_API_KEY;
+
+const FOOTER = 'THENUVA X MD • Powered by Dilshan Ashinsa';
 
 cmd({
-    pattern: "tts",
-    alias: ["say", "voice", "speak"],
-    react: "🗣️",
-    desc: "Convert text to speech",
-    category: "convert",
-    use: ".tts <text>",
+    pattern: 'tts',
+    alias: ['say', 'speak'],
+    react: '🗣️',
+    desc: 'Convert text to speech',
+    category: 'tools',
+    use: '.tts <text>',
     filename: __filename
-},
-async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) {
-            return reply(
-                "╭───────────────●●►\n" +
-                "│ 🗣️ *TEXT TO SPEECH*\n" +
-                "├───────────────●●►\n" +
-                "│\n" +
-                "│ ❌ Please provide some text.\n" +
-                "│\n" +
-                "│ Example:\n" +
-                "│ `.tts ආයුබෝවන්`\n" +
-                "│ `.tts Hello everyone`\n" +
-                "│\n" +
-                "╰───────────────●●►"
+        const text = String(q || '').trim();
+
+        if (!text) {
+            return await reply(
+                '🗣️ *THENUVA X MD TEXT TO SPEECH*\n\n' +
+                'භාවිතය:\n' +
+                '.tts Hello everyone\n\n' +
+                'Sinhala:\n' +
+                '.tts ආයුබෝවන්'
             );
         }
 
-        // API key from config.env / Railway Variables
-        const apiKey =
-            process.env.MR_THINUZZ_API_KEY ||
-            config.MR_THINUZZ_API_KEY;
-
-        if (!apiKey) {
-            return reply(
-                "❌ *API KEY NOT CONFIGURED*\n\n" +
-                "Add `MR_THINUZZ_API_KEY` to your config.env " +
-                "or Railway Variables."
+        if (!API_KEY) {
+            return await reply(
+                '❌ SASA_TTS_API_KEY Railway Variables වල නැහැ.'
             );
         }
 
-        await conn.sendMessage(from, {
-            text:
-                "⏳ *Creating Voice...*\n\n" +
-                "🗣️ Please wait..."
-        }, { quoted: mek });
+        if (text.length > 500) {
+            return await reply(
+                '⚠️ කරුණාකර අකුරු 500කට අඩු text එකක් දෙන්න.'
+            );
+        }
 
-        const apiUrl =
-            "https://mr-thinuzz-api-build.vercel.app/api/tts";
+        await reply('⏳ *Voice එක සකස් කරමින්...*');
 
-        const response = await axios.get(apiUrl, {
-            params: {
-                text: q.trim(),
-                apiKey: apiKey
+        const lang = /[\u0D80-\u0DFF]/.test(text)
+            ? 'si'
+            : 'en';
+
+        const apiUrl = new URL(API_BASE);
+        apiUrl.searchParams.set('apikey', API_KEY);
+        apiUrl.searchParams.set('text', text);
+        apiUrl.searchParams.set('lang', lang);
+
+        const response = await fetch(apiUrl.toString(), {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json, audio/mpeg, audio/*'
             },
-            timeout: 60000
+            signal: AbortSignal.timeout(60000)
         });
 
-        const result = response.data;
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(
+                '[TTS API ERROR]',
+                response.status,
+                errorText.slice(0, 500)
+            );
 
-        if (!result || result.status !== true) {
-            return reply(
-                "❌ *TTS FAILED*\n\n" +
-                "The API did not return a valid response."
+            return await reply(
+                `❌ TTS API error: HTTP ${response.status}`
             );
         }
 
-        const data = result.data;
+        const contentType =
+            response.headers.get('content-type') || '';
 
-        if (!data || !data.audio_url) {
-            return reply(
-                "❌ *AUDIO NOT FOUND*\n\n" +
-                "The TTS API did not return an audio URL."
+        // If the API directly returns audio bytes
+        if (contentType.startsWith('audio/')) {
+            const audioBuffer = Buffer.from(
+                await response.arrayBuffer()
+            );
+
+            if (!audioBuffer.length) {
+                throw new Error('Empty audio response');
+            }
+
+            await conn.sendMessage(from, {
+                audio: audioBuffer,
+                mimetype: contentType.includes('mpeg')
+                    ? 'audio/mpeg'
+                    : contentType,
+                fileName: 'THENUVA-X-MD-TTS.mp3',
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true
+                }
+            }, { quoted: mek });
+
+            return;
+        }
+
+        // Otherwise inspect JSON response
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+
+            console.log(
+                '[TTS API RESPONSE]',
+                JSON.stringify(data).slice(0, 1500)
+            );
+
+            const audioUrl =
+                data?.result?.url ||
+                data?.result?.audio ||
+                data?.result?.audioUrl ||
+                data?.result?.download_url ||
+                data?.url ||
+                data?.audioUrl ||
+                data?.audio_url ||
+                data?.download_url;
+
+            if (typeof audioUrl === 'string' &&
+                /^https?:\/\//i.test(audioUrl)) {
+                await conn.sendMessage(from, {
+                    audio: { url: audioUrl },
+                    mimetype: 'audio/mpeg',
+                    fileName: 'THENUVA-X-MD-TTS.mp3',
+                    contextInfo: {
+                        forwardingScore: 1,
+                        isForwarded: true
+                    }
+                }, { quoted: mek });
+
+                return;
+            }
+
+            throw new Error(
+                data?.message ||
+                data?.error ||
+                'API response contains no recognised audio URL. Check Railway logs.'
             );
         }
 
-        const audioUrl = data.audio_url;
+        const body = await response.text();
 
-        // Download generated MP3
-        const audioResponse = await axios.get(audioUrl, {
-            responseType: "arraybuffer",
-            timeout: 60000
-        });
+        console.error(
+            '[TTS UNKNOWN RESPONSE]',
+            contentType,
+            body.slice(0, 500)
+        );
 
-        const audioBuffer = Buffer.from(audioResponse.data);
-
-        // Send as WhatsApp audio
-        await conn.sendMessage(from, {
-            audio: audioBuffer,
-            mimetype: "audio/mpeg",
-            fileName: "thenuva-tts.mp3",
-            ptt: false
-        }, { quoted: mek });
-
-        console.log(
-            `[TTS] Sent: ${data.text || q.trim()} | ` +
-            `Language: ${data.language || "unknown"} | ` +
-            `Gender: ${data.gender || "unknown"}`
+        throw new Error(
+            `Unsupported API response: ${contentType || 'unknown content type'}`
         );
 
     } catch (error) {
-        console.error(
-            "[TTS ERROR]",
-            error.response?.data || error.message
+        console.error('[TTS ERROR]', error);
+
+        await reply(
+            '❌ Voice එක සකස් කරන්න බැරි වුණා.\n' +
+            'Railway logs වල [TTS API RESPONSE] හෝ [TTS ERROR] පරීක්ෂා කරන්න.'
         );
-
-        let message = "❌ *TTS FAILED*";
-
-        if (error.response?.status === 401) {
-            message += "\n\n🔑 Invalid or missing API key.";
-        } else if (error.response?.status === 429) {
-            message += "\n\n⏳ API limit reached. Please try again later.";
-        } else if (error.code === "ECONNABORTED") {
-            message += "\n\n⏱️ API request timed out.";
-        } else {
-            message +=
-                "\n\nPlease try again with different text.";
-        }
-
-        return reply(message);
     }
 });
