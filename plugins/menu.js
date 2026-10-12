@@ -234,6 +234,7 @@ cmd(
     '│ ➤ .shutdown\n' +
     '│ ➤ .block 947xxxxxxxxx\n' +
     '│ ➤ .unblock 947xxxxxxxx\n' +
+    '│ ➤ .plugins
     '│\n' +
     '╰────────────────●●►\n\n' +
     
