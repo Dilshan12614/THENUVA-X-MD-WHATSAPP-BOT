@@ -1,293 +1,217 @@
 const { cmd } = require('../command');
-const { sendListMenu } = require('../lib/buttons');
-const { ytmp3 } = require('@vreden/youtube_scraper');
 
-const API_BASE = 'https://apis.davidcyril.name.ng/download/ytmp4';
-const API_KEY = process.env.DAVID_CYRIL_API_KEY;
+const API_BASE = 'https://sasa-dev-api.xyz/api/yt/mp4-dl';
+const API_KEY = process.env.SASA_YTMP4_API_KEY;
 
-const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+const TIMEOUT = 120000;
+const MAX_VIDEO_SIZE = 64 * 1024 * 1024;
 
-const FOOTER =
-    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+function findDownloadUrl(data) {
+    if (!data || typeof data !== 'object') return null;
 
-const NEWSLETTER_CONTEXT = {
-    forwardingScore: 1000,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: {
-        newsletterJid: '120363403804248705@newsletter',
-        newsletterName: 'THENUVA X MD',
-        serverMessageId: 143
+    const keys = [
+        'download_url',
+        'downloadUrl',
+        'video_url',
+        'videoUrl',
+        'url',
+        'link',
+        'download',
+        'result',
+        'data'
+    ];
+
+    for (const key of keys) {
+        const value = data[key];
+
+        if (
+            typeof value === 'string' &&
+            /^https?:\/\//i.test(value)
+        ) {
+            return value;
+        }
+
+        if (value && typeof value === 'object') {
+            const found = findDownloadUrl(value);
+            if (found) return found;
+        }
     }
-};
 
-function isYouTubeUrl(value) {
-    try {
-        const url = new URL(value);
-
-        return [
-            'youtube.com',
-            'www.youtube.com',
-            'm.youtube.com',
-            'youtu.be',
-            'www.youtu.be',
-            'music.youtube.com'
-        ].includes(url.hostname.toLowerCase());
-    } catch {
-        return false;
-    }
+    return null;
 }
 
-function getYouTubeUrl(q) {
-    const parts = String(q || '').trim().split(/\s+/);
-    return parts.find(isYouTubeUrl) || null;
+function findTitle(data) {
+    if (!data || typeof data !== 'object') return 'YouTube Video';
+
+    return (
+        data.title ||
+        data.result?.title ||
+        data.data?.title ||
+        'YouTube Video'
+    );
 }
 
-function cleanFileName(name) {
-    return String(name || 'YouTube Video')
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 150) || 'YouTube Video';
-}
-
-function decodeUrl(value) {
-    const input = String(value || '').trim();
-
-    try {
-        return decodeURIComponent(input);
-    } catch {
-        return input;
-    }
-}
-
-async function getVideoData(url) {
-    if (!API_KEY) {
-        throw new Error(
-            'DAVID_CYRIL_API_KEY is missing in Railway Variables.'
-        );
-    }
-
-    const apiUrl =
-        `${API_BASE}?url=${encodeURIComponent(url)}`;
-
-    const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-            'X-API-Key': API_KEY,
-            'Accept': 'application/json'
-        },
-        signal: AbortSignal.timeout(60000)
-    });
-
-    const contentType =
-        response.headers.get('content-type') || '';
-
-    if (!response.ok) {
-        throw new Error(`Video API returned HTTP ${response.status}`);
-    }
-
-    if (!contentType.toLowerCase().includes('application/json')) {
-        throw new Error(
-            `Video API returned unexpected content type: ${contentType}`
-        );
-    }
-
-    const data = await response.json();
-
-    if (data?.success !== true || !data?.result?.download_url) {
-        throw new Error(
-            data?.message || 'API did not return a download URL.'
-        );
-    }
-
-    return {
-        title: cleanFileName(data.result.title),
-        url: data.result.download_url,
-        quality: data.result.quality || 'Unknown'
-    };
-}
-
-async function showFormatMenu(conn, mek, from, url) {
-    await sendListMenu(conn, from, {
-        title: '🎬 THENUVA X MD VIDEO DOWNLOADER',
-        buttonText: 'SELECT FORMAT',
-
-        sections: [
-            {
-                title: 'Choose download format',
-                rows: [
-                    {
-                        id: `.videoaudio ${encodeURIComponent(url)}`,
-                        title: '🎵 Audio (MP3)',
-                        description: 'Download audio as MP3'
-                    },
-                    {
-                        id: `.videoplay ${encodeURIComponent(url)}`,
-                        title: '🎬 Video (Playable)',
-                        description: 'Send a playable MP4'
-                    },
-                    {
-                        id: `.videodoc ${encodeURIComponent(url)}`,
-                        title: '📁 Video Document',
-                        description: 'Send MP4 as a document'
-                    }
-                ]
-            }
-        ],
-
-        footer: FOOTER,
-        image: MENU_IMAGE
-    }, mek);
-}
-
-// Main command: .video <YouTube URL>
 cmd({
     pattern: 'video',
-    alias: ['ytv', 'mp4'],
+    alias: ['ytmp4', 'ytvideo'],
     react: '🎬',
-    desc: 'Choose YouTube download format',
+    desc: 'Download YouTube video as MP4',
     category: 'download',
-    use: '.video <YouTube URL>',
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, mek, m, { from, args, reply }) => {
     try {
-        const url = getYouTubeUrl(q);
+        const input = args.join(' ').trim();
 
-        if (!url) {
-            return await reply(
-                '⚠️ *YouTube link එකක් දෙන්න.*\n\n' +
-                'Example:\n' +
-                '.video https://youtube.com/watch?v=MwpMEbgC7DA'
+        if (!input) {
+            return reply(
+                '🎬 *THENUVA X MD — VIDEO DOWNLOADER*\n\n' +
+                'භාවිතය: `.video YouTube_URL`\n\n' +
+                'උදාහරණය: `.video https://youtube.com/watch?v=...`'
             );
         }
 
-        await showFormatMenu(conn, mek, from, url);
+        let videoUrl;
 
-    } catch (error) {
-        console.error('[VIDEO MENU ERROR]', error);
-
-        await reply(
-            '❌ Format menu එක පෙන්වන්න බැරි වුණා. නැවත උත්සාහ කරන්න.'
-        );
-    }
-});
-
-// Audio command: .videoaudio <YouTube URL>
-cmd({
-    pattern: 'videoaudio',
-    react: '🎵',
-    desc: 'Download YouTube audio as MP3',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-    try {
-        const url = decodeUrl(q);
-
-        if (!isYouTubeUrl(url)) {
-            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
+        try {
+            videoUrl = new URL(input);
+        } catch {
+            return reply('❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.');
         }
 
-        await reply('⏳ *Audio MP3 එක සකස් කරමින්...*');
+        if (
+            !['youtube.com', 'www.youtube.com', 'm.youtube.com',
+              'youtu.be', 'www.youtu.be', 'youtube-nocookie.com',
+              'www.youtube-nocookie.com'].includes(videoUrl.hostname)
+        ) {
+            return reply('❌ YouTube URL එකක් ලබා දෙන්න.');
+        }
 
-        const audioData = await ytmp3(url, '192');
-        const audioUrl = audioData?.download?.url;
-
-        if (!audioUrl) {
-            throw new Error('Audio downloader returned no URL.');
+        if (!API_KEY) {
+            return reply(
+                '❌ SASA_YTMP4_API_KEY GitHub Actions Secret එක configure කරලා නැහැ.'
+            );
         }
 
         await conn.sendMessage(from, {
-            audio: { url: audioUrl },
-            mimetype: 'audio/mpeg',
-            fileName: 'THENUVA-X-MD.mp3',
-            contextInfo: NEWSLETTER_CONTEXT
-        }, { quoted: mek });
+            react: { text: '⏳', key: mek.key }
+        });
 
-    } catch (error) {
-        console.error('[VIDEO AUDIO ERROR]', error);
+        const apiUrl = new URL(API_BASE);
+        apiUrl.searchParams.set('apikey', API_KEY);
+        apiUrl.searchParams.set('url', videoUrl.toString());
+        apiUrl.searchParams.set('quality', '360p');
+        apiUrl.searchParams.set('raw', 'false');
 
-        await reply(
-            '❌ Audio download එක අසාර්ථකයි. වෙනත් link එකක් උත්සාහ කරන්න.'
-        );
-    }
-});
+        const apiResponse = await fetch(apiUrl.toString(), {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(TIMEOUT)
+        });
 
-// Playable video command
-cmd({
-    pattern: 'videoplay',
-    react: '🎬',
-    desc: 'Send playable YouTube video',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-    try {
-        const url = decodeUrl(q);
+        const contentType =
+            apiResponse.headers.get('content-type') || '';
 
-        if (!isYouTubeUrl(url)) {
-            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
+        if (!apiResponse.ok) {
+            throw new Error(`API returned HTTP ${apiResponse.status}`);
         }
 
-        await reply('⏳ *Playable video එක සකස් කරමින්...*');
+        let data;
 
-        const video = await getVideoData(url);
+        if (contentType.includes('application/json')) {
+            data = await apiResponse.json();
+        } else {
+            throw new Error(
+                `API returned ${contentType || 'unknown content type'}, not JSON`
+            );
+        }
+
+        if (data.success === false || data.status === 'error') {
+            throw new Error(
+                data.message || data.error || 'API download failed'
+            );
+        }
+
+        const downloadUrl = findDownloadUrl(data);
+
+        if (!downloadUrl) {
+            console.error(
+                '[SASA YTMP4] No download URL found. Response keys:',
+                Object.keys(data || {})
+            );
+
+            return reply(
+                '❌ API response එකේ download URL එක හමු වුණේ නැහැ.\n' +
+                'API response format එක පරීක්ෂා කරන්න අවශ්‍යයි.'
+            );
+        }
+
+        await reply('📥 වීඩියෝව ලබාගනිමින් පවතී...');
+
+        const downloadResponse = await fetch(downloadUrl, {
+            signal: AbortSignal.timeout(TIMEOUT)
+        });
+
+        if (!downloadResponse.ok) {
+            throw new Error(
+                `Video download returned HTTP ${downloadResponse.status}`
+            );
+        }
+
+        const fileType =
+            downloadResponse.headers.get('content-type') || '';
+
+        if (
+            !fileType.toLowerCase().includes('video/') &&
+            !fileType.toLowerCase().includes('octet-stream')
+        ) {
+            throw new Error(
+                `Download URL returned non-video content: ${fileType}`
+            );
+        }
+
+        const declaredSize = Number(
+            downloadResponse.headers.get('content-length') || 0
+        );
+
+        if (declaredSize > MAX_VIDEO_SIZE) {
+            return reply('❌ වීඩියෝ ගොනුව විශාල වැඩියි.');
+        }
+
+        const arrayBuffer = await downloadResponse.arrayBuffer();
+
+        if (arrayBuffer.byteLength > MAX_VIDEO_SIZE) {
+            return reply('❌ වීඩියෝ ගොනුව 64 MB සීමාව ඉක්මවයි.');
+        }
+
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (!buffer.length) {
+            throw new Error('Downloaded video is empty');
+        }
 
         await conn.sendMessage(from, {
-            video: { url: video.url },
+            video: buffer,
             mimetype: 'video/mp4',
-            fileName: `${video.title}.mp4`,
+            fileName: 'THENUVA-X-MD.mp4',
             caption:
-                `🎬 *THENUVA X MD VIDEO DOWNLOADER*\n\n` +
-                `📌 *Title:* ${video.title}\n` +
-                `🎞️ *Quality:* ${video.quality}\n\n` +
-                `> ${FOOTER}`,
-            contextInfo: NEWSLETTER_CONTEXT
+                `🎬 *${findTitle(data)}*\n\n` +
+                '⚡ *Downloaded by THENUVA X MD*'
         }, { quoted: mek });
-
-    } catch (error) {
-        console.error('[VIDEO PLAY ERROR]', error);
-
-        await reply(
-            '❌ Video download එක අසාර්ථකයි. API response එක සහ Railway logs පරීක්ෂා කරන්න.'
-        );
-    }
-});
-
-// Video document command
-cmd({
-    pattern: 'videodoc',
-    react: '📁',
-    desc: 'Send YouTube video as a document',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-    try {
-        const url = decodeUrl(q);
-
-        if (!isYouTubeUrl(url)) {
-            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
-        }
-
-        await reply('⏳ *Video document එක සකස් කරමින්...*');
-
-        const video = await getVideoData(url);
 
         await conn.sendMessage(from, {
-            document: { url: video.url },
-            mimetype: 'video/mp4',
-            fileName: `${video.title}.mp4`,
-            caption:
-                `📁 *THENUVA X MD VIDEO DOCUMENT*\n\n` +
-                `📌 *Title:* ${video.title}\n` +
-                `🎞️ *Quality:* ${video.quality}\n\n` +
-                `> ${FOOTER}`,
-            contextInfo: NEWSLETTER_CONTEXT
-        }, { quoted: mek });
+            react: { text: '✅', key: mek.key }
+        });
 
     } catch (error) {
-        console.error('[VIDEO DOCUMENT ERROR]', error);
+        console.error('[SASA YTMP4 ERROR]', error.message);
 
-        await reply(
-            '❌ Video document එක යවන්න බැරි වුණා. API response එක සහ Railway logs පරීක්ෂා කරන්න.'
+        await conn.sendMessage(from, {
+            react: { text: '❌', key: mek.key }
+        });
+
+        return reply(
+            '❌ *Video Download Failed*\n\n' +
+            `${error.message}\n\n` +
+            'API response format එක සහ download URL එක පරීක්ෂා කරන්න.'
         );
     }
 });
