@@ -1,5 +1,16 @@
 const { cmd } = require('../command');
 
+function getPhoneNumber(jid) {
+    if (typeof jid !== 'string') return null;
+
+    // Standard WhatsApp user JID
+    const match = jid.match(/^(\d{7,15})@s\.whatsapp\.net$/);
+
+    if (!match) return null;
+
+    return match[1];
+}
+
 cmd(
     {
         pattern: 'blocklist',
@@ -10,93 +21,76 @@ cmd(
     },
     async (conn, mek, m, { isOwner, reply }) => {
         try {
-            // Owner-only permission
             if (!isOwner) {
                 return await reply(
-                    '╭─〔 *ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ* 〕─●●►\n' +
-                    '│\n' +
-                    '│ ➤ ᴏᴡɴᴇʀ ᴏɴʟʏ ᴄᴏᴍᴍᴀɴᴅ\n' +
-                    '│\n' +
-                    '╰────────────────●●►'
+                    '❌ This command is only available to the bot owner.'
                 );
             }
 
-            // Get WhatsApp blocked contacts from Baileys connection
-            let blockedUsers = [];
-
-            if (
-                Array.isArray(conn?.user?.blocked)
-            ) {
-                blockedUsers = conn.user.blocked;
-            } else if (
-                Array.isArray(conn?.blocked)
-            ) {
-                blockedUsers = conn.blocked;
-            } else if (
-                typeof conn?.fetchBlocklist === 'function'
-            ) {
-                blockedUsers = await conn.fetchBlocklist();
+            if (typeof conn.fetchBlocklist !== 'function') {
+                return await reply(
+                    '❌ This Baileys connection does not support fetchBlocklist().'
+                );
             }
 
-            // Normalize JIDs
-            blockedUsers = blockedUsers
-                .map(user => {
-                    if (typeof user === 'string') return user;
-                    return user?.jid || user?.id || user?.participant || null;
-                })
-                .filter(jid =>
-                    typeof jid === 'string' &&
-                    jid.includes('@')
-                );
+            const result = await conn.fetchBlocklist();
 
-            // Remove duplicates
-            blockedUsers = [...new Set(blockedUsers)];
+            const entries = Array.isArray(result)
+                ? result
+                : Array.isArray(result?.blocklist)
+                    ? result.blocklist
+                    : [];
 
-            if (blockedUsers.length === 0) {
+            if (entries.length === 0) {
                 return await reply(
                     '╭─〔 *ʙʟᴏᴄᴋʟɪsᴛ* 〕─●●►\n' +
                     '│\n' +
-                    '│ ➤ දැනට block කරපු contacts හමු වුණේ නැහැ.\n' +
+                    '│ ➤ ᴛᴏᴛᴀʟ : 0\n' +
+                    '│\n' +
+                    '│ No blocked contacts were returned by WhatsApp.\n' +
                     '│\n' +
                     '╰────────────────●●►\n\n' +
-                    '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ'
+                    '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
                 );
             }
 
-            const MAX_DISPLAY = 100;
-            const displayedUsers = blockedUsers.slice(0, MAX_DISPLAY);
+            const contacts = entries
+                .map(item => {
+                    const jid = typeof item === 'string'
+                        ? item
+                        : item?.jid || item?.id || item?.participant;
 
-            const lines = displayedUsers.map((jid, index) => {
-                const number = jid.split('@')[0];
+                    return {
+                        jid,
+                        number: getPhoneNumber(jid)
+                    };
+                })
+                .filter(item => item.jid);
 
-                return `│ ${index + 1}. ${number}`;
+            const lines = contacts.map((item, index) => {
+                const display = item.number
+                    ? `+${item.number}`
+                    : '[Phone number unavailable]';
+
+                return `│ ${index + 1}. ${display}`;
             });
 
-            const remaining = blockedUsers.length - displayedUsers.length;
-
-            let message =
+            const message =
                 '╭─〔 *ʙʟᴏᴄᴋʟɪsᴛ* 〕─●●►\n' +
                 '│\n' +
-                `│ ➤ ᴛᴏᴛᴀʟ : ${blockedUsers.length}\n` +
+                `│ ➤ ᴛᴏᴛᴀʟ : ${contacts.length}\n` +
                 '│\n' +
                 lines.join('\n') +
-                '\n│\n';
-
-            if (remaining > 0) {
-                message += `│ ➤ තවත් ${remaining} contacts තියෙනවා.\n│\n`;
-            }
-
-            message +=
+                '\n│\n' +
                 '╰────────────────●●►\n\n' +
                 '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
             return await reply(message);
-
         } catch (error) {
             console.error('[BLOCKLIST ERROR]', error);
 
             return await reply(
-                '❌ Blocklist එක ලබාගැනීමට නොහැකි වුණා.\n' +
+                '❌ Failed to fetch WhatsApp blocklist.\n' +
                 `Error: ${error.message}`
             );
         }
