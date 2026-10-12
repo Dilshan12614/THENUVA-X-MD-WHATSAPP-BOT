@@ -224,13 +224,13 @@ cmd(
     '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
     '│\n' +
     '│ ➤ .`setting`\n' +
-    '│ ➤ .restart\n' +
-    '│ ➤ .menu\n' +
-    '│ ➤ .shutdown\n' +
-    '│ ➤ .block 947xxxxxxxxx\n' +
-    '│ ➤ .unblock 947xxxxxxxx\n' +
-    '│ ➤ .plugins\n' +
-    '│ ➤ .sendmsg\n' +
+    '│ ➤ .`restart`\n' +
+    '│ ➤ .`menu`\n' +
+    '│ ➤ .`shutdown`\n' +
+    '│ ➤ .`block` 947xxxxxxxxx\n' +
+    '│ ➤ .`unblock` 947xxxxxxxx\n' +
+    '│ ➤ .`plugins`\n' +
+    '│ ➤ .`sendmsg` 947xxxxxxxx| "`Put any message you like here`"\n' +
     '│\n' +
     '╰────────────────●●►\n\n' +
     
