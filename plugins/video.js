@@ -8,98 +8,73 @@ const activeRequests = new Set();
 
 cmd({
     pattern: 'video',
-    alias: ['ytmp4', 'ytvideo'],
+    alias: ['ytmp4', 'ytvideo', 'hdvideo'],
     react: '🎬',
-    desc: 'Download video',
+    desc: 'Download 360p video',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
+
     if (activeRequests.has(from)) {
         return reply(
-            '⏳ දැනට video request එකක් ක්‍රියාත්මකයි.'
+            '⏳ දැනට video request එකක් ක්‍රියාත්මකයි. ටිකක් ඉන්න.'
         );
     }
 
+    if (!q || !q.trim()) {
+        return reply(
+            '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
+            '📺 Quality: 360p\n\n' +
+            'භාවිතය:\n' +
+            '.video VIDEO_URL'
+        );
+    }
+
+    let parsedUrl;
+
     try {
-        if (!q || !q.trim()) {
+        parsedUrl = new URL(q.trim());
+    } catch {
+        return reply('❌ නිවැරදි video URL එකක් ලබා දෙන්න.');
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return reply('❌ Invalid video URL.');
+    }
+
+    activeRequests.add(from);
+
+    try {
+        const apiKey = process.env.DAVIDCYRIL_API_KEY;
+
+        if (!apiKey) {
             return reply(
-                '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
-                'Video URL එකක් ලබා දෙන්න.\n\n' +
-                'උදාහරණය:\n' +
-                '.video https://www.youtube.com/watch?v=VIDEO_ID'
+                '❌ DAVIDCYRIL_API_KEY එක configure කරලා නැහැ.'
             );
         }
-
-        const inputUrl = q.trim();
-        let parsedUrl;
-
-        try {
-            parsedUrl = new URL(inputUrl);
-        } catch {
-            return reply('❌ නිවැරදි video URL එකක් ලබා දෙන්න.');
-        }
-
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-            return reply('❌ Invalid video URL.');
-        }
-
-        activeRequests.add(from);
 
         await reply(
             '⏳ *THENUVA X MD*\n\n' +
             '🎬 Video එක ලබාගනිමින් පවතී...\n' +
-            'කරුණාකර රැඳී සිටින්න.'
+            '📺 Quality: 360p'
         );
 
-        // Optional API key from GitHub Actions secrets
-        const apiKey = process.env.DAVIDCYRIL_API_KEY;
-
-        const apiHeaders = {
-            Accept: 'application/json',
-            'User-Agent': 'Mozilla/5.0'
-        };
-
-        if (apiKey) {
-            apiHeaders.authorization = apiKey;
-        }
-
-        // Request video information
+        // Request 360p video from the API
         const response = await axios.get(API_URL, {
             params: {
-                url: inputUrl
+                url: parsedUrl.href,
+                quality: '360p'
             },
-            headers: apiHeaders,
-            timeout: 120000,
-            validateStatus: () => true
+            headers: {
+                'X-API-Key': apiKey,
+                Accept: 'application/json'
+            },
+            timeout: 120000
         });
 
         const data = response.data;
 
-        if (response.status === 429) {
-            return reply(
-                '⏳ *API Rate Limit Reached*\n\n' +
-                'API එක requests වැඩි නිසා ප්‍රතික්ෂේප කරලා.\n' +
-                'ටික වෙලාවක් ඉඳලා නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (response.status === 401 || response.status === 403) {
-            return reply(
-                `❌ API authorization error: HTTP ${response.status}\n\n` +
-                'API key එකක් අවශ්‍යද සහ එහි නිවැරදි format එක කුමක්දැයි පරීක්ෂා කරන්න.'
-            );
-        }
-
-        if (response.status < 200 || response.status >= 300) {
-            console.error('[YTMP4 HTTP ERROR]', {
-                status: response.status,
-                data
-            });
-
-            return reply(`❌ API Error: HTTP ${response.status}`);
-        }
-
-        if (!data || data.success === false) {
+        if (!data || data.success !== true || !data.result) {
             console.error('[YTMP4 API ERROR]', data);
 
             return reply(
@@ -108,65 +83,29 @@ cmd({
             );
         }
 
-        // Find a download URL in common response formats
-        function findDownloadUrl(obj, depth = 0) {
-            if (!obj || typeof obj !== 'object' || depth > 6) {
-                return null;
-            }
+        const result = data.result;
+        const downloadUrl = result.download_url;
 
-            const keys = [
-                'download_url',
-                'downloadUrl',
-                'video_url',
-                'videoUrl',
-                'download',
-                'video',
-                'url',
-                'link'
-            ];
-
-            for (const key of keys) {
-                const value = obj[key];
-
-                if (
-                    typeof value === 'string' &&
-                    /^https?:\/\//i.test(value)
-                ) {
-                    return value;
-                }
-            }
-
-            for (const value of Object.values(obj)) {
-                if (value && typeof value === 'object') {
-                    const found = findDownloadUrl(value, depth + 1);
-                    if (found) return found;
-                }
-            }
-
-            return null;
-        }
-
-        const downloadUrl = findDownloadUrl(data);
-
-        if (!downloadUrl) {
-            console.log(
-                '[YTMP4 RESPONSE]',
-                JSON.stringify(data).slice(0, 5000)
-            );
-
+        if (
+            typeof downloadUrl !== 'string' ||
+            !/^https?:\/\//i.test(downloadUrl)
+        ) {
             return reply(
-                '⚠️ API response එක ලැබුණා, නමුත් video URL එක හමු වුණේ නැහැ.\n' +
-                'GitHub Actions logs වල [YTMP4 RESPONSE] බලන්න.'
+                '❌ API response එකේ download URL එක හමු වුණේ නැහැ.'
             );
         }
 
-        // Download the actual video file
+        console.log('[YTMP4] Title:', result.title);
+        console.log('[YTMP4] Returned quality:', result.quality);
+
+        // Download the MP4 immediately; signed URLs can expire.
         const fileResponse = await axios.get(downloadUrl, {
             responseType: 'arraybuffer',
             timeout: 180000,
             headers: {
+                'User-Agent': 'Mozilla/5.0',
                 Accept: '*/*',
-                'User-Agent': 'Mozilla/5.0'
+                Referer: 'https://www.youtube.com/'
             },
             maxContentLength: 100 * 1024 * 1024,
             maxBodyLength: 100 * 1024 * 1024,
@@ -174,35 +113,23 @@ cmd({
         });
 
         if (fileResponse.status === 403) {
-            console.error('[YTMP4 FILE 403]', {
-                contentType: fileResponse.headers['content-type'],
-                urlHost: (() => {
-                    try {
-                        return new URL(downloadUrl).host;
-                    } catch {
-                        return 'unknown';
-                    }
-                })()
-            });
+            console.error('[YTMP4] Download server returned HTTP 403');
 
             return reply(
-                '❌ *Video File Access Denied (403)*\n\n' +
-                'API එකෙන් ලැබුණු download URL එකට access ප්‍රතික්ෂේප කරලා.\n\n' +
-                'හේතුව expired URL එකක් හෝ අවශ්‍ය authorization/header එකක් නොමැති වීම විය හැකියි.\n' +
-                'API documentation එකෙන් download request එකේ අවශ්‍ය headers පරීක්ෂා කරන්න.'
+                '❌ Video server එක access ප්‍රතික්ෂේප කළා (403).\n\n' +
+                'API එකෙන් ලැබුණු download URL එකට access අවසර නැති විය හැකියි.'
             );
         }
 
         if (fileResponse.status === 429) {
             return reply(
-                '⏳ Video server එක requests සීමා කරලා.\n' +
-                'ටික වෙලාවක් ඉඳලා නැවත උත්සාහ කරන්න.'
+                '⏳ API rate limit එකට පැමිණිලා. පසුව නැවත උත්සාහ කරන්න.'
             );
         }
 
         if (fileResponse.status < 200 || fileResponse.status >= 300) {
             return reply(
-                `❌ Video file download error: HTTP ${fileResponse.status}`
+                `❌ Video download failed: HTTP ${fileResponse.status}`
             );
         }
 
@@ -211,26 +138,29 @@ cmd({
 
         if (
             contentType.includes('application/json') ||
-            contentType.includes('text/html')
+            contentType.includes('text/html') ||
+            contentType.startsWith('text/plain')
         ) {
             return reply(
-                '❌ Video file එක වෙනුවට වෙනත් response එකක් ලැබුණා.'
+                '❌ Video file එක වෙනුවට error response එකක් ලැබුණා.'
             );
         }
 
         const videoBuffer = Buffer.from(fileResponse.data);
 
         if (!videoBuffer.length) {
-            return reply('❌ ලැබුණු video file එක හිස්.');
+            return reply('❌ Video file එක හිස්.');
         }
 
         await conn.sendMessage(from, {
             video: videoBuffer,
             mimetype: 'video/mp4',
-            fileName: 'THENUVA-VIDEO.mp4',
+            fileName: 'THENUVA-360P-VIDEO.mp4',
             caption:
                 '*🎬 THENUVA X MD*\n\n' +
-                '✅ Video download complete'
+                `📌 *Title:* ${result.title || 'Video'}\n` +
+                `📺 *Quality:* ${result.quality || 'API selected'}\n` +
+                '✅ *Download Complete*'
         }, {
             quoted: mek
         });
@@ -245,14 +175,20 @@ cmd({
             message
         });
 
+        if (status === 401 || status === 403) {
+            return reply(
+                '❌ API authorization failed. API key එක පරීක්ෂා කරන්න.'
+            );
+        }
+
         if (status === 429) {
             return reply(
-                '⏳ API එක busy. ටික වෙලාවක් ඉඳලා නැවත උත්සාහ කරන්න.'
+                '⏳ API එක දැනට busy. පසුව නැවත උත්සාහ කරන්න.'
             );
         }
 
         return reply(
-            '❌ *Video Download Failed*\n\n' +
+            '❌ Video download අසාර්ථකයි.\n' +
             (message || 'Unknown error')
         );
 
