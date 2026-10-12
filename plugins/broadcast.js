@@ -1,10 +1,20 @@
 const { cmd } = require('../command');
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Use the same database file created in index.js
-const db = new sqlite3.Database('./chats.db');
+// Keep the same database path as index.js
+const db = new sqlite3.Database(
+    path.join(process.cwd(), 'chats.db'),
+    (err) => {
+        if (err) {
+            console.error('[BROADCAST DB OPEN]', err.message);
+        } else {
+            console.log('[BROADCAST] Database connected');
+        }
+    }
+);
 
 db.serialize(() => {
     db.run(`
@@ -13,14 +23,20 @@ db.serialize(() => {
             type TEXT NOT NULL,
             subscribed_at INTEGER NOT NULL
         )
-    `);
+    `, (err) => {
+        if (err) {
+            console.error('[BROADCAST TABLE]', err.message);
+        } else {
+            console.log('[BROADCAST] Subscriber table ready');
+        }
+    });
 });
 
 function dbAll(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (err, rows) => {
             if (err) return reject(err);
-            resolve(rows);
+            resolve(rows || []);
         });
     });
 }
@@ -29,82 +45,149 @@ function dbRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.run(sql, params, function (err) {
             if (err) return reject(err);
-            resolve(this);
+            resolve({
+                changes: this.changes,
+                lastID: this.lastID
+            });
         });
     });
 }
 
+function getCurrentJid(mek, from) {
+    return mek?.key?.remoteJid || from || null;
+}
+
 function getChatType(jid) {
     if (typeof jid !== 'string') return null;
-    if (jid.endsWith('@g.us')) return 'group';
-    if (jid.endsWith('@s.whatsapp.net') ||
-        jid.endsWith('@lid')) return 'private';
+
+    if (jid.endsWith('@g.us')) {
+        return 'group';
+    }
+
+    if (
+        jid.endsWith('@s.whatsapp.net') ||
+        jid.endsWith('@lid')
+    ) {
+        return 'private';
+    }
+
     return null;
 }
 
-// Subscribe the current chat
+function isBotChat(jid, conn) {
+    const botJid = conn?.user?.id;
+
+    if (!botJid || !jid) return false;
+
+    const botNumber = botJid.split(':')[0].split('@')[0];
+    const chatNumber = jid.split('@')[0].split(':')[0];
+
+    return (
+        !jid.endsWith('@g.us') &&
+        botNumber === chatNumber
+    );
+}
+
+// ======================================
+// SUBSCRIBE CURRENT CHAT
+// ======================================
 cmd({
     pattern: 'bcsubscribe',
     alias: ['bcjoin'],
-    desc: 'Subscribe this chat to owner broadcasts',
+    desc: 'Subscribe current chat to broadcasts',
     category: 'main',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
-        const jid = from || mek?.key?.remoteJid;
+        const jid = getCurrentJid(mek, from);
         const type = getChatType(jid);
 
+        console.log('[BC SUBSCRIBE]', {
+            from,
+            jid,
+            type
+        });
+
         if (!type) {
-            return reply('❌ මේ chat එක subscribe කරන්න බැහැ.');
+            return reply(
+                '❌ මේ chat එක subscribe කරන්න බැහැ.'
+            );
         }
 
         await dbRun(
-            `INSERT INTO broadcast_subscribers (jid, type, subscribed_at)
+            `INSERT INTO broadcast_subscribers
+                (jid, type, subscribed_at)
              VALUES (?, ?, ?)
              ON CONFLICT(jid) DO UPDATE SET
-                 type = excluded.type,
-                 subscribed_at = excluded.subscribed_at`,
+                type = excluded.type,
+                subscribed_at = excluded.subscribed_at`,
             [jid, type, Date.now()]
         );
 
         return reply(
-            '✅ *THENUVA X MD BROADCAST*\n\n' +
-            'මේ chat එක broadcast ලබාගැනීමට subscribe කළා.\n' +
-            'අවශ්‍ය නැතිනම් `.bcunsubscribe` භාවිතා කරන්න.'
+            '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
+            '│\n' +
+            '│ ✅ *Broadcast Subscription Active*\n' +
+            `│ ➤ ᴛʏᴘᴇ : ${type}\n` +
+            '│\n' +
+            '│ Broadcast ලබාගැනීමට මේ chat එක subscribe කළා.\n' +
+            '│ ඉවත් වීමට `.bcunsubscribe` භාවිතා කරන්න.\n' +
+            '│\n' +
+            '╰────────────────●●►'
         );
     } catch (err) {
-        console.error('[BC SUBSCRIBE]', err);
-        return reply('❌ Subscribe කිරීම අසාර්ථකයි.');
+        console.error('[BC SUBSCRIBE ERROR]', err);
+
+        return reply(
+            '❌ Subscribe කිරීම අසාර්ථකයි.\n' +
+            'Database error එකක් ඇතිවුණා.'
+        );
     }
 });
 
-// Unsubscribe the current chat
+// ======================================
+// UNSUBSCRIBE CURRENT CHAT
+// ======================================
 cmd({
     pattern: 'bcunsubscribe',
     alias: ['bcleave'],
-    desc: 'Unsubscribe this chat from owner broadcasts',
+    desc: 'Unsubscribe current chat from broadcasts',
     category: 'main',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
-        const jid = from || mek?.key?.remoteJid;
+        const jid = getCurrentJid(mek, from);
 
         if (!getChatType(jid)) {
             return reply('❌ මේ chat එක හඳුනාගන්න බැහැ.');
         }
 
-        await dbRun(
+        const result = await dbRun(
             'DELETE FROM broadcast_subscribers WHERE jid = ?',
             [jid]
         );
 
-        return reply('✅ Broadcast subscription එක ඉවත් කළා.');
+        if (result.changes === 0) {
+            return reply(
+                'ℹ️ මේ chat එක subscribe වෙලා නැහැ.'
+            );
+        }
+
+        return reply(
+            '✅ Broadcast subscription එක ඉවත් කළා.'
+        );
     } catch (err) {
-        console.error('[BC UNSUBSCRIBE]', err);
-        return reply('❌ Unsubscribe කිරීම අසාර්ථකයි.');
+        console.error('[BC UNSUBSCRIBE ERROR]', err);
+
+        return reply(
+            '❌ Unsubscribe කිරීම අසාර්ථකයි.'
+        );
     }
 });
 
+// ======================================
+// BROADCAST SENDER
+// ======================================
 async function sendBroadcast(conn, message, type, reply) {
     let targets;
 
@@ -120,24 +203,32 @@ async function sendBroadcast(conn, message, type, reply) {
                 if (!getChatType(jid)) return false;
                 if (getChatType(jid) !== type) return false;
                 if (jid === 'status@broadcast') return false;
+                if (jid.endsWith('@broadcast')) return false;
                 if (jid.endsWith('@newsletter')) return false;
-
-                const botJid = conn.user?.id?.split(':')[0];
-                if (botJid && jid.split('@')[0].split(':')[0] === botJid) {
-                    return false;
-                }
+                if (isBotChat(jid, conn)) return false;
 
                 return true;
             });
+
+        console.log('[BROADCAST TARGETS]', {
+            type,
+            count: targets.length,
+            targets
+        });
     } catch (err) {
-        console.error('[BROADCAST DB]', err);
-        return reply('❌ Database එකෙන් subscribers ලබාගන්න බැරි වුණා.');
+        console.error('[BROADCAST DB ERROR]', err);
+
+        return reply(
+            '❌ Database එකෙන් subscribers ලබාගන්න බැරි වුණා.'
+        );
     }
 
-    if (!targets.length) {
+    if (targets.length === 0) {
         return reply(
-            '❌ Subscribe වුණු chats නැහැ.\n\n' +
-            'Chat එකකින් `.bcsubscribe` යොදා subscribe වෙන්න.'
+            '❌ *Subscribe වුණු chats හමු වුණේ නැහැ.*\n\n' +
+            (type === 'group'
+                ? 'Group එකේ `.bcsubscribe` දාලා නැවත උත්සාහ කරන්න.'
+                : 'Private chat එකේ `.bcsubscribe` දාලා නැවත උත්සාහ කරන්න.')
         );
     }
 
@@ -146,21 +237,32 @@ async function sendBroadcast(conn, message, type, reply) {
 
     await reply(
         '╭─〔 *ʙʀᴏᴀᴅᴄᴀsᴛ* 〕─●●►\n' +
+        '│\n' +
         `│ ➤ ᴛᴀʀɢᴇᴛs : ${targets.length}\n` +
         '│ ➤ sᴛᴀᴛᴜs : Started\n' +
+        '│\n' +
         '╰────────────────●●►'
     );
 
     for (const jid of targets) {
         try {
-            await conn.sendMessage(jid, { text: message });
+            await conn.sendMessage(jid, {
+                text: message
+            });
+
             sent++;
+
+            console.log('[BROADCAST SENT]', jid);
         } catch (err) {
             failed++;
-            console.error('[BROADCAST ERROR]', jid, err.message);
+
+            console.error(
+                '[BROADCAST SEND ERROR]',
+                jid,
+                err?.message || err
+            );
         }
 
-        // Keep a delay between messages
         await sleep(1500);
     }
 
@@ -176,6 +278,9 @@ async function sendBroadcast(conn, message, type, reply) {
     );
 }
 
+// ======================================
+// PRIVATE BROADCAST
+// ======================================
 cmd({
     pattern: 'broadcast',
     alias: ['bc'],
@@ -184,7 +289,9 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { isOwner, body, reply }) => {
     if (!isOwner) {
-        return reply('❌ මේ command එක භාවිතා කළ හැක්කේ bot owner ට පමණයි.');
+        return reply(
+            '❌ මේ command එක භාවිතා කළ හැක්කේ bot owner ට පමණයි.'
+        );
     }
 
     const message = String(body || '')
@@ -193,12 +300,22 @@ cmd({
         .trim();
 
     if (!message) {
-        return reply('Usage: .broadcast Your message here');
+        return reply(
+            '📌 භාවිතය:\n.broadcast ඔබගේ message එක'
+        );
     }
 
-    return sendBroadcast(conn, message, 'private', reply);
+    return sendBroadcast(
+        conn,
+        message,
+        'private',
+        reply
+    );
 });
 
+// ======================================
+// GROUP BROADCAST
+// ======================================
 cmd({
     pattern: 'bcgroup',
     alias: ['groupbc'],
@@ -207,7 +324,9 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { isOwner, body, reply }) => {
     if (!isOwner) {
-        return reply('❌ මේ command එක භාවිතා කළ හැක්කේ bot owner ට පමණයි.');
+        return reply(
+            '❌ මේ command එක භාවිතා කළ හැක්කේ bot owner ට පමණයි.'
+        );
     }
 
     const message = String(body || '')
@@ -216,8 +335,15 @@ cmd({
         .trim();
 
     if (!message) {
-        return reply('Usage: .bcgroup Your message here');
+        return reply(
+            '📌 භාවිතය:\n.bcgroup ඔබගේ message එක'
+        );
     }
 
-    return sendBroadcast(conn, message, 'group', reply);
+    return sendBroadcast(
+        conn,
+        message,
+        'group',
+        reply
+    );
 });
