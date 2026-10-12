@@ -95,6 +95,64 @@ const port = process.env.PORT || 8000;
           auth: state,
           version
           })
+
+// ===============================
+// THENUVA X MD - CHAT TRACKING
+// ===============================
+const chatDb = require('sqlite3').verbose();
+const chatDatabase = new chatDb.Database('./chats.db');
+
+chatDatabase.serialize(() => {
+    chatDatabase.run(`
+        CREATE TABLE IF NOT EXISTS broadcast_chats (
+            jid TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+    `);
+});
+
+conn.ev.on('messages.upsert', (event) => {
+    if (!event || !Array.isArray(event.messages)) return;
+
+    for (const message of event.messages) {
+        const jid = message?.key?.remoteJid;
+
+        if (!jid || message.key.fromMe) continue;
+        if (jid === 'status@broadcast') continue;
+        if (jid.endsWith('@broadcast')) continue;
+        if (jid.endsWith('@newsletter')) continue;
+
+        let type;
+
+        if (jid.endsWith('@g.us')) {
+            type = 'group';
+        } else if (
+            jid.endsWith('@s.whatsapp.net') ||
+            jid.endsWith('@lid')
+        ) {
+            type = 'private';
+        } else {
+            continue;
+        }
+
+        chatDatabase.run(
+            `INSERT INTO broadcast_chats (jid, type, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(jid) DO UPDATE SET
+                 type = excluded.type,
+                 updated_at = excluded.updated_at`,
+            [jid, type, Date.now()],
+            (error) => {
+                if (error) {
+                    console.error('[CHAT TRACKING]', error.message);
+                }
+            }
+        );
+    }
+});
+
+console.log('✅ Broadcast chat tracking enabled');
       
   conn.ev.on('connection.update', (update) => {
   const { connection, lastDisconnect } = update
