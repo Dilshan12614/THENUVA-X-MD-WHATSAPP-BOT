@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
@@ -23,7 +25,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      # CHECKOUT
+      # CHECKOUT REPOSITORY
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -38,10 +40,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
+
           echo "FFmpeg:"
           ffmpeg -version | head -n 1
+
           echo "FFprobe:"
           ffprobe -version | head -n 1
+
+          echo "ImageMagick:"
+          magick -version | head -n 1 || convert -version | head -n 1
 
       # NODE DEPENDENCIES
       - name: Install dependencies
@@ -52,7 +59,12 @@ jobs:
         run: |
           node --version
           npm --version
-          test -f index.js
+
+          if [ ! -f index.js ]; then
+            echo "ERROR: index.js not found"
+            exit 1
+          fi
+
           echo "THENUVA X MD environment ready"
 
       # SESSION CHECK
@@ -61,23 +73,28 @@ jobs:
           SESSION_ID: ${{ secrets.SESSION_ID }}
         run: |
           if [ -z "$SESSION_ID" ]; then
-            echo "SESSION_ID secret is missing"
+            echo "ERROR: SESSION_ID secret is missing"
             exit 1
           fi
+
           echo "SESSION_ID is configured"
 
       # START BOT
       - name: Start THENUVA X MD
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
+
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_WORKFLOW_FILE: main.yml
           GITHUB_BRANCH: main
 
-          # Optional David Cyril API key
+          # DAVID CYRIL API
           DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
+
+          # SASA DEV TTS API
+          SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
 
         run: |
           echo "Starting THENUVA X MD..."
