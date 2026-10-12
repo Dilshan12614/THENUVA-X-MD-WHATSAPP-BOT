@@ -116,7 +116,7 @@ conn.ev.on('messages.upsert', (event) => {
     if (!event || !Array.isArray(event.messages)) return;
 
     for (const message of event.messages) {
-        const jid = message?.key?.remoteJid;
+        const jid = mek?.key?.remoteJid || from;
 
         if (!jid || message.key.fromMe) continue;
         if (jid === 'status@broadcast') continue;
