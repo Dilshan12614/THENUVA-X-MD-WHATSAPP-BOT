@@ -223,13 +223,14 @@ cmd(
                 text:
     '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
     '│\n' +
-    '│ ➤ .setting\n' +
-    '│ ➤ .restart\n' +
+    '│ ➤ .`setting`\n' +
+    '│ ➤ .`restart\n' +`
     '│ ➤ .menu\n' +
     '│ ➤ .shutdown\n' +
     '│ ➤ .block 947xxxxxxxxx\n' +
     '│ ➤ .unblock 947xxxxxxxx\n' +
     '│ ➤ .plugins\n' +
+    '│ ➤ .sendmsg\n' +
     '│\n' +
     '╰────────────────●●►\n\n' +
     
