@@ -8,28 +8,44 @@ const API_URL =
 const activeRequests = new Set();
 const MAX_AUDIO_SIZE = 50 * 1024 * 1024;
 
-function extractUrl(value) {
-    if (typeof value !== 'string') return null;
 
-    let url = value.trim();
+function findAudioUrl(obj) {
+    if (!obj || typeof obj !== 'object') return null;
 
-    const markdown = url.match(
-        /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/
-    );
+    // David Cyril y2mate API response
+    const directDownload = obj.result?.download;
+    if (typeof directDownload === 'string' && directDownload.trim()) {
+        const match = directDownload.match(
+            /https?:\/\/[^\s)\\]+/
+        );
+        if (match) return match[0].replace(/&amp;/g, '&');
+    }
 
-    if (markdown) url = markdown[2];
+    const keys = [
+        'download_url',
+        'downloadUrl',
+        'audio_url',
+        'audioUrl',
+        'mp3_url',
+        'download',
+        'url',
+        'link'
+    ];
 
-    try {
-        const parsed = new URL(url);
+    for (const key of keys) {
+        const value = obj[key];
 
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-            return null;
+        if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
+            return value;
         }
 
-        return parsed.href;
-    } catch {
-        return null;
+        if (value && typeof value === 'object') {
+            const found = findAudioUrl(value);
+            if (found) return found;
+        }
     }
+
+    return null;
 }
 
 function findAudioUrl(data, depth = 0) {
