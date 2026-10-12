@@ -82,8 +82,10 @@ jobs:
       # START BOT
       - name: Start THENUVA X MD
         env:
+          # WHATSAPP SESSION
           SESSION_ID: ${{ secrets.SESSION_ID }}
 
+          # GITHUB CONFIGURATION
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
@@ -95,6 +97,9 @@ jobs:
 
           # SASA DEV TTS API
           SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
+
+          # SASA DEV YOUTUBE MP4 API
+          SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
 
         run: |
           echo "Starting THENUVA X MD..."
