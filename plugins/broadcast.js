@@ -7,7 +7,7 @@ const sleep = ms =>
 const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
 const FOOTER =
-    '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 cmd({
     pattern: 'sendmsg',
@@ -75,26 +75,6 @@ cmd({
             );
         }
 
-        await sendListMenu(conn, from, {
-            title:
-                '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
-                '│ 📤 Private messages යවමින්...\n' +
-                `│ 👥 Recipients: ${numbers.length}\n` +
-                '╰────────────────●●►',
-            buttonText: 'Open Menu',
-            sections: [{
-                title: 'THENUVA X MD',
-                rows: [{
-                    id: 'sendmsg:status',
-                    title: 'Message Status',
-                    description: 'Private message delivery'
-                }]
-            }],
-            footer: FOOTER,
-            image: MENU_IMAGE,
-            hideListButton: true
-        }, mek);
-
         let sent = 0;
         let failed = 0;
 
@@ -107,11 +87,11 @@ cmd({
                 });
 
                 sent++;
-                console.log('[SENDPM SENT]', number);
+                console.log('[SENDMSG SENT]', number);
             } catch (err) {
                 failed++;
                 console.error(
-                    '[SENDPM ERROR]',
+                    '[SENDMSG ERROR]',
                     number,
                     err?.message || err
                 );
@@ -120,16 +100,20 @@ cmd({
             await sleep(1500);
         }
 
+        const resultText =
+            '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
+            '│ 📩 *PRIVATE MESSAGE RESULT*\n' +
+            '├────────────────\n' +
+            `│ 👥 Recipients: ${numbers.length}\n` +
+            `│ ✅ Sent: ${sent}\n` +
+            `│ ❌ Failed: ${failed}\n` +
+            '╰────────────────●●►';
+
         return sendListMenu(conn, from, {
-            title:
-                '╭─〔 *sᴇɴᴅᴍsɢ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
-                `│ 👥 Recipients: ${numbers.length}\n` +
-                `│ ✅ Sent: ${sent}\n` +
-                `│ ❌ Failed: ${failed}\n` +
-                '╰────────────────●●►',
+            title: resultText,
             buttonText: 'Open Menu',
             sections: [{
-                title: 'DELIVERY RESULT',
+                title: 'THENUVA X MD',
                 rows: [{
                     id: 'sendmsg:result',
                     title: 'Delivery Summary',
@@ -142,7 +126,7 @@ cmd({
         }, mek);
 
     } catch (err) {
-        console.error('[SENDPM FATAL ERROR]', err);
+        console.error('[SENDMSG FATAL ERROR]', err);
 
         return reply(
             '❌ Command එක ක්‍රියාත්මක කිරීමේදී දෝෂයක් ඇති වුණා.'
