@@ -131,7 +131,7 @@ cmd({
         }
 
         output +=
-            '🔘 *choose an options below.';
+            '🔘 *choose an options below.*';
 
         const sections = [
             {
