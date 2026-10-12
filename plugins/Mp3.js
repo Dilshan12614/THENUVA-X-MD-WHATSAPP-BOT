@@ -2,7 +2,7 @@ const axios = require('axios');
 const config = require('../config');
 const { cmd } = require('../command');
 
-const API_URL = 'https://apis.davidcyril.name.ng/download/y2mate';
+const API_URL = 'https://apis.davidcyril.name.ng/download/y2mate?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ';
 const MAX_AUDIO_SIZE = 50 * 1024 * 1024;
 const activeRequests = new Set();
 
