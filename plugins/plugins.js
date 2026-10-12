@@ -125,37 +125,37 @@ cmd({
             '┃ ➜ ᴄʜᴏᴏꜱᴇ ᴀɴ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ\n' +
             '╰━━━━━━━━━━━━━━━━━━●●►';
 
-        return await sendListMenu(
-            conn,
-            from,
-            {
-                text: output,
-                image: MENU_IMAGE,
-                footer: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
-                buttons: [
-                    {
-                        buttonId: 'thenuva:contact',
-                        buttonText: { displayText: 'CONTACT ME' },
-                        type: 1
-                    },
-                    {
-                        buttonId: 'thenuva:channel',
-                        buttonText: { displayText: 'VIEW CHANNEL' },
-                        type: 1
-                    }
-                ],
-                contextInfo: {
-                    externalAdReply: {
-                        title: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
-                        body: 'ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
-                        thumbnailUrl: MENU_IMAGE,
-                        sourceUrl: CHANNEL_URL,
-                        mediaType: 1,
-                        renderLargerThumbnail: true
-                    }
-                }
-            }
-        );
+        return await sendListMenu(conn, from, {
+    title: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
+    text: output,
+    image: MENU_IMAGE,
+    footer: '⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
+
+    // Contact සහ Channel actions
+    buttons: [
+        {
+            buttonId: 'thenuva:contact',
+            buttonText: { displayText: 'CONTACT ME' },
+            type: 1
+        },
+        {
+            buttonId: 'thenuva:channel',
+            buttonText: { displayText: 'VIEW CHANNEL' },
+            type: 1
+        }
+    ],
+
+    contextInfo: {
+        externalAdReply: {
+            title: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
+            body: 'ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
+            thumbnailUrl: MENU_IMAGE,
+            sourceUrl: CHANNEL_URL,
+            mediaType: 1,
+            renderLargerThumbnail: true
+        }
+    }
+});
 
     } catch (error) {
         console.error('[PLUGINS ERROR]', error);
