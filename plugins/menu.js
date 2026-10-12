@@ -208,6 +208,8 @@ cmd(
 );
 
 // OWNER MENU
+const { sendListMenu } = require('../lib/buttons');
+
 cmd(
     {
         pattern: 'ownermenu',
@@ -217,26 +219,45 @@ cmd(
         filename: __filename
     },
     async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
+        await sendListMenu(
+            conn,
             from,
             {
-                text:
-    '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
-    '│\n' +
-    '│ ➤ .`setting`\n' +
-    '│ ➤ .`restart`\n' +
-    '│ ➤ .`menu`\n' +
-    '│ ➤ .`shutdown`\n' +
-    '│ ➤ .`block` 947xxxxxxxxx\n' +
-    '│ ➤ .`unblock` 947xxxxxxxx\n' +
-    '│ ➤ .`plugins`\n' +
-    '│ ➤ .`sendmsg` 947xxxxxxxx| "`Put any message you like here`"\n' +
-    '│\n' +
-    '╰────────────────●●►\n\n' +
-    
-    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
+                title:
+                    '╭─〔 *ᴏᴡɴᴇʀ ᴍᴇɴᴜ* 〕─●●►\n' +
+                    '│\n' +
+                    '│ ➤ .`setting`\n' +
+                    '│ ➤ .`restart`\n' +
+                    '│ ➤ .`menu`\n' +
+                    '│ ➤ .`shutdown`\n' +
+                    '│ ➤ .`block` 947xxxxxxxxx\n' +
+                    '│ ➤ .`unblock` 947xxxxxxxx\n' +
+                    '│ ➤ .`plugins`\n' +
+                    '│ ➤ .`sendmsg` 947xxxxxxxx| "`Put any message you like here`"\n' +
+                    '│ ➤ .`alive`\n' +
+                    '│ ➤ .`ping`\n' +
+                    '│\n' +
+                    '╰────────────────●●►',
+                buttonText: 'Open Menu',
+                sections: [
+                    {
+                        title: 'OWNER MENU',
+                        rows: [
+                            {
+                                id: 'ownermenu:setting',
+                                title: 'Owner Settings',
+                                description: 'Manage bot settings'
+                            }
+                        ]
+                    }
+                ],
+                footer:
+                    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                image:
+                    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg',
+                hideListButton: true
             },
-            { quoted: mek }
+            mek
         );
     }
 );
