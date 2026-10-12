@@ -2,24 +2,63 @@ const axios = require('axios');
 const config = require('../config');
 const { cmd } = require('../command');
 
-const API_URL =
-    'https://apis.davidcyril.name.ng/download/y2mate?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ';
-
-const activeRequests = new Set();
+const API_URL = 'https://apis.davidcyril.name.ng/download/y2mate';
 const MAX_AUDIO_SIZE = 50 * 1024 * 1024;
+const activeRequests = new Set();
 
+// ==========================================
+// Extract URL from direct or Markdown links
+// ==========================================
+function extractUrl(value) {
+    if (typeof value !== 'string') return null;
 
-function findAudioUrl(obj) {
-    if (!obj || typeof obj !== 'object') return null;
+    const text = value.trim();
 
-    // David Cyril y2mate API response
-    const directDownload = obj.result?.download;
-    if (typeof directDownload === 'string' && directDownload.trim()) {
-        const match = directDownload.match(
-            /https?:\/\/[^\s)\\]+/
-        );
-        if (match) return match[0].replace(/&amp;/g, '&');
+    // Direct URL
+    if (/^https?:\/\//i.test(text)) {
+        return text
+            .replace(/\\&/g, '&')
+            .replace(/&amp;/g, '&');
     }
+
+    // Markdown: [URL](URL)
+    const markdownMatch = text.match(
+        /\]\((https?:\/\/[^)\s]+)\)/
+    );
+
+    if (markdownMatch) {
+        return markdownMatch[1]
+            .replace(/\\&/g, '&')
+            .replace(/&amp;/g, '&');
+    }
+
+    // URL embedded in text
+    const urlMatch = text.match(/https?:\/\/[^\s)]+/i);
+
+    if (urlMatch) {
+        return urlMatch[0]
+            .replace(/\\&/g, '&')
+            .replace(/&amp;/g, '&');
+    }
+
+    return null;
+}
+
+// ==========================================
+// Find audio download URL in API response
+// ==========================================
+function findAudioUrl(obj) {
+    if (!obj) return null;
+
+    if (typeof obj === 'string') {
+        return extractUrl(obj);
+    }
+
+    if (typeof obj !== 'object') return null;
+
+    // Exact field from David Cyril y2mate API
+    const directDownload = extractUrl(obj.result?.download);
+    if (directDownload) return directDownload;
 
     const keys = [
         'download_url',
@@ -27,19 +66,25 @@ function findAudioUrl(obj) {
         'audio_url',
         'audioUrl',
         'mp3_url',
+        'mp3Url',
         'download',
         'url',
-        'link'
+        'link',
+        'audio',
+        'links',
+        'data',
+        'result'
     ];
 
     for (const key of keys) {
+        if (!(key in obj)) continue;
+
         const value = obj[key];
 
-        if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
-            return value;
-        }
-
-        if (value && typeof value === 'object') {
+        if (typeof value === 'string') {
+            const found = extractUrl(value);
+            if (found) return found;
+        } else if (value && typeof value === 'object') {
             const found = findAudioUrl(value);
             if (found) return found;
         }
@@ -48,229 +93,193 @@ function findAudioUrl(obj) {
     return null;
 }
 
-function findAudioUrl(data, depth = 0) {
-    if (!data || depth > 6) return null;
+// ==========================================
+// Validate YouTube URL
+// ==========================================
+function isYouTubeUrl(value) {
+    try {
+        const url = new URL(value);
+        const host = url.hostname.toLowerCase();
 
-    if (typeof data === 'string') {
-        return extractUrl(data);
+        return (
+            host === 'youtube.com' ||
+            host.endsWith('.youtube.com') ||
+            host === 'youtu.be' ||
+            host === 'youtube-nocookie.com' ||
+            host.endsWith('.youtube-nocookie.com')
+        );
+    } catch {
+        return false;
     }
-
-    if (typeof data !== 'object') return null;
-
-    const keys = [
-        'download_url',
-        'downloadUrl',
-        'audio_url',
-        'audioUrl',
-        'mp3_url',
-        'url',
-        'link',
-        'download',
-        'audio',
-        'links',
-        'data',
-        'result'
-    ];
-
-    for (const key of keys) {
-        if (data[key] !== undefined) {
-            const found = findAudioUrl(data[key], depth + 1);
-            if (found) return found;
-        }
-    }
-
-    for (const value of Object.values(data)) {
-        const found = findAudioUrl(value, depth + 1);
-        if (found) return found;
-    }
-
-    return null;
 }
 
+// ==========================================
+// Get MP3 command
+// ==========================================
 cmd({
     pattern: 'mp3',
     alias: ['ytmp3', 'song', 'audio'],
     react: '🎵',
     desc: 'Download YouTube audio as MP3',
     category: 'download',
-    use: '.mp3 <YouTube URL>',
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-
-    if (activeRequests.has(from)) {
-        return reply(
-            '⏳ දැනට audio request එකක් ක්‍රියාත්මකයි. ටිකක් ඉන්න.'
-        );
-    }
-
-    if (!q || !q.trim()) {
-        return reply(
-            '╭───────────────●●►\n' +
-            '│ 🎵 *THENUVA X MD MP3*\n' +
-            '├───────────────●●►\n' +
-            '│\n' +
-            '│ 📥 YouTube Audio Downloader\n' +
-            '│\n' +
-            '│ භාවිතය:\n' +
-            '│ .mp3 YouTube_URL\n' +
-            '│\n' +
-            '╰───────────────●●►'
-        );
-    }
-
-    let youtubeUrl;
+}, async (conn, mek, m, {
+    from,
+    q,
+    reply,
+    sender
+}) => {
+    const requestKey = `${from}:${sender || 'user'}`;
 
     try {
-        youtubeUrl = new URL(q.trim());
-    } catch {
-        return reply('❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.');
-    }
+        if (!q) {
+            return reply(
+                '🎵 *THENUVA X MD MP3 DOWNLOADER*\n\n' +
+                'කරුණාකර YouTube link එකක් දෙන්න.\n\n' +
+                '*Example:*\n.mp3 https://youtube.com/watch?v=VIDEO_ID'
+            );
+        }
 
-    const allowedHosts = [
-        'youtube.com',
-        'www.youtube.com',
-        'm.youtube.com',
-        'music.youtube.com',
-        'youtu.be',
-        'www.youtu.be'
-    ];
+        let youtubeUrl;
 
-    if (
-        !['http:', 'https:'].includes(youtubeUrl.protocol) ||
-        !allowedHosts.includes(youtubeUrl.hostname.toLowerCase())
-    ) {
-        return reply('❌ වලංගු YouTube URL එකක් ලබා දෙන්න.');
-    }
+        try {
+            youtubeUrl = new URL(q.trim());
+        } catch {
+            return reply('❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.');
+        }
 
-    activeRequests.add(from);
+        if (!isYouTubeUrl(youtubeUrl.href)) {
+            return reply('❌ YouTube link එකක් පමණක් ලබා දෙන්න.');
+        }
 
-    try {
+        if (activeRequests.has(requestKey)) {
+            return reply('⏳ ඔබගේ audio request එක දැනටමත් process වෙනවා.');
+        }
+
+        activeRequests.add(requestKey);
+
+        await conn.sendMessage(from, {
+            react: {
+                text: '⏳',
+                key: mek.key
+            }
+        });
+
         const apiKey =
             process.env.DAVIDCYRIL_API_KEY ||
             config.DAVIDCYRIL_API_KEY;
 
-        if (!apiKey) {
-            return reply(
-                '❌ *API KEY NOT CONFIGURED*\n\n' +
-                'GitHub repository එකේ Settings → Secrets and variables → Actions ' +
-                'වෙත ගොස් DAVIDCYRIL_API_KEY සකසන්න.'
-            );
+        const headers = {
+            Accept: 'application/json',
+            'User-Agent': 'THENUVA-X-MD/2.0.0'
+        };
+
+        if (apiKey) {
+            headers['x-api-key'] = apiKey;
         }
 
-        await reply(
-            '⏳ *THENUVA X MD*\n\n' +
-            '🎵 Audio එක ලබාගනිමින් පවතී...\n' +
-            '📥 කරුණාකර රැඳී සිටින්න.'
-        );
+        console.log('[MP3] Requesting audio:', youtubeUrl.href);
 
-        // 1. Request MP3 from the Y2Mate endpoint
-        const response = await axios.get(API_URL, {
+        const apiResponse = await axios.get(API_URL, {
             params: {
                 url: youtubeUrl.href,
                 format: 'mp3',
                 quality: '128'
             },
-            headers: {
-                'X-API-Key': apiKey,
-                Accept: 'application/json'
-            },
+            headers,
             timeout: 120000,
-            maxContentLength: 2 * 1024 * 1024,
-            maxRedirects: 5
+            maxContentLength: 5 * 1024 * 1024,
+            maxBodyLength: 5 * 1024 * 1024,
+            validateStatus: status => status >= 200 && status < 500
         });
 
-        const apiData = response.data;
+        const apiData = apiResponse.data;
 
         console.log(
-            '[MP3] API response:',
-            JSON.stringify(apiData).slice(0, 2500)
+            '[MP3] API HTTP status:',
+            apiResponse.status
         );
+
+        if (
+            apiResponse.status < 200 ||
+            apiResponse.status >= 300
+        ) {
+            throw new Error(`API returned HTTP ${apiResponse.status}`);
+        }
 
         if (
             !apiData ||
             typeof apiData !== 'object' ||
             apiData.success === false
         ) {
-            return reply(
-                '❌ *MP3 DOWNLOAD FAILED*\n\n' +
-                String(apiData?.message || 'API එකෙන් audio ලබාගත නොහැක.')
+            throw new Error(
+                apiData?.message || 'API did not return a successful response'
             );
         }
 
-        const data = apiData.data || apiData.result || apiData;
+        const result = apiData.result || apiData.data || apiData;
+        const title = result.title || 'THENUVA_X_MD_Audio';
+        const audioUrl = findAudioUrl(apiData);
 
-        const audioUrl = findAudioUrl(data);
-
-        const title = String(
-            data.title || apiData.title || 'THENUVA AUDIO'
-        ).slice(0, 180);
+        console.log('[MP3] Title:', title);
+        console.log('[MP3] Audio URL received:', Boolean(audioUrl));
 
         if (!audioUrl) {
-            console.error('[MP3] No audio URL found.');
-
-            return reply(
-                '❌ API response එකේ audio URL එක හඳුනාගත නොහැක.\n\n' +
-                'GitHub Actions logs වල [MP3] API response පරීක්ෂා කරන්න.'
+            console.log(
+                '[MP3] API response fields:',
+                Object.keys(apiData).join(', ')
             );
+            throw new Error('Audio download URL not found in API response');
         }
 
-        console.log('[MP3] Audio URL received:', true);
+        // Do not follow links to unexpected hosts.
+        const parsedAudioUrl = new URL(audioUrl);
 
-        // 2. Download the actual audio file
-        const fileResponse = await axios.get(audioUrl, {
+        if (!['http:', 'https:'].includes(parsedAudioUrl.protocol)) {
+            throw new Error('Invalid audio URL protocol');
+        }
+
+        console.log(
+            '[MP3] Download host:',
+            parsedAudioUrl.hostname
+        );
+
+        // Download the audio file
+        const audioResponse = await axios.get(audioUrl, {
             responseType: 'arraybuffer',
             timeout: 180000,
             maxContentLength: MAX_AUDIO_SIZE,
             maxBodyLength: MAX_AUDIO_SIZE,
             maxRedirects: 10,
             headers: {
-                'User-Agent': 'Mozilla/5.0',
-                Accept: 'audio/mpeg, audio/*, application/octet-stream, */*'
+                Accept: 'audio/mpeg, audio/*, application/octet-stream, */*',
+                'User-Agent': 'Mozilla/5.0 (compatible; THENUVA-X-MD/2.0.0)'
             },
             validateStatus: () => true
         });
 
-        if (fileResponse.status === 401 || fileResponse.status === 403) {
-            return reply(
-                '❌ Download server එකෙන් අවසර ලබා දුන්නේ නැහැ.'
-            );
-        }
-
-        if (fileResponse.status === 404) {
-            return reply('❌ Audio download link එක හමු වුණේ නැහැ.');
-        }
-
-        if (fileResponse.status === 429) {
-            return reply(
-                '⏳ Server rate limit එකට පැමිණ ඇත. පසුව නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (
-            fileResponse.status < 200 ||
-            fileResponse.status >= 300
-        ) {
-            return reply(
-                `❌ Audio download අසාර්ථකයි. HTTP ${fileResponse.status}`
+        if (audioResponse.status < 200 || audioResponse.status >= 300) {
+            throw new Error(
+                `Audio server returned HTTP ${audioResponse.status}`
             );
         }
 
         const contentType = String(
-            fileResponse.headers['content-type'] || ''
+            audioResponse.headers['content-type'] || ''
         ).toLowerCase();
 
-        const audioBuffer = Buffer.from(fileResponse.data || []);
+        const audioBuffer = Buffer.from(audioResponse.data);
 
         if (!audioBuffer.length) {
-            return reply('❌ ලැබුණු audio file එක හිස්.');
+            throw new Error('Audio server returned an empty file');
         }
 
         if (audioBuffer.length > MAX_AUDIO_SIZE) {
-            return reply('❌ Audio file එක 50 MB සීමාව ඉක්මවා ඇත.');
+            throw new Error('Audio file exceeds the 50 MB limit');
         }
 
-        // 3. Reject HTML/JSON instead of sending as audio
-        const beginning = audioBuffer
+        // Reject HTML or JSON error pages returned by download tunnels
+        const start = audioBuffer
             .subarray(0, 512)
             .toString('utf8')
             .trimStart()
@@ -278,104 +287,97 @@ cmd({
 
         if (
             contentType.includes('text/html') ||
-            contentType.includes('application/json') ||
-            beginning.startsWith('<!doctype html') ||
-            beginning.startsWith('<html') ||
-            beginning.startsWith('{')
+            start.startsWith('<!doctype html') ||
+            start.startsWith('<html') ||
+            start.startsWith('{"error"') ||
+            start.startsWith('{"message"')
         ) {
-            console.error(
-                '[MP3] Non-audio response:',
-                contentType
-            );
-
-            return reply(
-                '❌ Download URL එකෙන් MP3 file එකක් වෙනුවට webpage/API response එකක් ලැබුණා.'
+            throw new Error(
+                'Download server returned HTML/JSON instead of audio. The tunnel may have expired.'
             );
         }
 
-        // 4. Check common MP3 signatures
-        const isMP3 =
+        // Verify common MP3 signatures
+        const hasID3 =
             audioBuffer.length >= 3 &&
-            audioBuffer.toString('ascii', 0, 3) === 'ID3';
+            audioBuffer.subarray(0, 3).toString('ascii') === 'ID3';
 
         const hasMpegFrame =
             audioBuffer.length >= 2 &&
             audioBuffer[0] === 0xff &&
             (audioBuffer[1] & 0xe0) === 0xe0;
 
-        const isM4A =
-            audioBuffer.length >= 12 &&
-            audioBuffer.toString('ascii', 4, 8) === 'ftyp';
-
-        if (!isMP3 && !hasMpegFrame && !isM4A) {
-            console.error(
-                '[MP3] Unknown audio signature:',
-                contentType,
-                audioBuffer.subarray(0, 16).toString('hex')
-            );
-
-            return reply(
-                '❌ ලැබුණු file එක හඳුනාගත හැකි MP3/audio format එකක් නොවේ.'
+        if (!hasID3 && !hasMpegFrame) {
+            throw new Error(
+                `Downloaded file is not a recognizable MP3 (content-type: ${contentType || 'unknown'})`
             );
         }
 
-        if (isM4A) {
-            return reply(
-                '❌ API එකෙන් MP3 වෙනුවට M4A file එකක් ලැබුණා. ' +
-                'API එකෙන් MP3 format එක ඉල්ලිය යුතුයි.'
-            );
-        }
+        // Sanitize filename
+        const safeTitle = String(
+            result.filename || title
+        )
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 150) || 'THENUVA_X_MD_Audio';
 
-        // 5. Send MP3 as WhatsApp audio
-        const safeTitle = title
-            .replace(/[\\/:*?"<>|\r\n]/g, '')
-            .slice(0, 120) || 'THENUVA-AUDIO';
+        const filename = safeTitle.toLowerCase().endsWith('.mp3')
+            ? safeTitle
+            : `${safeTitle}.mp3`;
 
         await conn.sendMessage(from, {
             audio: audioBuffer,
             mimetype: 'audio/mpeg',
-            fileName: `${safeTitle}.mp3`,
+            fileName: filename,
             ptt: false
         }, {
             quoted: mek
         });
 
-        console.log('[MP3] Sent successfully:', safeTitle);
+        await conn.sendMessage(from, {
+            react: {
+                text: '✅',
+                key: mek.key
+            }
+        });
+
+        console.log(
+            `[MP3] Sent successfully: ${filename} (${audioBuffer.length} bytes)`
+        );
 
     } catch (error) {
-        const status = error.response?.status;
-
         console.error('[MP3 ERROR]', {
-            status: status || 'Unknown',
+            status: error.response?.status || 'Unknown',
             code: error.code || 'Unknown',
             message: error.message
         });
 
-        if (status === 401 || status === 403) {
-            return reply(
-                '❌ API authorization අසාර්ථකයි. API key එක පරීක්ෂා කරන්න.'
-            );
-        }
+        let message = '❌ MP3 download කරන්න බැරි වුණා.';
 
-        if (status === 429) {
-            return reply(
-                '⏳ API rate limit එකට පැමිණ ඇත. පසුව නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (
-            error.code === 'ECONNABORTED' ||
-            error.code === 'ETIMEDOUT'
+        if (error.message.includes('401') || error.message.includes('403')) {
+            message += '\n\nAPI key එක හෝ download server access එක පරීක්ෂා කරන්න.';
+        } else if (
+            error.message.includes('HTML/JSON') ||
+            error.message.includes('not a recognizable MP3')
         ) {
-            return reply('⏳ API timeout. නැවත උත්සාහ කරන්න.');
+            message += '\n\nDownload server එක audio වෙනුවට වෙනත් content එකක් එවලා. නැවත උත්සාහ කරන්න.';
+        } else if (error.message.includes('50 MB')) {
+            message += '\n\nAudio file එක 50 MB සීමාව ඉක්මවා ඇත.';
+        } else {
+            message += `\n\nError: ${error.message}`;
         }
 
-        return reply(
-            '❌ MP3 download අසාර්ථකයි.\n' +
-            String(error.message || 'Unknown error')
-        );
+        await reply(message).catch(() => {});
+
+        await conn.sendMessage(from, {
+            react: {
+                text: '❌',
+                key: mek.key
+            }
+        }).catch(() => {});
 
     } finally {
-        activeRequests.delete(from);
+        activeRequests.delete(requestKey);
     }
 });
