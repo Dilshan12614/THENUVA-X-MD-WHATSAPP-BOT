@@ -16,7 +16,9 @@ cmd({
 }) => {
     try {
         if (!isOwner) {
-            return reply('❌ මේ command එක භාවිතා කළ හැක්කේ owner ට පමණයි.');
+            return reply(
+                '❌ මේ command එක භාවිතා කළ හැක්කේ owner ට පමණයි.'
+            );
         }
 
         const input = String(body || '')
@@ -24,7 +26,6 @@ cmd({
             .replace(/^\.?sendpm(?:\s+|$)/i, '')
             .trim();
 
-        // Format: numbers separated by commas | message
         const split = input.split('|');
 
         if (split.length < 2) {
@@ -49,9 +50,10 @@ cmd({
                 .map(n => n.trim().replace(/^\+/, ''))
         )];
 
-        if (!numbers.length || numbers.some(
-            n => !/^\d{8,15}$/.test(n)
-        )) {
+        if (
+            !numbers.length ||
+            numbers.some(n => !/^\d{8,15}$/.test(n))
+        ) {
             return reply(
                 '❌ Number format එක වැරදියි.\n' +
                 'රටේ code එක සමඟ numbers ඇතුළත් කරන්න.'
@@ -68,9 +70,8 @@ cmd({
             '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
             '│ 📤 Private messages requesting...\n' +
             `│ 👥 Recipients: ${numbers.length}\n` +
-            '╰────────────────●●►'
-            
-            '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+            '╰────────────────●●►\n\n' +
+            '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
         );
 
         let sent = 0;
@@ -80,12 +81,19 @@ cmd({
             const jid = `${number}@s.whatsapp.net`;
 
             try {
-                await conn.sendMessage(jid, { text: message });
+                await conn.sendMessage(jid, {
+                    text: message
+                });
+
                 sent++;
                 console.log('[SENDPM SENT]', number);
             } catch (err) {
                 failed++;
-                console.error('[SENDPM ERROR]', number, err.message);
+                console.error(
+                    '[SENDPM ERROR]',
+                    number,
+                    err?.message || err
+                );
             }
 
             await sleep(1500);
@@ -95,13 +103,16 @@ cmd({
             '╭─〔 *sᴇɴᴅᴘᴍ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
             `│ 👥 Recipients: ${numbers.length}\n` +
             `│ ✅ Sent: ${sent}\n` +
-            '╰────────────────●●►'
-
-            '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+            `│ ❌ Failed: ${failed}\n` +
+            '╰────────────────●●►\n\n' +
+            '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
         );
 
     } catch (err) {
         console.error('[SENDPM FATAL ERROR]', err);
-        return reply('❌ Command එක ක්‍රියාත්මක කිරීමේදී දෝෂයක් ඇති වුණා.');
+
+        return reply(
+            '❌ Command එක ක්‍රියාත්මක කිරීමේදී දෝෂයක් ඇති වුණා.'
+        );
     }
 });
