@@ -1,7 +1,13 @@
 const { cmd } = require('../command');
+const { sendListMenu } = require('../lib/buttons');
 
 const sleep = ms =>
     new Promise(resolve => setTimeout(resolve, ms));
+
+const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+
+const FOOTER =
+    '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 cmd({
     pattern: 'sendmsg',
@@ -12,6 +18,7 @@ cmd({
 }, async (conn, mek, m, {
     isOwner,
     body,
+    from,
     reply
 }) => {
     try {
@@ -41,7 +48,9 @@ cmd({
         const message = split.join('|').trim();
 
         if (!message) {
-            return reply('❌ යවන්න message එකක් ඇතුළත් කරන්න.');
+            return reply(
+                '❌ යවන්න message එකක් ඇතුළත් කරන්න.'
+            );
         }
 
         const numbers = [...new Set(
@@ -66,13 +75,25 @@ cmd({
             );
         }
 
-        await reply(
-            '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
-            '│ 📤 Private messages requesting...\n' +
-            `│ 👥 Recipients: ${numbers.length}\n` +
-            '╰────────────────●●►\n\n' +
-            '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
-        );
+        await sendListMenu(conn, from, {
+            title:
+                '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
+                '│ 📤 Private messages යවමින්...\n' +
+                `│ 👥 Recipients: ${numbers.length}\n` +
+                '╰────────────────●●►',
+            buttonText: 'Open Menu',
+            sections: [{
+                title: 'THENUVA X MD',
+                rows: [{
+                    id: 'sendmsg:status',
+                    title: 'Message Status',
+                    description: 'Private message delivery'
+                }]
+            }],
+            footer: FOOTER,
+            image: MENU_IMAGE,
+            hideListButton: true
+        }, mek);
 
         let sent = 0;
         let failed = 0;
@@ -99,14 +120,26 @@ cmd({
             await sleep(1500);
         }
 
-        return reply(
-            '╭─〔 *sᴇɴᴅᴘᴍ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
-            `│ 👥 Recipients: ${numbers.length}\n` +
-            `│ ✅ Sent: ${sent}\n` +
-            `│ ❌ Failed: ${failed}\n` +
-            '╰────────────────●●►\n\n' +
-            '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
-        );
+        return sendListMenu(conn, from, {
+            title:
+                '╭─〔 *sᴇɴᴅᴍsɢ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
+                `│ 👥 Recipients: ${numbers.length}\n` +
+                `│ ✅ Sent: ${sent}\n` +
+                `│ ❌ Failed: ${failed}\n` +
+                '╰────────────────●●►',
+            buttonText: 'Open Menu',
+            sections: [{
+                title: 'DELIVERY RESULT',
+                rows: [{
+                    id: 'sendmsg:result',
+                    title: 'Delivery Summary',
+                    description: `Sent: ${sent} | Failed: ${failed}`
+                }]
+            }],
+            footer: FOOTER,
+            image: MENU_IMAGE,
+            hideListButton: true
+        }, mek);
 
     } catch (err) {
         console.error('[SENDPM FATAL ERROR]', err);
