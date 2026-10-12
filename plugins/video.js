@@ -7,40 +7,76 @@ const API_URL =
 const activeRequests = new Set();
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
+// ========================================
+// FIND AND NORMALIZE DOWNLOAD URL
+// ========================================
 function findDownloadUrl(data) {
-    const seen = new Set();
+    const preferredKeys = [
+        'download_url',
+        'downloadUrl',
+        'video_url',
+        'videoUrl',
+        'url',
+        'link',
+        'download',
+        'links',
+        'formats'
+    ];
+
+    function normalizeUrl(value) {
+        if (typeof value !== 'string') return null;
+
+        let url = value.trim();
+
+        // Handle Markdown links: [URL](URL)
+        const markdown = url.match(
+            /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/
+        );
+
+        if (markdown) {
+            url = markdown[2];
+        } else {
+            const embedded = url.match(
+                /\]\((https?:\/\/[^)\s]+)\)/
+            );
+
+            if (embedded) {
+                url = embedded[1];
+            }
+        }
+
+        // Handle a URL wrapped in square brackets
+        if (
+            url.startsWith('[') &&
+            url.endsWith(']') &&
+            !url.includes('](')
+        ) {
+            url = url.slice(1, -1);
+        }
+
+        url = url.replace(/^["']|["']$/g, '');
+
+        try {
+            const parsed = new URL(url);
+
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                return null;
+            }
+
+            return parsed.href;
+        } catch {
+            return null;
+        }
+    }
 
     function scan(value, depth = 0) {
-        if (!value || depth > 6) return null;
+        if (value == null || depth > 8) return null;
 
         if (typeof value === 'string') {
-            if (
-                /^https?:\/\//i.test(value) &&
-                /\.(mp4|webm)(?:[?#]|$)/i.test(value)
-            ) {
-                return value;
-            }
-            return null;
+            return normalizeUrl(value);
         }
 
         if (typeof value !== 'object') return null;
-        if (seen.has(value)) return null;
-        seen.add(value);
-
-        const preferredKeys = [
-            'download_url',
-            'downloadUrl',
-            'video_url',
-            'videoUrl',
-            'url',
-            'link',
-            'download',
-            'video',
-            'links',
-            'formats',
-            'data',
-            'result'
-        ];
 
         for (const key of preferredKeys) {
             if (value[key] !== undefined) {
@@ -49,8 +85,7 @@ function findDownloadUrl(data) {
             }
         }
 
-        for (const [key, item] of Object.entries(value)) {
-            if (preferredKeys.includes(key)) continue;
+        for (const item of Object.values(value)) {
             const found = scan(item, depth + 1);
             if (found) return found;
         }
@@ -61,14 +96,18 @@ function findDownloadUrl(data) {
     return scan(data);
 }
 
+// ========================================
+// VIDEO DOWNLOADER
+// ========================================
 cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo', 'hdvideo'],
     react: '🎬',
-    desc: 'Download video',
+    desc: 'Download YouTube video',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
+
     if (activeRequests.has(from)) {
         return reply(
             '⏳ දැනට video request එකක් ක්‍රියාත්මකයි. ටිකක් ඉන්න.'
@@ -79,7 +118,8 @@ cmd({
         return reply(
             '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
             '📥 YouTube Video Downloader\n\n' +
-            'භාවිතය: .video VIDEO_URL'
+            'භාවිතය:\n' +
+            '.video VIDEO_URL'
         );
     }
 
@@ -91,10 +131,18 @@ cmd({
         return reply('❌ නිවැරදි video URL එකක් ලබා දෙන්න.');
     }
 
+    const allowedHosts = [
+        'youtube.com',
+        'www.youtube.com',
+        'm.youtube.com',
+        'music.youtube.com',
+        'youtu.be',
+        'www.youtu.be'
+    ];
+
     if (
         !['http:', 'https:'].includes(parsedUrl.protocol) ||
-        !['youtube.com', 'www.youtube.com', 'm.youtube.com',
-           'youtu.be', 'www.youtu.be'].includes(parsedUrl.hostname)
+        !allowedHosts.includes(parsedUrl.hostname.toLowerCase())
     ) {
         return reply('❌ වලංගු YouTube URL එකක් ලබා දෙන්න.');
     }
@@ -106,7 +154,9 @@ cmd({
 
         if (!apiKey) {
             return reply(
-                '❌ DAVIDCYRIL_API_KEY environment variable එක සකසා නැහැ.'
+                '❌ DAVIDCYRIL_API_KEY configure කරලා නැහැ.\n\n' +
+                'GitHub → Settings → Secrets and variables → Actions ' +
+                'වෙත ගොස් API key එක සකසන්න.'
             );
         }
 
@@ -116,8 +166,11 @@ cmd({
             '📥 කරුණාකර රැඳී සිටින්න.'
         );
 
+        // 1. Request the API
         const response = await axios.get(API_URL, {
-            params: { url: parsedUrl.href },
+            params: {
+                url: parsedUrl.href
+            },
             headers: {
                 'X-API-Key': apiKey,
                 Accept: 'application/json'
@@ -130,12 +183,14 @@ cmd({
         const apiData = response.data;
 
         console.log(
-            '[YTDL-RAPID] Response:',
-            JSON.stringify(apiData).slice(0, 3000)
+            '[YTDL-RAPID] API success:',
+            apiData?.success
         );
 
         if (!apiData || typeof apiData !== 'object') {
-            return reply('❌ API එකෙන් නිවැරදි JSON response එකක් ලැබුණේ නැහැ.');
+            return reply(
+                '❌ API එකෙන් නිවැරදි response එකක් ලැබුණේ නැහැ.'
+            );
         }
 
         if (apiData.success === false) {
@@ -145,31 +200,45 @@ cmd({
             );
         }
 
-        const result = apiData.data || apiData.result || apiData;
-        const downloadUrl = findDownloadUrl(result);
+        const result =
+            apiData.data ||
+            apiData.result ||
+            apiData;
+
         const title = String(
-            result.title || apiData.title || 'THENUVA VIDEO'
+            result.title ||
+            apiData.title ||
+            'THENUVA VIDEO'
         ).slice(0, 180);
+
+        const downloadUrl = findDownloadUrl(result);
+
+        console.log('[YTDL-RAPID] Title:', title);
+        console.log(
+            '[YTDL-RAPID] Download URL received:',
+            Boolean(downloadUrl)
+        );
 
         if (!downloadUrl) {
             console.error(
-                '[YTDL-RAPID] No direct MP4/WebM URL found.'
+                '[YTDL-RAPID] No valid download URL found.'
+            );
+
+            console.log(
+                '[YTDL-RAPID] Response:',
+                JSON.stringify(apiData).slice(0, 3000)
             );
 
             return reply(
-                '❌ API response එකේ හඳුනාගත හැකි MP4/WebM download URL එකක් නැහැ.\n\n' +
-                'Railway logs වල [YTDL-RAPID] Response බලන්න. ' +
-                'API එක වෙනස් field එකක URL එකක් දෙනවා නම් ඒ අනුව සකස් කළ යුතුයි.'
+                '❌ API response එකෙන් download URL එක හඳුනාගත නොහැක.\n' +
+                'GitHub Actions logs පරීක්ෂා කරන්න.'
             );
         }
 
-        const target = new URL(downloadUrl);
+        // 2. Download the actual file
+        console.log('[YTDL-RAPID] Download host:', new URL(downloadUrl).hostname);
 
-        if (!['http:', 'https:'].includes(target.protocol)) {
-            return reply('❌ Download URL protocol එක වලංගු නැහැ.');
-        }
-
-        const fileResponse = await axios.get(target.href, {
+        const fileResponse = await axios.get(downloadUrl, {
             responseType: 'arraybuffer',
             timeout: 180000,
             maxContentLength: MAX_VIDEO_SIZE,
@@ -177,26 +246,63 @@ cmd({
             maxRedirects: 10,
             headers: {
                 'User-Agent': 'Mozilla/5.0',
-                Accept: 'video/mp4, video/webm, application/octet-stream'
+                Accept: 'video/mp4, video/webm, application/octet-stream, */*'
             },
-            validateStatus: status => status >= 200 && status < 300
+            validateStatus: () => true
         });
+
+        const status = fileResponse.status;
+
+        if (status === 403) {
+            return reply(
+                '❌ Download server එක access ප්‍රතික්ෂේප කළා (403).\n' +
+                'API provider එකේ download access එක පරීක්ෂා කරන්න.'
+            );
+        }
+
+        if (status === 404) {
+            return reply(
+                '❌ Download link එක කල් ඉකුත් වී හෝ නොපවතින එකක් විය හැකියි (404).'
+            );
+        }
+
+        if (status === 429) {
+            return reply(
+                '⏳ Download server එකේ rate limit එකට පැමිණ ඇත. පසුව උත්සාහ කරන්න.'
+            );
+        }
+
+        if (status < 200 || status >= 300) {
+            console.error(
+                '[YTDL-RAPID] Download HTTP status:',
+                status
+            );
+
+            return reply(
+                `❌ Video download අසාර්ථකයි. HTTP ${status}`
+            );
+        }
 
         const contentType = String(
             fileResponse.headers['content-type'] || ''
         ).toLowerCase();
 
-        const videoBuffer = Buffer.from(fileResponse.data || []);
+        const videoBuffer = Buffer.from(
+            fileResponse.data || []
+        );
 
         if (!videoBuffer.length) {
-            return reply('❌ Download කළ file එක හිස්.');
+            return reply('❌ ලැබුණු video file එක හිස්.');
         }
 
         if (videoBuffer.length > MAX_VIDEO_SIZE) {
-            return reply('❌ Video එක 100 MB සීමාව ඉක්මවා ඇත.');
+            return reply(
+                '❌ Video එක 100 MB සීමාව ඉක්මවා ඇත.'
+            );
         }
 
-        const start = videoBuffer
+        // 3. Reject HTML and JSON
+        const beginning = videoBuffer
             .subarray(0, 512)
             .toString('utf8')
             .trimStart()
@@ -205,21 +311,22 @@ cmd({
         if (
             contentType.includes('text/html') ||
             contentType.includes('application/json') ||
-            start.startsWith('<!doctype html') ||
-            start.startsWith('<html') ||
-            start.startsWith('{')
+            beginning.startsWith('<!doctype html') ||
+            beginning.startsWith('<html') ||
+            beginning.startsWith('{')
         ) {
             console.error(
-                '[YTDL-RAPID] Non-video response:',
+                '[YTDL-RAPID] Non-video content:',
                 contentType
             );
 
             return reply(
-                '❌ Download URL එකෙන් video file එකක් වෙනුවට webpage/API response එකක් ලැබුණා.\n\n' +
-                'මෙය API provider එකේ download link එක හෝ access එක සම්බන්ධ ගැටලුවක් විය හැකියි.'
+                '❌ Download URL එකෙන් video එක වෙනුවට webpage/API response එකක් ලැබුණා.\n\n' +
+                'URL එක හඳුනාගෙන තිබුණත් server එකෙන් සැබෑ video file එක ලැබී නැහැ.'
             );
         }
 
+        // 4. Check actual file signature
         const isMP4 =
             videoBuffer.length >= 12 &&
             videoBuffer.toString('ascii', 4, 8) === 'ftyp';
@@ -230,19 +337,24 @@ cmd({
 
         if (!isMP4 && !isWebM) {
             console.error(
-                '[YTDL-RAPID] Unknown file signature:',
-                contentType,
-                videoBuffer.subarray(0, 16).toString('hex')
+                '[YTDL-RAPID] Unsupported file signature:',
+                videoBuffer.subarray(0, 16).toString('hex'),
+                'Content-Type:',
+                contentType
             );
 
             return reply(
-                '❌ ලැබුණු file එක MP4/WebM video එකක් බව තහවුරු කළ නොහැක.'
+                '❌ ලැබුණු file එක MP4/WebM video එකක් බව තහවුරු කළ නොහැක.\n' +
+                'GitHub Actions logs පරීක්ෂා කරන්න.'
             );
         }
 
+        // 5. Send to WhatsApp
         await conn.sendMessage(from, {
             video: videoBuffer,
-            mimetype: isMP4 ? 'video/mp4' : 'video/webm',
+            mimetype: isMP4
+                ? 'video/mp4'
+                : 'video/webm',
             fileName: isMP4
                 ? 'THENUVA-VIDEO.mp4'
                 : 'THENUVA-VIDEO.webm',
@@ -270,19 +382,13 @@ cmd({
 
         if (status === 401 || status === 403) {
             return reply(
-                '❌ API/download server access ප්‍රතික්ෂේප කළා. API key සහ අවසර පරීක්ෂා කරන්න.'
+                '❌ API authorization අසාර්ථකයි. API key සහ access එක පරීක්ෂා කරන්න.'
             );
         }
 
         if (status === 429) {
             return reply(
-                '⏳ Requests සීමාවට පැමිණ ඇත. පසුව නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (error.code === 'ERR_BAD_RESPONSE') {
-            return reply(
-                '❌ Server එකෙන් වැරදි response එකක් ලැබුණා.'
+                '⏳ API rate limit එකට පැමිණ ඇත. පසුව නැවත උත්සාහ කරන්න.'
             );
         }
 
@@ -295,9 +401,13 @@ cmd({
             );
         }
 
-        if (error.response) {
+        if (
+            error.code === 'ERR_BAD_RESPONSE' ||
+            error.code === 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED' ||
+            error.code === 'ERR_BAD_REQUEST'
+        ) {
             return reply(
-                `❌ Download අසාර්ථකයි. HTTP ${status || 'Error'}`
+                '❌ Server response එක හෝ file size එක සම්බන්ධ ගැටලුවක්.'
             );
         }
 
