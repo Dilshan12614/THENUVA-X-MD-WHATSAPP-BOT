@@ -6,23 +6,23 @@ cmd({
     pattern: "video",
     alias: ["ytv", "mp4"],
     react: "🎬",
-    desc: "Download and send videos from a URL",
+    desc: "Download and send playable YouTube videos",
     category: "download",
-    use: '.video <video-url>',
+    use: '.video <youtube-url>',
     filename: __filename
 },
 async (conn, mek, m, { from, reply, q, sender }) => {
-    // පරිශීලකයා ලින්ක් එකක් ලබා දී නොමැති නම්
+    // පරිශීලකයා YouTube ලින්ක් එක ලබා දී නොමැති නම්
     if (!q || !q.trim()) {
         await sendPluginButtons(conn, from, 'video', mek);
-        return await reply("⚠️ Please provide a valid video link to download! (e.g., .video <url>)");
+        return await reply("⚠️ Please provide a valid YouTube link to download!");
     }
     
     try {
-        // වීඩියෝව ඩවුන්ලෝඩ් වෙමින් පවතින බව දැක්වීමට පණිවිඩයක්
+        // වීඩියෝව බාගත වෙමින් පවතින බව දැක්වීමට පණිවිඩයක්
         await reply("⏳ *Downloading your video... Please wait!*");
 
-        // David Cyril ටෙක්නොලොජි ඩවුන්ලෝඩ් API එක භාවිතය
+        // ඔයා එවපු David Cyril ගේ නිවැරදි API Endpoint එක භාවිතය
         const apiUrl = `https://davidcyriltech.my.id{encodeURIComponent(q.trim())}`;
         const response = await fetch(apiUrl);
         
@@ -32,9 +32,9 @@ async (conn, mek, m, { from, reply, q, sender }) => {
 
         const data = await response.json();
         
-        // දත්ත සහ බාගත කිරීමේ ලින්ක් එක නිවැරදිව ලැබී ඇත්දැයි බැලීම
-        if (!data || !data.status || !data.result || !data.result.downloadLink) {
-            return await reply("❌ Failed to fetch video! Make sure the link is valid.");
+        // Response එකේ status එක සහ result එක නිවැරදිදැයි බැලීම
+        if (!data || !data.status || !data.result || !data.result.url) {
+            return await reply("❌ Failed to fetch video! Make sure the link is a valid YouTube URL.");
         }
         
         const videoData = data.result;
@@ -51,10 +51,12 @@ async (conn, mek, m, { from, reply, q, sender }) => {
             },
         };
         
-        // වීඩියෝව WhatsApp හරහා පරිශීලකයාට යැවීම
+        // වීඩියෝව කෙලින්ම Playable විදිහට WhatsApp හරහා යැවීම
         await conn.sendMessage(from, { 
-            video: { url: videoData.downloadLink },
-            caption: `*🎬 THENUVA XMD VIDEO DOWNLOADER* \n\n*📌 Title:* ${videoData.title || 'Video'}\n*📦 Quality:* 360p/720p\n\n*Powered by THENUVA XMD*`,
+            video: { url: videoData.url }, // API එකෙන් එන සෘජු වීඩියෝ ලින්ක් එක
+            mimetype: 'video/mp4',        // WhatsApp එක ඇතුළේ Play වෙන්න මේක අනිවාර්යයි
+            fileName: `${videoData.title || 'video'}.mp4`,
+            caption: `*🎬 THENUVA XMD VIDEO DOWNLOADER* \n\n*📌 Title:* ${videoData.title || 'YouTube Video'}\n\n*Powered by THENUVA XMD*`,
             contextInfo: newsletterContext 
         }, { quoted: mek });
         
@@ -62,7 +64,7 @@ async (conn, mek, m, { from, reply, q, sender }) => {
         await sendPluginButtons(conn, from, 'video', mek);
 
     } catch (error) {
-        console.error("Video Downloader Error:", error);
-        reply('❌ An error occurred while downloading the video. Please try again later.');
+        console.error("Playable Video Downloader Error:", error);
+        reply('❌ An error occurred while processing your video download request.');
     }
 });
