@@ -191,7 +191,9 @@ cmd({
                 buttonText: '',
                 hideListButton: true,
                 sections: sections,
-                footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                footer:
+        'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
+        '╰━━━●●►• ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa ',
                 image: MENU_IMAGE
             },
             mek
