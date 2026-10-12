@@ -9,12 +9,10 @@ on:
       - main
   workflow_dispatch:
 
-# Allow the workflow token to trigger another workflow run.
 permissions:
   contents: read
   actions: write
 
-# A new run on the same branch cancels the old run.
 concurrency:
   group: thenuva-x-md-${{ github.ref }}
   cancel-in-progress: true
@@ -77,6 +75,10 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_WORKFLOW_FILE: main.yml
           GITHUB_BRANCH: main
+
+          # Optional David Cyril API key
+          DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
+
         run: |
           echo "Starting THENUVA X MD..."
           node index.js
