@@ -44,7 +44,7 @@ const {
   const { getCommandBody } = require('./lib/button-actions')
   const prefix = config.PREFIX
   
-  const ownerNumber = ['94740534738']
+  const ownerNumber = ['94772194789']
   
   const tempDir = path.join(os.tmpdir(), 'cache-temp')
   if (!fs.existsSync(tempDir)) {
@@ -116,7 +116,7 @@ conn.ev.on('messages.upsert', (event) => {
     if (!event || !Array.isArray(event.messages)) return;
 
     for (const message of event.messages) {
-        const jid = mek?.key?.remoteJid || from;
+        const jid = message?.key?.remoteJid;
 
         if (!jid || message.key.fromMe) continue;
         if (jid === 'status@broadcast') continue;
