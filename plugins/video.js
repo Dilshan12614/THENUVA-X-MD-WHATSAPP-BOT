@@ -4,7 +4,7 @@ const { ytmp3 } = require('@vreden/youtube_scraper');
 
 const fetch = global.fetch;
 
-const API_BASE = 'https://apis.davidcyril.name.ng/download/ytmp4';
+const API_BASE = 'https://apis.davidcyril.name.ng/download/ytmp4?url=https%3A%2F%2Fyoutube.com%2Fwatch%3Fv%3DMwpMEbgC7DA';
 const API_KEY = process.env.DAVID_CYRIL_API_KEY;
 
 const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
