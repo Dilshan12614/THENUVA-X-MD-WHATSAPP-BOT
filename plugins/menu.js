@@ -41,11 +41,6 @@ const CATEGORIES = [
         description: 'Search YouTube and Google'
     },
     {
-        title: '🎵 Music Menu',
-        id: 'thenuva:music',
-        description: 'Music and MP3 audio'
-    },
-    {
         title: '🏠 Main Menu',
         id: 'thenuva:menu',
         description: 'Return to the main menu'
