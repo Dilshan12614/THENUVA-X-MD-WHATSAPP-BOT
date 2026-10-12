@@ -2,15 +2,16 @@ const axios = require('axios');
 const { cmd } = require('../command');
 
 const API_URL =
-    'https://apis.davidcyril.name.ng/download/ytmp4';
+    'https://apis.davidcyril.name.ng/download/ytdl-rapid';
 
 const activeRequests = new Set();
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
 cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo', 'hdvideo'],
     react: '🎬',
-    desc: 'Download 360p video',
+    desc: 'Download YouTube video',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
@@ -24,7 +25,7 @@ cmd({
     if (!q || !q.trim()) {
         return reply(
             '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
-            '📺 Quality: 360p\n\n' +
+            '📺 Video Downloader\n\n' +
             'භාවිතය:\n' +
             '.video VIDEO_URL'
         );
@@ -49,147 +50,193 @@ cmd({
 
         if (!apiKey) {
             return reply(
-                '❌ DAVIDCYRIL_API_KEY එක configure කරලා නැහැ.'
+                '❌ DAVIDCYRIL_API_KEY configure කරලා නැහැ.'
             );
         }
 
         await reply(
             '⏳ *THENUVA X MD*\n\n' +
             '🎬 Video එක ලබාගනිමින් පවතී...\n' +
-            '📺 Quality: 360p'
+            '📥 Download සූදානම් කරමින්...'
         );
 
-        // Request 360p video from the API
+        // 1. Request video information from ytdl-rapid
         const response = await axios.get(API_URL, {
             params: {
-                url: parsedUrl.href,
-                quality: '360p'
+                url: parsedUrl.href
             },
             headers: {
                 'X-API-Key': apiKey,
                 Accept: 'application/json'
             },
-            timeout: 120000
+            timeout: 120000,
+            maxContentLength: 2 * 1024 * 1024
         });
 
-        const data = response.data;
+        const apiData = response.data;
 
-        if (!data || data.success !== true || !data.result) {
-            console.error('[YTMP4 API ERROR]', data);
+        console.log(
+            '[YTDL-RAPID] API success:',
+            apiData?.success
+        );
+
+        if (apiData?.success !== true || !apiData?.data) {
+            console.error(
+                '[YTDL-RAPID] API error:',
+                apiData?.message || 'Invalid response'
+            );
 
             return reply(
-                '❌ Video download අසාර්ථකයි.\n' +
-                (data?.message || 'API එකෙන් video එක ලබාගත නොහැකි වුණා.')
+                '❌ API එකෙන් video විස්තර ලබාගත නොහැකි වුණා.\n' +
+                (apiData?.message || 'API response එක පරීක්ෂා කරන්න.')
             );
         }
 
-        const result = data.result;
+        const result = apiData.data;
         const downloadUrl = result.download_url;
+        const title = result.title || 'THENUVA VIDEO';
+
+        console.log('[YTDL-RAPID] Title:', title);
+        console.log('[YTDL-RAPID] Download URL received:', Boolean(downloadUrl));
 
         if (
             typeof downloadUrl !== 'string' ||
             !/^https?:\/\//i.test(downloadUrl)
         ) {
             return reply(
-                '❌ API response එකේ download URL එක හමු වුණේ නැහැ.'
+                '❌ API response එකේ download URL එක වලංගු නැහැ.'
             );
         }
 
-        console.log('[YTMP4] Title:', result.title);
-        console.log('[YTMP4] Returned quality:', result.quality);
-
-        // Download the MP4 immediately; signed URLs can expire.
+        // 2. Download the video returned by the API
         const fileResponse = await axios.get(downloadUrl, {
             responseType: 'arraybuffer',
             timeout: 180000,
+            maxContentLength: MAX_VIDEO_SIZE,
+            maxBodyLength: MAX_VIDEO_SIZE,
             headers: {
                 'User-Agent': 'Mozilla/5.0',
-                Accept: '*/*',
-                Referer: 'https://www.youtube.com/'
+                Accept: 'video/mp4,video/*,application/octet-stream,*/*'
             },
-            maxContentLength: 100 * 1024 * 1024,
-            maxBodyLength: 100 * 1024 * 1024,
             validateStatus: () => true
         });
 
         if (fileResponse.status === 403) {
-            console.error('[YTMP4] Download server returned HTTP 403');
+            const contentType =
+                fileResponse.headers['content-type'] || 'unknown';
+
+            console.error(
+                '[YTDL-RAPID] Download HTTP 403. Content-Type:',
+                contentType
+            );
 
             return reply(
-                '❌ Video server එක access ප්‍රතික්ෂේප කළා (403).\n\n' +
-                'API එකෙන් ලැබුණු download URL එකට access අවසර නැති විය හැකියි.'
+                '❌ Download server එක HTTP 403 ලබා දුන්නා.\n\n' +
+                'API request එක සාර්ථකයි, නමුත් video server එකෙන් ' +
+                'file එක ලබාගැනීමට අවසර ලැබුණේ නැහැ.\n' +
+                'නැවුම් download URL එකක් ලබාගෙන නැවත උත්සාහ කරන්න.'
             );
         }
 
         if (fileResponse.status === 429) {
             return reply(
-                '⏳ API rate limit එකට පැමිණිලා. පසුව නැවත උත්සාහ කරන්න.'
+                '⏳ Requests වැඩි නිසා server එක තාවකාලිකව සීමා කරලා. පසුව උත්සාහ කරන්න.'
             );
         }
 
         if (fileResponse.status < 200 || fileResponse.status >= 300) {
+            console.error(
+                '[YTDL-RAPID] Download HTTP status:',
+                fileResponse.status
+            );
+
             return reply(
-                `❌ Video download failed: HTTP ${fileResponse.status}`
+                `❌ Video download අසාර්ථකයි. HTTP ${fileResponse.status}`
             );
         }
 
         const contentType =
             fileResponse.headers['content-type'] || '';
 
+        const videoBuffer = Buffer.from(fileResponse.data);
+
         if (
             contentType.includes('application/json') ||
             contentType.includes('text/html') ||
             contentType.startsWith('text/plain')
         ) {
+            console.error(
+                '[YTDL-RAPID] Server returned non-video content:',
+                contentType
+            );
+
             return reply(
-                '❌ Video file එක වෙනුවට error response එකක් ලැබුණා.'
+                '❌ Video file එක වෙනුවට server error response එකක් ලැබුණා.'
             );
         }
 
-        const videoBuffer = Buffer.from(fileResponse.data);
-
         if (!videoBuffer.length) {
-            return reply('❌ Video file එක හිස්.');
+            return reply('❌ Download කළ video file එක හිස්.');
         }
 
+        if (videoBuffer.length > MAX_VIDEO_SIZE) {
+            return reply(
+                '❌ Video file එක 100 MB සීමාව ඉක්මවා තිබෙනවා.'
+            );
+        }
+
+        // 3. Send video to WhatsApp
         await conn.sendMessage(from, {
             video: videoBuffer,
             mimetype: 'video/mp4',
-            fileName: 'THENUVA-360P-VIDEO.mp4',
+            fileName: 'THENUVA-VIDEO.mp4',
             caption:
                 '*🎬 THENUVA X MD*\n\n' +
-                `📌 *Title:* ${result.title || 'Video'}\n` +
-                `📺 *Quality:* ${result.quality || 'API selected'}\n` +
+                `📌 *Title:* ${title}\n` +
+                `📦 *Size:* ${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB\n` +
                 '✅ *Download Complete*'
         }, {
             quoted: mek
         });
 
+        console.log(
+            '[YTDL-RAPID] Video sent successfully:',
+            title
+        );
+
     } catch (error) {
         const status = error.response?.status;
         const message =
-            error.response?.data?.message || error.message;
+            error.response?.data?.message ||
+            error.message ||
+            'Unknown error';
 
-        console.error('[YTMP4 ERROR]', {
+        console.error('[YTDL-RAPID ERROR]', {
             status: status || 'Unknown',
             message
         });
 
         if (status === 401 || status === 403) {
             return reply(
-                '❌ API authorization failed. API key එක පරීක්ෂා කරන්න.'
+                '❌ API authorization failed. API key එක සහ API access එක පරීක්ෂා කරන්න.'
             );
         }
 
         if (status === 429) {
             return reply(
-                '⏳ API එක දැනට busy. පසුව නැවත උත්සාහ කරන්න.'
+                '⏳ API rate limit එකට පැමිණිලා. පසුව නැවත උත්සාහ කරන්න.'
+            );
+        }
+
+        if (error.code === 'ERR_BAD_RESPONSE') {
+            return reply(
+                '❌ Server response එකේ ගැටලුවක් තියෙනවා. නැවත උත්සාහ කරන්න.'
             );
         }
 
         return reply(
             '❌ Video download අසාර්ථකයි.\n' +
-            (message || 'Unknown error')
+            message
         );
 
     } finally {
