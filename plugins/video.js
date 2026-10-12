@@ -6,22 +6,22 @@ const API_KEY = process.env.SASA_YTMP4_API_KEY;
 const TIMEOUT = 120000;
 const MAX_VIDEO_SIZE = 64 * 1024 * 1024;
 
-function findDownloadUrl(data) {
-    if (!data || typeof data !== 'object') return null;
+function findDownloadUrl(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 6) {
+        return null;
+    }
 
-    const keys = [
+    const fields = [
         'download_url',
         'downloadUrl',
         'video_url',
         'videoUrl',
         'url',
         'link',
-        'download',
-        'result',
-        'data'
+        'download'
     ];
 
-    for (const key of keys) {
+    for (const key of fields) {
         const value = data[key];
 
         if (
@@ -30,9 +30,11 @@ function findDownloadUrl(data) {
         ) {
             return value;
         }
+    }
 
-        if (value && typeof value === 'object') {
-            const found = findDownloadUrl(value);
+    for (const key of ['result', 'data', 'response']) {
+        if (data[key] && typeof data[key] === 'object') {
+            const found = findDownloadUrl(data[key], depth + 1);
             if (found) return found;
         }
     }
@@ -41,21 +43,42 @@ function findDownloadUrl(data) {
 }
 
 function findTitle(data) {
-    if (!data || typeof data !== 'object') return 'YouTube Video';
-
     return (
-        data.title ||
-        data.result?.title ||
-        data.data?.title ||
+        data?.title ||
+        data?.result?.title ||
+        data?.data?.title ||
         'YouTube Video'
     );
+}
+
+function isYouTubeUrl(value) {
+    try {
+        const parsed = new URL(value);
+
+        const hosts = [
+            'youtube.com',
+            'www.youtube.com',
+            'm.youtube.com',
+            'youtu.be',
+            'www.youtu.be',
+            'youtube-nocookie.com',
+            'www.youtube-nocookie.com'
+        ];
+
+        return (
+            ['http:', 'https:'].includes(parsed.protocol) &&
+            hosts.includes(parsed.hostname)
+        );
+    } catch {
+        return false;
+    }
 }
 
 cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo'],
     react: '🎬',
-    desc: 'Download YouTube video as MP4',
+    desc: 'Download YouTube video',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
@@ -64,31 +87,24 @@ cmd({
 
         if (!input) {
             return reply(
-                '🎬 *THENUVA X MD — VIDEO DOWNLOADER*\n\n' +
-                'භාවිතය: `.video YouTube_URL`\n\n' +
-                'උදාහරණය: `.video https://youtube.com/watch?v=...`'
+                '╭━━〔 *THENUVA X MD* 〕━━╮\n' +
+                '┃ 🎬 *YOUTUBE DOWNLOADER*\n' +
+                '╰━━━━━━━━━━━━━━━━━━╯\n\n' +
+                '📌 භාවිතය:\n' +
+                '`.video YouTube_URL`\n\n' +
+                '🔗 YouTube video URL එකක් එවන්න.'
             );
         }
 
-        let videoUrl;
-
-        try {
-            videoUrl = new URL(input);
-        } catch {
+        if (!isYouTubeUrl(input)) {
             return reply('❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.');
         }
 
-        if (
-            !['youtube.com', 'www.youtube.com', 'm.youtube.com',
-              'youtu.be', 'www.youtu.be', 'youtube-nocookie.com',
-              'www.youtube-nocookie.com'].includes(videoUrl.hostname)
-        ) {
-            return reply('❌ YouTube URL එකක් ලබා දෙන්න.');
-        }
-
         if (!API_KEY) {
+            console.error('[SASA YTMP4] API key is missing');
+
             return reply(
-                '❌ SASA_YTMP4_API_KEY GitHub Actions Secret එක configure කරලා නැහැ.'
+                '❌ SASA_YTMP4_API_KEY GitHub Secret එක සකස් කරලා නැහැ.'
             );
         }
 
@@ -98,102 +114,174 @@ cmd({
 
         const apiUrl = new URL(API_BASE);
         apiUrl.searchParams.set('apikey', API_KEY);
-        apiUrl.searchParams.set('url', videoUrl.toString());
+        apiUrl.searchParams.set('url', input);
+
+        // API එකට අවශ්‍ය අගයන් තහවුරු කරන තුරු
+        // endpoint එකේ දී ඇති parameter names භාවිත කරයි.
         apiUrl.searchParams.set('quality', '360p');
         apiUrl.searchParams.set('raw', 'false');
 
+        console.log('[SASA YTMP4] Request started');
+
         const apiResponse = await fetch(apiUrl.toString(), {
-            headers: { Accept: 'application/json' },
+            headers: {
+                Accept: 'application/json',
+                'User-Agent': 'THENUVA-X-MD/2.0'
+            },
             signal: AbortSignal.timeout(TIMEOUT)
         });
 
         const contentType =
             apiResponse.headers.get('content-type') || '';
 
+        const responseText = await apiResponse.text();
+
+        console.log('[SASA YTMP4] HTTP:', apiResponse.status);
+        console.log('[SASA YTMP4] Content-Type:', contentType);
+        console.log(
+            '[SASA YTMP4] Response:',
+            responseText.slice(0, 500)
+        );
+
         if (!apiResponse.ok) {
-            throw new Error(`API returned HTTP ${apiResponse.status}`);
+            if (apiResponse.status === 403) {
+                return reply(
+                    '❌ *SASA API — HTTP 403*\n\n' +
+                    'API server එක request එක ප්‍රතික්ෂේප කළා.\n\n' +
+                    '🔑 API key එක සහ endpoint permissions පරීක්ෂා කරන්න.\n' +
+                    '📋 GitHub Actions logs වල response එකත් බලන්න.'
+                );
+            }
+
+            return reply(
+                `❌ API Error: HTTP ${apiResponse.status}\n` +
+                'GitHub Actions logs පරීක්ෂා කරන්න.'
+            );
+        }
+
+        if (!contentType.toLowerCase().includes('application/json')) {
+            console.error(
+                '[SASA YTMP4] Expected JSON, received:',
+                contentType
+            );
+
+            return reply(
+                '❌ API එක JSON response එකක් ලබා දුන්නේ නැහැ.\n' +
+                'GitHub Actions logs පරීක්ෂා කරන්න.'
+            );
         }
 
         let data;
 
-        if (contentType.includes('application/json')) {
-            data = await apiResponse.json();
-        } else {
-            throw new Error(
-                `API returned ${contentType || 'unknown content type'}, not JSON`
-            );
+        try {
+            data = JSON.parse(responseText);
+        } catch {
+            return reply('❌ API response එක නිවැරදි JSON එකක් නොවේ.');
         }
 
-        if (data.success === false || data.status === 'error') {
-            throw new Error(
-                data.message || data.error || 'API download failed'
-            );
+        if (
+            data.success === false ||
+            data.status === 'error' ||
+            data.error
+        ) {
+            const message =
+                typeof data.error === 'string'
+                    ? data.error
+                    : data.message || 'API download failed';
+
+            console.error('[SASA YTMP4] API message:', message);
+
+            return reply(`❌ API Error: ${message}`);
         }
 
         const downloadUrl = findDownloadUrl(data);
 
         if (!downloadUrl) {
             console.error(
-                '[SASA YTMP4] No download URL found. Response keys:',
-                Object.keys(data || {})
+                '[SASA YTMP4] Download URL missing. Response keys:',
+                Object.keys(data)
             );
 
             return reply(
                 '❌ API response එකේ download URL එක හමු වුණේ නැහැ.\n' +
-                'API response format එක පරීක්ෂා කරන්න අවශ්‍යයි.'
+                'සැබෑ API response format එක අනුව code එක update කළ යුතුයි.'
             );
         }
 
-        await reply('📥 වීඩියෝව ලබාගනිමින් පවතී...');
+        let parsedDownloadUrl;
 
-        const downloadResponse = await fetch(downloadUrl, {
+        try {
+            parsedDownloadUrl = new URL(downloadUrl);
+        } catch {
+            return reply('❌ API එකෙන් ලැබුණු download URL එක වැරදියි.');
+        }
+
+        if (!['https:', 'http:'].includes(parsedDownloadUrl.protocol)) {
+            return reply('❌ API download URL protocol එක වලංගු නැහැ.');
+        }
+
+        await reply('📥 වීඩියෝව download කරමින් පවතී...');
+
+        const videoResponse = await fetch(downloadUrl, {
+            headers: {
+                Accept: 'video/mp4, video/*, application/octet-stream'
+            },
             signal: AbortSignal.timeout(TIMEOUT)
         });
 
-        if (!downloadResponse.ok) {
+        if (!videoResponse.ok) {
             throw new Error(
-                `Video download returned HTTP ${downloadResponse.status}`
+                `Video download returned HTTP ${videoResponse.status}`
             );
         }
 
-        const fileType =
-            downloadResponse.headers.get('content-type') || '';
+        const videoType =
+            videoResponse.headers.get('content-type') || '';
 
         if (
-            !fileType.toLowerCase().includes('video/') &&
-            !fileType.toLowerCase().includes('octet-stream')
+            !videoType.toLowerCase().includes('video/') &&
+            !videoType.toLowerCase().includes('application/octet-stream')
         ) {
+            console.error(
+                '[SASA YTMP4] Non-video download response:',
+                videoType
+            );
+
             throw new Error(
-                `Download URL returned non-video content: ${fileType}`
+                `Download URL returned non-video content: ${videoType}`
             );
         }
 
         const declaredSize = Number(
-            downloadResponse.headers.get('content-length') || 0
+            videoResponse.headers.get('content-length') || 0
         );
 
         if (declaredSize > MAX_VIDEO_SIZE) {
-            return reply('❌ වීඩියෝ ගොනුව විශාල වැඩියි.');
-        }
-
-        const arrayBuffer = await downloadResponse.arrayBuffer();
-
-        if (arrayBuffer.byteLength > MAX_VIDEO_SIZE) {
             return reply('❌ වීඩියෝ ගොනුව 64 MB සීමාව ඉක්මවයි.');
         }
 
-        const buffer = Buffer.from(arrayBuffer);
+        const videoBuffer = Buffer.from(
+            await videoResponse.arrayBuffer()
+        );
 
-        if (!buffer.length) {
+        if (videoBuffer.length === 0) {
             throw new Error('Downloaded video is empty');
         }
 
+        if (videoBuffer.length > MAX_VIDEO_SIZE) {
+            return reply('❌ වීඩියෝ ගොනුව 64 MB සීමාව ඉක්මවයි.');
+        }
+
+        const title = String(findTitle(data))
+            .replace(/[\\/:*?"<>|]/g, '')
+            .slice(0, 100);
+
         await conn.sendMessage(from, {
-            video: buffer,
+            video: videoBuffer,
             mimetype: 'video/mp4',
-            fileName: 'THENUVA-X-MD.mp4',
+            fileName: `${title || 'THENUVA-X-MD'}.mp4`,
             caption:
-                `🎬 *${findTitle(data)}*\n\n` +
+                `🎬 *${title}*\n\n` +
                 '⚡ *Downloaded by THENUVA X MD*'
         }, { quoted: mek });
 
@@ -209,9 +297,9 @@ cmd({
         });
 
         return reply(
-            '❌ *Video Download Failed*\n\n' +
+            '❌ *VIDEO DOWNLOAD FAILED*\n\n' +
             `${error.message}\n\n` +
-            'API response format එක සහ download URL එක පරීක්ෂා කරන්න.'
+            'GitHub Actions logs පරීක්ෂා කරන්න.'
         );
     }
 });
