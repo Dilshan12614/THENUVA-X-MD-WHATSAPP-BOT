@@ -159,9 +159,9 @@ cmd(
                 from,
                 {
                     title: aliveText,
-                    buttonText: 'OPEN MENU',
+                    buttonText: '🏻OPEN MENU',
                     hideListButton: false,
-                    footer: '⚡ POWERED BY THENUVA X MD',
+                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
                     image: ALIVE_IMAGE,
 
                     sections: [
