@@ -2,9 +2,7 @@ const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
 const { ytmp3 } = require('@vreden/youtube_scraper');
 
-const fetch = global.fetch;
-
-const API_BASE = 'https://apis.davidcyril.name.ng/download/ytmp4?url=https%3A%2F%2Fyoutube.com%2Fwatch%3Fv%3DMwpMEbgC7DA';
+const API_BASE = 'https://apis.davidcyril.name.ng/download/ytmp4';
 const API_KEY = process.env.DAVID_CYRIL_API_KEY;
 
 const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
@@ -22,7 +20,6 @@ const NEWSLETTER_CONTEXT = {
     }
 };
 
-// Check YouTube URLs
 function isYouTubeUrl(value) {
     try {
         const url = new URL(value);
@@ -40,7 +37,11 @@ function isYouTubeUrl(value) {
     }
 }
 
-// Clean file names
+function getYouTubeUrl(q) {
+    const parts = String(q || '').trim().split(/\s+/);
+    return parts.find(isYouTubeUrl) || null;
+}
+
 function cleanFileName(name) {
     return String(name || 'YouTube Video')
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
@@ -49,13 +50,6 @@ function cleanFileName(name) {
         .slice(0, 150) || 'YouTube Video';
 }
 
-// Extract YouTube URL from command
-function getYouTubeUrl(q) {
-    const parts = String(q || '').trim().split(/\s+/);
-    return parts.find(isYouTubeUrl) || null;
-}
-
-// Decode URL safely
 function decodeUrl(value) {
     const input = String(value || '').trim();
 
@@ -66,7 +60,6 @@ function decodeUrl(value) {
     }
 }
 
-// Get video information from API
 async function getVideoData(url) {
     if (!API_KEY) {
         throw new Error(
@@ -90,9 +83,7 @@ async function getVideoData(url) {
         response.headers.get('content-type') || '';
 
     if (!response.ok) {
-        throw new Error(
-            `Video API returned HTTP ${response.status}`
-        );
+        throw new Error(`Video API returned HTTP ${response.status}`);
     }
 
     if (!contentType.toLowerCase().includes('application/json')) {
@@ -103,15 +94,9 @@ async function getVideoData(url) {
 
     const data = await response.json();
 
-    if (
-        !data ||
-        data.success !== true ||
-        !data.result ||
-        !data.result.download_url
-    ) {
+    if (data?.success !== true || !data?.result?.download_url) {
         throw new Error(
-            data?.message ||
-            'API response did not contain result.download_url'
+            data?.message || 'API did not return a download URL.'
         );
     }
 
@@ -122,27 +107,24 @@ async function getVideoData(url) {
     };
 }
 
-// Show format selection menu
 async function showFormatMenu(conn, mek, from, url) {
     await sendListMenu(conn, from, {
         title: '🎬 THENUVA X MD VIDEO DOWNLOADER',
-
         buttonText: 'SELECT FORMAT',
 
         sections: [
             {
                 title: 'Choose download format',
-
                 rows: [
                     {
                         id: `.videoaudio ${encodeURIComponent(url)}`,
                         title: '🎵 Audio (MP3)',
-                        description: 'Download the audio as MP3'
+                        description: 'Download audio as MP3'
                     },
                     {
                         id: `.videoplay ${encodeURIComponent(url)}`,
                         title: '🎬 Video (Playable)',
-                        description: 'Send a playable MP4 video'
+                        description: 'Send a playable MP4'
                     },
                     {
                         id: `.videodoc ${encodeURIComponent(url)}`,
@@ -174,7 +156,7 @@ cmd({
         if (!url) {
             return await reply(
                 '⚠️ *YouTube link එකක් දෙන්න.*\n\n' +
-                'උදාහරණය:\n' +
+                'Example:\n' +
                 '.video https://youtube.com/watch?v=MwpMEbgC7DA'
             );
         }
@@ -185,8 +167,7 @@ cmd({
         console.error('[VIDEO MENU ERROR]', error);
 
         await reply(
-            '❌ Format menu එක පෙන්වන්න බැරි වුණා.\n' +
-            'නැවත උත්සාහ කරන්න.'
+            '❌ Format menu එක පෙන්වන්න බැරි වුණා. නැවත උත්සාහ කරන්න.'
         );
     }
 });
@@ -203,9 +184,7 @@ cmd({
         const url = decodeUrl(q);
 
         if (!isYouTubeUrl(url)) {
-            return await reply(
-                '⚠️ නිවැරදි YouTube URL එකක් ලබා දෙන්න.'
-            );
+            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
         }
 
         await reply('⏳ *Audio MP3 එක සකස් කරමින්...*');
@@ -214,9 +193,7 @@ cmd({
         const audioUrl = audioData?.download?.url;
 
         if (!audioUrl) {
-            throw new Error(
-                'Audio downloader did not return a download URL.'
-            );
+            throw new Error('Audio downloader returned no URL.');
         }
 
         await conn.sendMessage(from, {
@@ -224,21 +201,18 @@ cmd({
             mimetype: 'audio/mpeg',
             fileName: 'THENUVA-X-MD.mp3',
             contextInfo: NEWSLETTER_CONTEXT
-        }, {
-            quoted: mek
-        });
+        }, { quoted: mek });
 
     } catch (error) {
         console.error('[VIDEO AUDIO ERROR]', error);
 
         await reply(
-            '❌ Audio download එක අසාර්ථකයි.\n' +
-            'වෙනත් YouTube link එකක් උත්සාහ කරන්න.'
+            '❌ Audio download එක අසාර්ථකයි. වෙනත් link එකක් උත්සාහ කරන්න.'
         );
     }
 });
 
-// Playable video command: .videoplay <YouTube URL>
+// Playable video command
 cmd({
     pattern: 'videoplay',
     react: '🎬',
@@ -250,14 +224,10 @@ cmd({
         const url = decodeUrl(q);
 
         if (!isYouTubeUrl(url)) {
-            return await reply(
-                '⚠️ නිවැරදි YouTube URL එකක් ලබා දෙන්න.'
-            );
+            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
         }
 
-        await reply(
-            '⏳ *Playable video එක සකස් කරමින්...*'
-        );
+        await reply('⏳ *Playable video එක සකස් කරමින්...*');
 
         const video = await getVideoData(url);
 
@@ -265,29 +235,24 @@ cmd({
             video: { url: video.url },
             mimetype: 'video/mp4',
             fileName: `${video.title}.mp4`,
-
             caption:
                 `🎬 *THENUVA X MD VIDEO DOWNLOADER*\n\n` +
                 `📌 *Title:* ${video.title}\n` +
                 `🎞️ *Quality:* ${video.quality}\n\n` +
                 `> ${FOOTER}`,
-
             contextInfo: NEWSLETTER_CONTEXT
-        }, {
-            quoted: mek
-        });
+        }, { quoted: mek });
 
     } catch (error) {
         console.error('[VIDEO PLAY ERROR]', error);
 
         await reply(
-            '❌ Video download එක අසාර්ථකයි.\n' +
-            'API එක හෝ download link එක පරීක්ෂා කරන්න.'
+            '❌ Video download එක අසාර්ථකයි. API response එක සහ Railway logs පරීක්ෂා කරන්න.'
         );
     }
 });
 
-// Document command: .videodoc <YouTube URL>
+// Video document command
 cmd({
     pattern: 'videodoc',
     react: '📁',
@@ -299,14 +264,10 @@ cmd({
         const url = decodeUrl(q);
 
         if (!isYouTubeUrl(url)) {
-            return await reply(
-                '⚠️ නිවැරදි YouTube URL එකක් ලබා දෙන්න.'
-            );
+            return await reply('⚠️ Valid YouTube URL එකක් ලබා දෙන්න.');
         }
 
-        await reply(
-            '⏳ *Video document එක සකස් කරමින්...*'
-        );
+        await reply('⏳ *Video document එක සකස් කරමින්...*');
 
         const video = await getVideoData(url);
 
@@ -314,24 +275,19 @@ cmd({
             document: { url: video.url },
             mimetype: 'video/mp4',
             fileName: `${video.title}.mp4`,
-
             caption:
                 `📁 *THENUVA X MD VIDEO DOCUMENT*\n\n` +
                 `📌 *Title:* ${video.title}\n` +
                 `🎞️ *Quality:* ${video.quality}\n\n` +
                 `> ${FOOTER}`,
-
             contextInfo: NEWSLETTER_CONTEXT
-        }, {
-            quoted: mek
-        });
+        }, { quoted: mek });
 
     } catch (error) {
         console.error('[VIDEO DOCUMENT ERROR]', error);
 
         await reply(
-            '❌ Video document එක යවන්න බැරි වුණා.\n' +
-            'API එක හෝ download link එක පරීක්ෂා කරන්න.'
+            '❌ Video document එක යවන්න බැරි වුණා. API response එක සහ Railway logs පරීක්ෂා කරන්න.'
         );
     }
 });
