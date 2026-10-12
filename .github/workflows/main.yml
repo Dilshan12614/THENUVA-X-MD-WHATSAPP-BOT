@@ -38,22 +38,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
-
           echo "FFmpeg:"
           ffmpeg -version | head -n 1
-
           echo "FFprobe:"
           ffprobe -version | head -n 1
 
       # NODE DEPENDENCIES
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-
-      # BAILEYS VERSION CHECK
-      - name: Check Baileys Versions
-        run: |
-          echo "Checking installed Baileys packages..."
-          npm ls @whiskeysockets/baileys @fizzxydev/baileys-pro --depth=0 || true
 
       # ENVIRONMENT CHECK
       - name: Verify environment
@@ -72,7 +64,6 @@ jobs:
             echo "SESSION_ID secret is missing"
             exit 1
           fi
-
           echo "SESSION_ID is configured"
 
       # START BOT
@@ -84,6 +75,8 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_WORKFLOW_FILE: main.yml
           GITHUB_BRANCH: main
+
+          # Optional David Cyril API key
           DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
 
         run: |
