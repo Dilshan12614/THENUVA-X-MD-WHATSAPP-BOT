@@ -208,7 +208,6 @@ cmd(
 );
 
 // OWNER MENU
-const { sendListMenu } = require('../lib/buttons');
 
 cmd(
     {
