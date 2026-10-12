@@ -1,9 +1,12 @@
 const { cmd } = require('../command');
 
+const sleep = ms =>
+    new Promise(resolve => setTimeout(resolve, ms));
+
 cmd({
     pattern: 'sendpm',
     alias: ['privatemsg', 'pmnumber'],
-    desc: 'Send a private message to a phone number',
+    desc: 'Send one message to multiple numbers',
     category: 'owner',
     filename: __filename
 }, async (conn, mek, m, {
@@ -13,9 +16,7 @@ cmd({
 }) => {
     try {
         if (!isOwner) {
-            return reply(
-                '❌ මේ command එක භාවිතා කළ හැක්කේ bot owner ට පමණයි.'
-            );
+            return reply('❌ මේ command එක භාවිතා කළ හැක්කේ owner ට පමණයි.');
         }
 
         const input = String(body || '')
@@ -23,58 +24,81 @@ cmd({
             .replace(/^\.?sendpm(?:\s+|$)/i, '')
             .trim();
 
-        const match = input.match(/^(\+?\d{8,15})\s+([\s\S]+)$/);
+        // Format: numbers separated by commas | message
+        const split = input.split('|');
 
-        if (!match) {
+        if (split.length < 2) {
             return reply(
-                '📌 *භාවිතය:*\n' +
-                '.sendpm 94771234567 ඔබගේ message එක\n\n' +
-                'Number එක රටේ code එකත් සමඟ දෙන්න.\n' +
-                'Message එකත් අනිවාර්යයි.'
+                '📌 *භාවිතය:*\n\n' +
+                '.sendpm 94771234567,94770000000 | Hello everyone!\n\n' +
+                'Numbers comma (,) මඟින් වෙන් කරන්න.\n' +
+                'Numbers සහ message එක අතර | ලකුණ යොදන්න.'
             );
         }
 
-        const number = match[1].replace(/\D/g, '');
-        const message = match[2].trim();
+        const numberText = split.shift().trim();
+        const message = split.join('|').trim();
 
         if (!message) {
             return reply('❌ යවන්න message එකක් ඇතුළත් කරන්න.');
         }
 
-        // WhatsApp private recipient JID
-        const jid = `${number}@s.whatsapp.net`;
+        const numbers = [...new Set(
+            numberText
+                .split(',')
+                .map(n => n.trim().replace(/^\+/, ''))
+        )];
+
+        if (!numbers.length || numbers.some(
+            n => !/^\d{8,15}$/.test(n)
+        )) {
+            return reply(
+                '❌ Number format එක වැරදියි.\n' +
+                'රටේ code එක සමඟ numbers ඇතුළත් කරන්න.'
+            );
+        }
+
+        if (numbers.length > 20) {
+            return reply(
+                '❌ එක command එකකට උපරිම numbers 20ක් පමණක් ඇතුළත් කරන්න.'
+            );
+        }
 
         await reply(
             '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
-            '│\n' +
-            '│ 📤 Private message යවමින්...\n' +
-            `│ 📱 Number: ${number}\n` +
-            '│\n' +
+            '│ 📤 Private messages යවමින්...\n' +
+            `│ 👥 Recipients: ${numbers.length}\n` +
             '╰────────────────●●►'
         );
 
-        // Send only to the explicitly entered number
-        await conn.sendMessage(jid, {
-            text: message
-        });
+        let sent = 0;
+        let failed = 0;
 
-        console.log('[SENDPM] Message sent to:', jid);
+        for (const number of numbers) {
+            const jid = `${number}@s.whatsapp.net`;
+
+            try {
+                await conn.sendMessage(jid, { text: message });
+                sent++;
+                console.log('[SENDPM SENT]', number);
+            } catch (err) {
+                failed++;
+                console.error('[SENDPM ERROR]', number, err.message);
+            }
+
+            await sleep(1500);
+        }
 
         return reply(
             '╭─〔 *sᴇɴᴅᴘᴍ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
-            '│\n' +
-            '│ ✅ Message යැවීමේ request එක සාර්ථකයි.\n' +
-            `│ 📱 Number: ${number}\n` +
-            '│\n' +
+            `│ 👥 Recipients: ${numbers.length}\n` +
+            `│ ✅ Sent: ${sent}\n` +
+            `│ ❌ Failed: ${failed}\n` +
             '╰────────────────●●►'
         );
 
     } catch (err) {
-        console.error('[SENDPM ERROR]', err);
-
-        return reply(
-            '❌ Message යැවීමට නොහැකි වුණා.\n' +
-            'Number එක නිවැරදිද, WhatsApp account එකක්ද කියලා පරීක්ෂා කරන්න.'
-        );
+        console.error('[SENDPM FATAL ERROR]', err);
+        return reply('❌ Command එක ක්‍රියාත්මක කිරීමේදී දෝෂයක් ඇති වුණා.');
     }
 });
