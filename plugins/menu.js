@@ -347,31 +347,3 @@ cmd(
         );
     }
 );
-
-// MUSIC MENU
-cmd(
-    {
-        pattern: 'musicmenu',
-        alias: ['mp3menu', 'audiomenu'],
-        react: '🎵',
-        desc: 'Show music and audio menu',
-        category: 'main',
-        filename: __filename
-    },
-    async (conn, mek, m, { from }) => {
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    '╭━━〔 🎵 MUSIC MENU 〕━━●●►\n' +
-                    '┃\n' +
-                    '┃ 🎶 .song <song name>\n' +
-                    '┃ 🔗 .song <YouTube URL>\n' +
-                    '┃\n' +
-                    '╰━━━━━━━━━━━━━━●●►\n\n' +
-                    '🏠 Type .menu to return.'
-            },
-            { quoted: mek }
-        );
-    }
-);
