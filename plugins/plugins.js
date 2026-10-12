@@ -5,10 +5,13 @@ const { sendListMenu } = require('../lib/buttons');
 
 const PLUGIN_DIR = __dirname;
 
-const MENU_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+const MENU_IMAGE =
+    'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
+
 const OWNER_NAME = 'Dilshan Ashinsa';
-const OWNER_NUMBER = '94772194789';
-const CHANNEL_URL = 'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
+
+const CHANNEL_URL =
+    'https://whatsapp.com/channel/0029VbDTWC7HFxOwuNxNHV1z';
 
 function getPluginFiles(dir) {
     let files = [];
@@ -31,7 +34,10 @@ function getPluginFiles(dir) {
             }
         }
     } catch (error) {
-        console.error('[PLUGINS] Directory error:', error.message);
+        console.error(
+            '[PLUGINS] Directory error:',
+            error.message
+        );
     }
 
     return files;
@@ -47,14 +53,18 @@ cmd({
 }, async (conn, mek, m, { from, reply, isOwner }) => {
     try {
         if (!isOwner) {
-            return reply('❌ This command is only for the bot owner.');
+            return reply(
+                '❌ *ᴏᴡɴᴇʀ ᴏɴʟʏ ᴄᴏᴍᴍᴀɴᴅ*'
+            );
         }
 
         const files = getPluginFiles(PLUGIN_DIR);
 
         const loadedFiles = files.filter(file => {
             try {
-                return Boolean(require.cache[require.resolve(file)]);
+                return Boolean(
+                    require.cache[require.resolve(file)]
+                );
             } catch {
                 return false;
             }
@@ -63,22 +73,27 @@ cmd({
         const commandMap = new Map();
 
         for (const command of commands) {
-            if (!command || typeof command.function !== 'function') {
+            if (
+                !command ||
+                typeof command.function !== 'function'
+            ) {
                 continue;
             }
 
-            const filename = command.filename
+            const pluginName = command.filename
                 ? path.basename(command.filename)
                 : 'Unknown';
 
-            if (!commandMap.has(filename)) {
-                commandMap.set(filename, []);
+            if (!commandMap.has(pluginName)) {
+                commandMap.set(pluginName, []);
             }
 
             const name = command.pattern || command.name;
 
             if (name) {
-                commandMap.get(filename).push('.' + String(name));
+                commandMap.get(pluginName).push(
+                    '.' + String(name)
+                );
             }
         }
 
@@ -94,14 +109,16 @@ cmd({
             '╰━━━━━━━━━━━━━━━━━━●●►\n\n';
 
         if (loadedFiles.length === 0) {
-            output += '⚠️ *ɴᴏ ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ ꜰᴏᴜɴᴅ.*\n\n';
+            output +=
+                '⚠️ *ɴᴏ ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ ꜰᴏᴜɴᴅ.*\n\n';
         } else {
             output +=
                 '╭━━〔 *ʟᴏᴀᴅᴇᴅ ᴘʟᴜɢɪɴꜱ* 〕━━●●►\n\n';
 
             loadedFiles.forEach((file, index) => {
                 const name = path.basename(file);
-                const pluginCommands = commandMap.get(name) || [];
+                const pluginCommands =
+                    commandMap.get(name) || [];
 
                 output +=
                     `┃ ${index + 1}. *${name}*\n` +
@@ -112,7 +129,8 @@ cmd({
                     }\n\n`;
             });
 
-            output += '╰━━━━━━━━━━━━━━━━━━●●►\n\n';
+            output +=
+                '╰━━━━━━━━━━━━━━━━━━●●►\n\n';
         }
 
         output +=
@@ -125,44 +143,74 @@ cmd({
             '┃ ➜ ᴄʜᴏᴏꜱᴇ ᴀɴ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ\n' +
             '╰━━━━━━━━━━━━━━━━━━●●►';
 
-        return await sendListMenu(conn, from, {
-    title: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
-    text: output,
-    image: MENU_IMAGE,
-    footer: '⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
+        const sections = [
+            {
+                title: '🧩 PLUGIN MANAGER',
+                rows: [
+                    {
+                        title: '📋 Main Menu',
+                        id: 'thenuva:menu',
+                        description: 'Open the main menu'
+                    },
+                    {
+                        title: '🟢 Bot Status',
+                        id: 'thenuva:alive',
+                        description: 'Check bot status'
+                    },
+                    {
+                        title: '🏓 Ping',
+                        id: 'thenuva:ping',
+                        description: 'Check response speed'
+                    },
+                    {
+                        title: '👑 Owner Menu',
+                        id: 'thenuva:owner',
+                        description: 'Open owner commands'
+                    },
+                    {
+                        title: '📥 Download Menu',
+                        id: 'thenuva:downloads',
+                        description: 'Open download commands'
+                    },
+                    {
+                        title: '🛠️ Tools Menu',
+                        id: 'thenuva:tools',
+                        description: 'Open tools commands'
+                    },
+                    {
+                        title: '📚 All Commands',
+                        id: 'thenuva:all',
+                        description: 'View all bot commands'
+                    }
+                ]
+            }
+        ];
 
-    // Contact සහ Channel actions
-    buttons: [
-        {
-            buttonId: 'thenuva:contact',
-            buttonText: { displayText: 'CONTACT ME' },
-            type: 1
-        },
-        {
-            buttonId: 'thenuva:channel',
-            buttonText: { displayText: 'VIEW CHANNEL' },
-            type: 1
-        }
-    ],
-
-    contextInfo: {
-        externalAdReply: {
-            title: 'ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
-            body: 'ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ',
-            thumbnailUrl: MENU_IMAGE,
-            sourceUrl: CHANNEL_URL,
-            mediaType: 1,
-            renderLargerThumbnail: true
-        }
-    }
-});
+        return await sendListMenu(
+            conn,
+            from,
+            {
+                title: output,
+                buttonText: 'Open Menu',
+                sections: sections,
+                footer:
+                    '⚡ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
+                    '╰━━━●●► ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅɪʟꜱʜᴀɴ',
+                image: MENU_IMAGE
+            },
+            mek
+        );
 
     } catch (error) {
-        console.error('[PLUGINS ERROR]', error);
+        console.error(
+            '[PLUGINS ERROR]',
+            error
+        );
 
         return reply(
             '❌ *ᴘʟᴜɢɪɴ ᴍᴀɴᴀɢᴇʀ ᴇʀʀᴏʀ*\n\n' +
-            '┃ ➜ ᴇʀʀᴏʀ ʟᴏɢꜱ ᴄʜᴇᴄᴋ ᴋᴀʀᴀɴɴᴀ.'
+            '┃ ➜ GitHub Actions logs පරීක්ෂා කරන්න.\n' +
+            '╰━━━━━━━━━━━━━━━━━━●●►'
         );
     }
 });
