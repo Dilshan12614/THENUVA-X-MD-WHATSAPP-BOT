@@ -66,9 +66,11 @@ cmd({
 
         await reply(
             '╭─〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕─●●►\n' +
-            '│ 📤 Private messages යවමින්...\n' +
+            '│ 📤 Private messages requesting...\n' +
             `│ 👥 Recipients: ${numbers.length}\n` +
             '╰────────────────●●►'
+            
+            '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
         );
 
         let sent = 0;
@@ -93,8 +95,9 @@ cmd({
             '╭─〔 *sᴇɴᴅᴘᴍ ʀᴇsᴜʟᴛ* 〕─●●►\n' +
             `│ 👥 Recipients: ${numbers.length}\n` +
             `│ ✅ Sent: ${sent}\n` +
-            `│ ❌ Failed: ${failed}\n` +
             '╰────────────────●●►'
+
+            '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
         );
 
     } catch (err) {
