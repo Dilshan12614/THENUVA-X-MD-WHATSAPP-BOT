@@ -1,73 +1,61 @@
 const axios = require('axios');
 const { cmd } = require('../command');
 
-const API_URL = 'https://apis.davidcyril.name.ng/hdvideo';
+const API_URL =
+    'https://apis.davidcyril.name.ng/download/ytmp4';
 
-// Prevent multiple simultaneous requests in this process.
 const activeRequests = new Set();
 
 cmd({
     pattern: 'video',
-    alias: ['ytvideo', 'ytmp4', 'hdvideo'],
+    alias: ['ytmp4', 'ytvideo'],
     react: '🎬',
-    desc: 'Download HD video',
+    desc: 'Download video',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
-
     if (activeRequests.has(from)) {
-        return reply(
-            '⏳ *THENUVA X MD*\n\n' +
-            'දැනට request එකක් ක්‍රියාත්මකයි. එය අවසන් වනතුරු ඉන්න.'
-        );
+        return reply('⏳ දැනට request එකක් ක්‍රියාත්මකයි.');
     }
 
     try {
         if (!q || !q.trim()) {
             return reply(
-                '🎬 *THENUVA X MD - HD VIDEO*\n\n' +
-                'Video URL එකක් ලබා දෙන්න.\n\n' +
-                'උදාහරණය:\n' +
-                '.video https://www.youtube.com/watch?v=VIDEO_ID'
+                '*🎬 THENUVA X MD VIDEO DOWNLOADER*\n\n' +
+                'භාවිතය:\n.video VIDEO_URL'
             );
         }
 
-        const videoInput = q.trim();
-
-        let parsedUrl;
+        const inputUrl = q.trim();
+        let parsed;
 
         try {
-            parsedUrl = new URL(videoInput);
+            parsed = new URL(inputUrl);
         } catch {
-            return reply('❌ නිවැරදි Video URL එකක් ලබා දෙන්න.');
+            return reply('❌ නිවැරදි video URL එකක් ලබා දෙන්න.');
         }
 
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-            return reply('❌ HTTP හෝ HTTPS Video URL එකක් ලබා දෙන්න.');
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return reply('❌ Invalid URL.');
         }
 
         activeRequests.add(from);
 
-        await reply(
-            '⏳ *THENUVA X MD*\n\n' +
-            '🎬 HD Video එක ලබාගනිමින් පවතී...\n' +
-            'කරුණාකර රැඳී සිටින්න.'
-        );
+        await reply('⏳ Video එක ලබාගනිමින් පවතී...');
 
-        // Optional API authorization token from config.env
-        const token = process.env.DAVIDCYRIL_API_KEY;
+        const apiKey = process.env.DAVIDCYRIL_API_KEY;
 
         const headers = {
             Accept: 'application/json'
         };
 
-        if (token) {
-            headers.authorization = token;
+        if (apiKey) {
+            headers.authorization = apiKey;
         }
 
         const response = await axios.get(API_URL, {
             params: {
-                url: videoInput
+                url: inputUrl
             },
             headers,
             timeout: 120000,
@@ -78,52 +66,42 @@ cmd({
 
         if (response.status === 429) {
             return reply(
-                '⏳ *API Rate Limit Reached*\n\n' +
-                'API එකෙන් requests වැඩි නිසා ප්‍රතික්ෂේප කරලා.\n' +
+                '⚠️ API requests වැඩියි.\n' +
                 'ටික වෙලාවක් ඉඳලා නැවත උත්සාහ කරන්න.'
             );
         }
 
         if (response.status < 200 || response.status >= 300) {
-            console.error('[VIDEO API HTTP ERROR]', {
-                status: response.status,
-                data
-            });
-
-            return reply(
-                `❌ API Error: HTTP ${response.status}\n\n` +
-                'පසුව නැවත උත්සාහ කරන්න.'
-            );
+            console.error('[YTMP4 HTTP ERROR]', response.status, data);
+            return reply(`❌ API error: HTTP ${response.status}`);
         }
 
         if (!data || data.success === false) {
-            console.error('[VIDEO API ERROR]', data);
+            console.error('[YTMP4 API ERROR]', data);
 
             return reply(
-                '❌ *HD Video Job Failed*\n\n' +
-                (data?.message || 'API එකෙන් video job එක සෑදිය නොහැකි වුණා.') +
-                '\n\nපසුව නැවත උත්සාහ කරන්න.'
+                '❌ Video download අසාර්ථකයි.\n' +
+                (data?.message || 'API එකෙන් video එක ලබාගත නොහැකි වුණා.')
             );
         }
 
-        // Search common response fields for the actual video URL.
-        const urlKeys = [
-            'video',
-            'videoUrl',
-            'video_url',
-            'downloadUrl',
-            'download_url',
-            'download',
-            'url',
-            'link'
-        ];
-
-        function findVideoUrl(obj, depth = 0) {
-            if (!obj || typeof obj !== 'object' || depth > 5) {
+        function findDownloadUrl(obj, depth = 0) {
+            if (!obj || typeof obj !== 'object' || depth > 6) {
                 return null;
             }
 
-            for (const key of urlKeys) {
+            const keys = [
+                'download_url',
+                'downloadUrl',
+                'video_url',
+                'videoUrl',
+                'download',
+                'video',
+                'url',
+                'link'
+            ];
+
+            for (const key of keys) {
                 const value = obj[key];
 
                 if (
@@ -132,34 +110,38 @@ cmd({
                 ) {
                     return value;
                 }
+
+                if (value && typeof value === 'object') {
+                    const nested = findDownloadUrl(value, depth + 1);
+                    if (nested) return nested;
+                }
             }
 
             for (const value of Object.values(obj)) {
                 if (value && typeof value === 'object') {
-                    const found = findVideoUrl(value, depth + 1);
-
-                    if (found) return found;
+                    const nested = findDownloadUrl(value, depth + 1);
+                    if (nested) return nested;
                 }
             }
 
             return null;
         }
 
-        const videoUrl = findVideoUrl(data);
+        const downloadUrl = findDownloadUrl(data);
 
-        if (!videoUrl) {
+        if (!downloadUrl) {
             console.log(
-                '[VIDEO API RESPONSE]',
-                JSON.stringify(data).slice(0, 6000)
+                '[YTMP4 RESPONSE]',
+                JSON.stringify(data).slice(0, 5000)
             );
 
             return reply(
-                '⚠️ API response එක ලැබුණා. නමුත් video download URL එක හමු වුණේ නැහැ.\n\n' +
-                'GitHub Actions logs වල [VIDEO API RESPONSE] පරීක්ෂා කරන්න.'
+                '⚠️ API response එකෙන් download URL එක හමු වුණේ නැහැ.\n' +
+                'GitHub Actions logs වල [YTMP4 RESPONSE] බලන්න.'
             );
         }
 
-        const videoResponse = await axios.get(videoUrl, {
+        const fileResponse = await axios.get(downloadUrl, {
             responseType: 'arraybuffer',
             timeout: 180000,
             maxContentLength: 100 * 1024 * 1024,
@@ -167,66 +149,52 @@ cmd({
             validateStatus: () => true
         });
 
-        if (videoResponse.status < 200 || videoResponse.status >= 300) {
+        if (fileResponse.status < 200 || fileResponse.status >= 300) {
             return reply(
-                `❌ Video file එක download කරන්න බැරි වුණා. HTTP ${videoResponse.status}`
+                `❌ Video file download error: HTTP ${fileResponse.status}`
             );
         }
 
         const contentType =
-            videoResponse.headers['content-type'] || '';
+            fileResponse.headers['content-type'] || '';
 
         if (
             contentType.includes('application/json') ||
             contentType.includes('text/html')
         ) {
-            return reply(
-                '❌ API එකෙන් video file එක වෙනුවට වෙනත් response එකක් ලැබුණා.'
-            );
+            return reply('❌ API එකෙන් video file එකක් ලැබුණේ නැහැ.');
         }
 
-        const videoBuffer = Buffer.from(videoResponse.data);
+        const buffer = Buffer.from(fileResponse.data);
 
-        if (!videoBuffer.length) {
+        if (!buffer.length) {
             return reply('❌ ලැබුණු video file එක හිස්.');
         }
 
         await conn.sendMessage(from, {
-            video: videoBuffer,
+            video: buffer,
             mimetype: 'video/mp4',
-            fileName: 'THENUVA-HD-VIDEO.mp4',
+            fileName: 'THENUVA-VIDEO.mp4',
             caption:
                 '*🎬 THENUVA X MD*\n\n' +
-                '✅ HD Video Download Complete'
+                '✅ Video download complete'
         }, {
             quoted: mek
         });
 
     } catch (error) {
-        const status = error.response?.status;
-        const apiData = error.response?.data;
-
-        console.error('[VIDEO ERROR]', {
-            status: status || 'Unknown',
-            message: apiData?.message || error.message
+        console.error('[YTMP4 ERROR]', {
+            status: error.response?.status,
+            message: error.response?.data?.message || error.message
         });
 
-        if (status === 429) {
-            return reply(
-                '⏳ API එක දැනට busy.\n' +
-                'ටික වෙලාවක් ඉඳලා නැවත උත්සාහ කරන්න.'
-            );
-        }
-
-        if (error.code === 'ECONNABORTED') {
-            return reply(
-                '⏱️ API request එකට වැඩි වෙලාවක් ගත වුණා. පසුව නැවත උත්සාහ කරන්න.'
-            );
+        if (error.response?.status === 429) {
+            return reply('⏳ API එක busy. පසුව නැවත උත්සාහ කරන්න.');
         }
 
         return reply(
-            '❌ *Video Download Failed*\n\n' +
-            (apiData?.message || error.message || 'Unknown error')
+            '❌ Video download අසාර්ථකයි.\n' +
+            (error.response?.data?.message || error.message)
         );
 
     } finally {
