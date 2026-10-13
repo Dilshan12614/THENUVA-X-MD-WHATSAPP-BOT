@@ -98,8 +98,11 @@ jobs:
           # SASA DEV TTS API
           SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
 
-          # SASA DEV YOUTUBE MP4 API
+          # SASA DEV YOUTUBE MP4 API (OLD)
           SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
+
+          # APIFY YOUTUBE VIDEO DOWNLOADER
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
 
         run: |
           echo "Starting THENUVA X MD..."
