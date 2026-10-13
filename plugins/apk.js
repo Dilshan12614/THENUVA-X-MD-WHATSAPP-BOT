@@ -3,57 +3,62 @@ const axios = require('axios');
 module.exports = {
     name: 'apk',
     category: 'download',
-    desc: 'Search and download APK files.',
-    async execute(Client, message, args) {
-        // ඇප් එකේ නම ඇතුළත් කර ඇත්දැයි බැලීම
-        if (!args[0]) {
-            return await message.reply("❌ කරුණාකර ඇප් එකේ නම ඇතුළත් කරන්න! (උදා: .apk facebook)");
-        }
-
-        const appName = args.join(' ');
-        const apiKey = "Sasa_Dev_Api_79346efacb553ec6ee94f2f6453dec8658ec5e7b"; // රූපයේ ඇති පරිදි Api Key එක
-        const apiUrl = `https://sasa-dev-api.xyz{apiKey}&q=${encodeURIComponent(appName)}`;
-
+    desc: 'Search and download APK files',
+    async execute(conn, mek, m, { args, q, reply }) {
         try {
-            await message.reply("⏳ කරුණාකර රැඳී සිටින්න, ඔබ සෙවූ APK එක සොයමින් පවතියි...");
+            // ඇප් එකේ නම ඇතුළත් කර ඇත්දැයි බැලීම
+            // බොට් එකේ args හෝ q පාවිච්චි වන ආකාරය අනුව
+            const text = q || (args && args.join(' '));
+            if (!text) {
+                return await reply("❌ කරුණාකර ඇප් එකේ නම ඇතුළත් කරන්න! (උදා: .apk facebook)");
+            }
 
-            // API එකට Request එකක් යැවීම
+            await reply("⏳ කරුණාකර රැඳී සිටින්න, APK එක සොයමින් පවතියි...");
+
+            const apiKey = "Sasa_Dev_Api_79346efacb553ec6ee94f2f6453dec8658ec5e7b";
+            const apiUrl = `https://sasa-dev-api.xyz{apiKey}&q=${encodeURIComponent(text)}`;
+
+            // API Request එක
             const response = await axios.get(apiUrl);
             const resData = response.data;
 
-            // API එකෙන් සාර්ථකව දත්ත ලැබී ඇත්දැයි බැලීම
-            if (!resData || !resData.result || resData.result.length === 0) {
-                return await message.reply("❌ ඔබ සෙවූ ඇප් එක සොයා ගැනීමට නොහැකි විය.");
+            // සර්වර් එකෙන් ආපු මුළු දත්ත ප්‍රමාණයම console එකේ බලාගන්න (Heroku/Railway logs වල වැටෙයි)
+            console.log("API Response:", JSON.stringify(resData, null, 2));
+
+            // API එකේ 'status' හෝ 'result' එක පරීක්ෂා කිරීම
+            if (!resData || resData.status !== true || !resData.result) {
+                return await reply("❌ ඔබ සෙවූ ඇප් එක සොයා ගැනීමට නොහැකි විය හෝ API දෝෂයකි.");
             }
 
-            // පළමු සෙවුම් ප්‍රතිඵලය ලබා ගැනීම (පළමු ඇප් එක)
-            const appInfo = resData.result[0];
-            const downloadUrl = appInfo.download_link || appInfo.url; // API ප්‍රතිඵලයේ ඇති ඩවුන්ලෝඩ් ලින්ක් එක
-            const filename = `${appInfo.name || 'app'}.apk`;
+            const appInfo = resData.result;
+            // API එකෙන් ඩවුන්ලෝඩ් ලින්ක් එක එන්නේ වෙනත් කී එකකින් නම් (උදා: download, link, url)
+            const downloadUrl = appInfo.download || appInfo.download_link || appInfo.url || appInfo.link;
 
             if (!downloadUrl) {
-                return await message.reply("❌ මෙම ඇප් එක සඳහා ඩවුන්ලෝඩ් ලින්ක් එකක් සොයා ගැනීමට නොහැකි විය.");
+                return await reply("❌ මෙම ඇප් එක සඳහා ඩවුන්ලෝඩ් ලින්ක් එකක් සොයා ගැනීමට නොහැකි විය.");
             }
 
-            // ඇප් එකේ විස්තර මැසේජ් එකක් ලෙස යැවීම
-            let infoMessage = `*📦 APK DOWNLOADER* \n\n`;
-            infoMessage += `*📱 නම:* ${appInfo.name}\n`;
-            infoMessage += `*🆔 Package:* ${appInfo.package_id || 'නොදනී'}\n`;
-            infoMessage += `*⚖️ ප්‍රමාණය:* ${appInfo.size || 'නොදනී'}\n\n`;
-            infoMessage += `⏳ APK ගොනුව බාගත වෙමින් පවතී, සුළු මොහොතකින් එය ඔබට ලැබෙනු ඇත...`;
+            // විස්තර මැසේජ් එක
+            let descMsg = `*📦 APK DOWNLOADER*\n\n`;
+            descMsg += `*📱 නම:* ${appInfo.name || text}\n`;
+            descMsg += `*⚖️ ප්‍රමාණය:* ${appInfo.size || 'නොදනී'}\n\n`;
+            descMsg += `⏳ ගොනුව WhatsApp වෙත අප්ලෝඩ් වෙමින් පවතී...`;
+            
+            await reply(descMsg);
 
-            await message.reply(infoMessage);
+            // බොට් එකේ පාවිච්චි වෙන connection variable එක අනුව (conn හෝ jid)
+            const targetJid = m.chat || m.from;
 
-            // APK ගොනුව සෘජුවම WhatsApp හරහා Document එකක් ලෙස යැවීම
-            await Client.sendMessage(message.from, {
+            // Document එකක් විදියට APK එක යැවීම
+            await conn.sendMessage(targetJid, {
                 document: { url: downloadUrl },
                 mimetype: 'application/vnd.android.package-archive',
-                fileName: filename
-            }, { quoted: message });
+                fileName: `${appInfo.name || 'Application'}.apk`
+            }, { quoted: mek || m });
 
         } catch (error) {
-            console.error("APK Error:", error);
-            await message.reply("❌ API එක සම්බන්ධ කර ගැනීමේදී දෝෂයක් සිදු විය. පසුව නැවත උත්සාහ කරන්න.");
+            console.error("APK Plugin Error:", error);
+            await reply(`❌ දෝෂයක් සිදු විය: ${error.message}`);
         }
     }
 };
