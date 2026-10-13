@@ -1,4 +1,5 @@
 const { cmd } = require('../command');
+const { ytmp3 } = require('@vreden/youtube_scraper');
 
 const API_BASE = 'https://sasa-dev-api.xyz';
 const FOOTER =
