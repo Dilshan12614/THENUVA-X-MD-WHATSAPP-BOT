@@ -1,11 +1,20 @@
 const { cmd } = require('../command');
 
 const API_BASE = 'https://sasa-dev-api.xyz';
-const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+const FOOTER =
+    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const API_TIMEOUT = 60000;
 const DOWNLOAD_TIMEOUT = 120000;
+const MAX_RETRIES = 2;
+
+// Prevent simultaneous requests for the same chat.
+const activeChats = new Set();
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function safeFileName(name = 'audio') {
     return String(name)
@@ -32,31 +41,106 @@ async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
     });
 }
 
-async function readJsonResponse(response) {
-    const text = await response.text();
+async function fetchMp3WithRetry(endpoint) {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        let response;
+        let raw;
 
-    let data;
+        try {
+            response = await fetchWithTimeout(
+                endpoint,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'User-Agent': 'THENUVA-X-MD/2.0'
+                    }
+                },
+                API_TIMEOUT
+            );
 
-    try {
-        data = JSON.parse(text);
-    } catch {
-        throw new Error(
-            `API returned HTTP ${response.status}; invalid JSON response: ` +
-            text.slice(0, 250)
-        );
-    }
+            raw = await response.text();
+        } catch (error) {
+            if (attempt < MAX_RETRIES) {
+                const waitMs = 5000 * (attempt + 1);
 
-    if (!response.ok) {
-        const message =
+                console.log(
+                    `[MP3] Network error. Retry in ${waitMs / 1000}s.`
+                );
+
+                await sleep(waitMs);
+                continue;
+            }
+
+            throw new Error(`MP3 API connection failed: ${error.message}`);
+        }
+
+        let data;
+
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            if (response.status === 429 && attempt < MAX_RETRIES) {
+                await sleep(30000 * (attempt + 1));
+                continue;
+            }
+
+            throw new Error(
+                `API HTTP ${response.status}: ` +
+                raw.slice(0, 200)
+            );
+        }
+
+        const apiMessage =
             data?.message ||
             data?.error ||
             data?.msg ||
-            'The API rejected the request';
+            '';
 
-        throw new Error(`API HTTP ${response.status}: ${message}`);
+        const rateLimited =
+            response.status === 429 ||
+            /rate.?limit|too many requests/i.test(String(apiMessage));
+
+        if (rateLimited) {
+            if (attempt < MAX_RETRIES) {
+                const retryAfter = Number(
+                    response.headers.get('retry-after')
+                );
+
+                const waitMs = retryAfter > 0
+                    ? Math.min(retryAfter * 1000, 120000)
+                    : 30000 * (attempt + 1);
+
+                console.log(
+                    `[MP3] API rate limited. Waiting ${waitMs / 1000}s before retry ${attempt + 1}/${MAX_RETRIES}.`
+                );
+
+                await sleep(waitMs);
+                continue;
+            }
+
+            throw new Error(
+                'YouTube engine එක තවම rate limited. ' +
+                'මිනිත්තු කිහිපයකින් නැවත උත්සාහ කරන්න.'
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                `API HTTP ${response.status}: ` +
+                (apiMessage || 'Request failed')
+            );
+        }
+
+        if (data?.status === false || data?.success === false) {
+            throw new Error(
+                apiMessage || 'MP3 API එකෙන් download එක අසාර්ථක වුණා.'
+            );
+        }
+
+        return data;
     }
 
-    return data;
+    throw new Error('MP3 API එක දැනට භාවිතා කළ නොහැක.');
 }
 
 function getAudioInfo(data) {
@@ -84,9 +168,7 @@ function getAudioUrl(info) {
         info?.audioUrl,
         info?.download,
         info?.url,
-        info?.link,
-        info?.result?.download_url,
-        info?.data?.download_url
+        info?.link
     ];
 
     return candidates.find(isHttpUrl) || null;
@@ -116,7 +198,9 @@ async function downloadAudio(url) {
     );
 
     if (!response.ok) {
-        throw new Error(`Audio download failed: HTTP ${response.status}`);
+        throw new Error(
+            `Audio download failed: HTTP ${response.status}`
+        );
     }
 
     const contentType = (
@@ -135,7 +219,9 @@ async function downloadAudio(url) {
         contentType.includes('text/html') ||
         contentType.includes('application/json')
     ) {
-        throw new Error('Download server එකෙන් audio වෙනුවට webpage එකක් ලැබුණා.');
+        throw new Error(
+            'Download server එකෙන් audio වෙනුවට webpage එකක් ලැබුණා.'
+        );
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -148,7 +234,7 @@ async function downloadAudio(url) {
         throw new Error('Audio file එක 25 MB සීමාව ඉක්මවා ඇත.');
     }
 
-    // MP3 files normally start with ID3 or an MPEG audio frame.
+    // Check for a common MP3 signature.
     const hasID3 =
         buffer.length >= 3 &&
         buffer.toString('ascii', 0, 3) === 'ID3';
@@ -178,6 +264,15 @@ cmd(
     },
 
     async (conn, mek, m, { from, q, reply }) => {
+        if (activeChats.has(from)) {
+            return reply(
+                '⏳ මේ chat එකේ MP3 request එකක් දැනට ක්‍රියාත්මකයි. ' +
+                'ඒක අවසන් වනතුරු රැඳී සිටින්න.'
+            );
+        }
+
+        activeChats.add(from);
+
         try {
             const query = String(q || '').trim();
 
@@ -193,10 +288,9 @@ cmd(
                 );
             }
 
-            // This API expects a YouTube URL in its "url" parameter.
-            // Resolve song names through YouTube search first.
             let youtubeUrl = query;
 
+            // Search YouTube when the user provides a song name.
             if (!/^https?:\/\//i.test(query)) {
                 let yts;
 
@@ -204,12 +298,12 @@ cmd(
                     yts = require('yt-search');
                 } catch {
                     throw new Error(
-                        'Song name search සඳහා yt-search dependency එක install කරලා නැහැ.'
+                        '`yt-search` dependency එක install කරලා නැහැ.'
                     );
                 }
 
-                const searchResults = await yts(query);
-                const firstVideo = searchResults?.videos?.[0];
+                const results = await yts(query);
+                const firstVideo = results?.videos?.[0];
 
                 if (!firstVideo?.url) {
                     return reply('❌ මේ song එක හමු වුණේ නැහැ.');
@@ -226,10 +320,12 @@ cmd(
                 return reply('❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.');
             }
 
+            const hostname = parsedUrl.hostname.toLowerCase();
+
             const validHost =
-                parsedUrl.hostname === 'youtu.be' ||
-                parsedUrl.hostname === 'youtube.com' ||
-                parsedUrl.hostname.endsWith('.youtube.com');
+                hostname === 'youtu.be' ||
+                hostname === 'youtube.com' ||
+                hostname.endsWith('.youtube.com');
 
             if (
                 !validHost ||
@@ -256,34 +352,17 @@ cmd(
                 FOOTER
             );
 
-            const endpoint = new URL('/api/yt/mp3-dl', API_BASE);
+            const endpoint = new URL(
+                '/api/yt/mp3-dl',
+                API_BASE
+            );
 
             endpoint.searchParams.set('apikey', apiKey);
             endpoint.searchParams.set('url', youtubeUrl);
             endpoint.searchParams.set('quality', '128');
             endpoint.searchParams.set('raw', 'false');
 
-            const response = await fetchWithTimeout(
-                endpoint.href,
-                {
-                    headers: {
-                        Accept: 'application/json',
-                        'User-Agent': 'THENUVA-X-MD/2.0'
-                    }
-                },
-                API_TIMEOUT
-            );
-
-            const data = await readJsonResponse(response);
-
-            if (data?.status === false || data?.success === false) {
-                throw new Error(
-                    data?.message ||
-                    data?.error ||
-                    'MP3 API එකෙන් download එක අසාර්ථක වුණා.'
-                );
-            }
-
+            const data = await fetchMp3WithRetry(endpoint.href);
             const info = getAudioInfo(data);
             const audioUrl = getAudioUrl(info);
 
@@ -308,14 +387,13 @@ cmd(
             );
 
             const buffer = await downloadAudio(audioUrl);
-            const fileName = `${safeFileName(title)}.mp3`;
 
             await conn.sendMessage(
                 from,
                 {
                     audio: buffer,
                     mimetype: 'audio/mpeg',
-                    fileName,
+                    fileName: `${safeFileName(title)}.mp3`,
                     ptt: false
                 },
                 { quoted: mek }
@@ -328,10 +406,12 @@ cmd(
                 '╭─〔 *ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅᴇʀ ᴇʀʀᴏʀ* 〕──●●►\n' +
                 `│ ❌ ${error.message || 'Unknown error'}\n` +
                 '│\n' +
-                '│ නැවත උත්සාහ කරන්න.\n' +
+                '│ YouTube engine එක rate limited නම් ටික වේලාවකින් නැවත උත්සාහ කරන්න.\n' +
                 '╰──────────────────●●►\n\n' +
                 FOOTER
             );
+        } finally {
+            activeChats.delete(from);
         }
     }
 );
