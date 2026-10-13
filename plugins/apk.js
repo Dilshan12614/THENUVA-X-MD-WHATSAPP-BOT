@@ -1,493 +1,395 @@
 const { cmd } = require('../command');
 
-const API_BASE = 'https://sasa-dev-api.xyz/api/search/apk';
-const API_KEY = process.env.SASA_DEV_API_KEY;
+const API_BASE = 'https://sasa-dev-api.xyz';
+const APTOIDE_META = 'https://ws2.aptoide.com/api/7/app/getMeta';
+const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
-const FOOTER =
-    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+const pendingApps = new Map();
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
+const TIMEOUT = 30000;
 
-const API_TIMEOUT = 60000;
-const DOWNLOAD_TIMEOUT = 120000;
-const MAX_FILE_SIZE = 150 * 1024 * 1024;
-
-function safeFileName(name) {
-    return String(name || 'THENUVA-APK')
+function safeName(name = 'app') {
+    return String(name)
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .replace(/\s+/g, '_')
-        .trim()
-        .slice(0, 100) || 'THENUVA-APK';
+        .slice(0, 90) || 'app';
 }
 
-async function fetchWithTimeout(url, options = {}, timeout = 60000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
+function formatSize(bytes) {
+    if (!Number.isFinite(Number(bytes)) || Number(bytes) <= 0) {
+        return 'Unknown';
+    }
+
+    const mb = Number(bytes) / (1024 * 1024);
+    return mb >= 1024
+        ? `${(mb / 1024).toFixed(2)} GB`
+        : `${mb.toFixed(2)} MB`;
+}
+
+function isDirectDownload(url) {
+    if (typeof url !== 'string') return false;
 
     try {
-        return await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-    } catch (error) {
-        console.error('[APK FETCH ERROR]', {
-            host: (() => {
-                try {
-                    return new URL(url).hostname;
-                } catch {
-                    return 'invalid-url';
-                }
-            })(),
-            name: error.name,
-            message: error.message,
-            code: error.cause?.code
-        });
+        const parsed = new URL(url);
+        if (!['https:', 'http:'].includes(parsed.protocol)) return false;
 
-        throw error;
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
-function getObjects(value, depth = 0, result = []) {
-    if (!value || typeof value !== 'object' || depth > 8) {
-        return result;
-    }
-
-    if (result.includes(value)) return result;
-    result.push(value);
-
-    for (const child of Object.values(value)) {
-        if (child && typeof child === 'object') {
-            getObjects(child, depth + 1, result);
-        }
-    }
-
-    return result;
-}
-
-function getValue(objects, keys, fallback = '') {
-    for (const object of objects) {
-        for (const key of keys) {
-            const value = object?.[key];
-
-            if (typeof value === 'string' && value.trim()) {
-                return value.trim();
-            }
-
-            if (typeof value === 'number') {
-                return String(value);
-            }
-        }
-    }
-
-    return fallback;
-}
-
-function isHttpUrl(value) {
-    try {
-        const url = new URL(value);
-        return url.protocol === 'https:' ||
-            url.protocol === 'http:';
+        return /\.(apk|xapk)(?:$|[?#])/i.test(
+            parsed.pathname + parsed.search
+        );
     } catch {
         return false;
     }
 }
 
-function isStorePage(value) {
-    try {
-        const url = new URL(value);
-        const host = url.hostname.toLowerCase();
-        const path = url.pathname.toLowerCase();
+async function getJson(url) {
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'THENUVA-X-MD/2.0',
+            Accept: 'application/json'
+        },
+        signal: AbortSignal.timeout(TIMEOUT)
+    });
 
-        if (
-            host === 'play.google.com' ||
-            host === 'apps.apple.com'
-        ) {
-            return true;
-        }
-
-        if (
-            /(^|\.)aptoide\.com$/.test(host) &&
-            !/\.(apk|xapk)$/i.test(path)
-        ) {
-            return true;
-        }
-
-        return false;
-    } catch {
-        return true;
+    if (!response.ok) {
+        throw new Error(`API HTTP ${response.status}`);
     }
+
+    return response.json();
 }
 
-function findDownloadUrl(data) {
-    const objects = getObjects(data);
+function getResults(data) {
+    const result = data?.result;
 
-    const preferredKeys = [
-        'download_url',
-        'downloadUrl',
-        'direct_download',
-        'directDownload',
-        'download_link',
-        'downloadLink',
-        'apk_url',
-        'apkUrl',
-        'direct_url',
-        'directUrl',
-        'url',
-        'link',
-        'download'
-    ];
+    if (Array.isArray(result)) return result;
+    if (result && typeof result === 'object') return [result];
 
-    for (const object of objects) {
-        for (const key of preferredKeys) {
-            const value = object[key];
+    return [];
+}
 
-            if (
-                typeof value === 'string' &&
-                isHttpUrl(value) &&
-                !isStorePage(value)
-            ) {
-                return value.trim();
-            }
+function getStoreLink(app) {
+    const link = app?.link || app?.page || app?.web_url;
 
-            if (value && typeof value === 'object') {
-                const nestedUrl =
-                    value.url ||
-                    value.link ||
-                    value.download_url ||
-                    value.downloadUrl;
-
-                if (
-                    typeof nestedUrl === 'string' &&
-                    isHttpUrl(nestedUrl) &&
-                    !isStorePage(nestedUrl)
-                ) {
-                    return nestedUrl.trim();
-                }
-            }
+    try {
+        const url = new URL(link);
+        if (url.protocol === 'https:' || url.protocol === 'http:') {
+            return url.href;
         }
-    }
+    } catch {}
 
     return null;
 }
 
-function getErrorMessage(error) {
-    const code = error?.cause?.code;
+/*
+ * Package name extraction is only a best-effort fallback.
+ * Never treat the result as confirmed unless Aptoide metadata
+ * returns a usable download URL.
+ */
+function guessPackageFromLink(link) {
+    try {
+        const host = new URL(link).hostname.toLowerCase();
 
-    if (
-        error.name === 'AbortError' ||
-        error.name === 'TimeoutError'
-    ) {
-        return 'Request timeout වුණා. නැවත උත්සාහ කරන්න.';
-    }
+        if (!host.endsWith('.aptoide.com')) return null;
 
-    if (code === 'ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE') {
-        return 'Download server එකේ SSL/TLS connection එක අසාර්ථකයි.';
-    }
+        let name = host.slice(0, -'.aptoide.com'.length);
 
-    if (code === 'ENOTFOUND') {
-        return 'Server hostname එක සොයාගත නොහැක.';
-    }
+        if (name.endsWith('.en')) {
+            name = name.slice(0, -3);
+        }
 
-    if (code === 'ECONNRESET') {
-        return 'Server connection එක විසන්ධි වුණා.';
-    }
+        if (
+            name.length <= 180 &&
+            /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(name)
+        ) {
+            return name;
+        }
+    } catch {}
 
-    return String(error.message || 'Unknown error').slice(0, 350);
+    return null;
 }
 
-cmd({
-    pattern: 'apk',
-    alias: ['downloadapk', 'playstore', 'app', 'apkdl'],
-    react: '📦',
-    desc: 'Search and download APK files from SASA DEV API',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+async function resolveAptoideDownload(link) {
+    const packageName = guessPackageFromLink(link);
+    if (!packageName) return null;
+
+    const endpoint = new URL(APTOIDE_META);
+    endpoint.searchParams.set('package_name', packageName);
+
+    const data = await getJson(endpoint.href);
+
+    const file =
+        data?.data?.file ||
+        data?.apk ||
+        data?.data?.apk ||
+        null;
+
+    const url = file?.path || file?.path_alt;
+
+    if (typeof url !== 'string') return null;
+
     try {
-        const query = String(q || '').trim();
-
-        if (!query) {
-            return reply(
-                '╭─〔 *THENUVA X MD* 〕\n' +
-                '│\n' +
-                '│ 📦 *APK DOWNLOADER*\n' +
-                '│\n' +
-                '│ භාවිතය: .apk app name\n' +
-                '│ උදා: .apk WhatsApp\n' +
-                '│ උදා: .apk Telegram\n' +
-                '│\n' +
-                '╰──────────────\n\n' +
-                `*${FOOTER}*`
-            );
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+            return null;
         }
 
-        if (!API_KEY) {
-            return reply(
-                '❌ *API KEY MISSING*\n\n' +
-                'GitHub Secrets / Railway Variables තුළ ' +
-                '`SASA_DEV_API_KEY` සකසන්න.'
-            );
-        }
-
-        await reply(
-            '🔎 *APPLICATION එක සොයමින් පවතියි...*\n\n' +
-            `📱 App: ${query}\n` +
-            '⏳ Please wait...'
-        );
-
-        // Build the correct SASA DEV API endpoint.
-        const apiUrl = new URL(API_BASE);
-
-        apiUrl.searchParams.set('mode', 'search_dl');
-        apiUrl.searchParams.set('apikey', API_KEY);
-        apiUrl.searchParams.set('q', query);
-
-        console.log('[APK] Searching:', query);
-
-        const response = await fetchWithTimeout(
-            apiUrl.toString(),
-            {
-                method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                    'User-Agent': 'THENUVA-X-MD'
-                }
-            },
-            API_TIMEOUT
-        );
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-            console.error('[APK API ERROR]', {
-                status: response.status,
-                body: responseText.slice(0, 300)
-            });
-
-            if ([401, 403].includes(response.status)) {
-                return reply(
-                    '❌ *API AUTHENTICATION FAILED*\n\n' +
-                    'SASA_DEV_API_KEY එක පරීක්ෂා කරන්න.'
-                );
-            }
-
-            if (response.status === 429) {
-                return reply(
-                    '⏳ API rate limit ඉක්මවා තිබෙනවා. ' +
-                    'පසුව නැවත උත්සාහ කරන්න.'
-                );
-            }
-
-            throw new Error(`API server HTTP ${response.status}`);
-        }
-
-        let data;
-
-        try {
-            data = JSON.parse(responseText);
-        } catch {
-            console.error(
-                '[APK] Invalid JSON:',
-                responseText.slice(0, 500)
-            );
-
-            throw new Error('API එකෙන් JSON response එකක් ලැබුණේ නැහැ.');
-        }
-
-        if (
-            data.success === false ||
-            data.status === false ||
-            data.error
-        ) {
-            const message =
-                typeof data.message === 'string'
-                    ? data.message
-                    : typeof data.error === 'string'
-                        ? data.error
-                        : 'App එක සොයාගත නොහැකි වුණා.';
-
-            return reply(`❌ *APK SEARCH FAILED*\n\n${message}`);
-        }
-
-        const objects = getObjects(data);
-        const appName = getValue(
-            objects,
-            ['app_name', 'appName', 'name', 'title'],
-            query
-        );
-
-        const packageId = getValue(
-            objects,
-            ['package_id', 'packageId', 'package_name', 'packageName'],
-            'Unknown'
-        );
-
-        const appVersion = getValue(
-            objects,
-            ['version', 'app_version', 'appVersion'],
-            'Unknown'
-        );
-
-        const appSize = getValue(
-            objects,
-            ['size', 'file_size', 'fileSize'],
-            'Unknown'
-        );
-
-        const downloadUrl = findDownloadUrl(data);
-
-        if (!downloadUrl) {
-            console.error(
-                '[APK] No direct download URL:',
-                JSON.stringify(data).slice(0, 1800)
-            );
-
-            return reply(
-                '❌ *DOWNLOAD LINK NOT FOUND*\n\n' +
-                'API එකෙන් සෘජු APK download link එකක් ලැබුණේ නැහැ.\n' +
-                'API response එක පරීක්ෂා කළ යුතුයි.'
-            );
-        }
-
-        const caption =
-            '╭─〔 *📦 APK DOWNLOADER* 〕\n' +
-            '│\n' +
-            `│ 📱 *Name:* ${appName}\n` +
-            `│ 🆔 *Package:* ${packageId}\n` +
-            `│ 🏷️ *Version:* ${appVersion}\n` +
-            `│ ⚖️ *Size:* ${appSize}\n` +
-            '│\n' +
-            '╰────────────────\n\n' +
-            '⏳ *APK ගොනුව බාගත කරමින් පවතී...*';
-
-        await reply(caption);
-
-        console.log(
-            '[APK] Download host:',
-            new URL(downloadUrl).hostname
-        );
-
-        const fileResponse = await fetchWithTimeout(
-            downloadUrl,
-            {
-                method: 'GET',
-                redirect: 'follow',
-                headers: {
-                    'User-Agent':
-                        'Mozilla/5.0 (Linux; Android 10) ' +
-                        'AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
-                    Accept:
-                        'application/vnd.android.package-archive, ' +
-                        'application/octet-stream, */*'
-                }
-            },
-            DOWNLOAD_TIMEOUT
-        );
-
-        if (!fileResponse.ok) {
-            throw new Error(
-                `Download server HTTP ${fileResponse.status}`
-            );
-        }
-
-        const contentType = (
-            fileResponse.headers.get('content-type') || ''
-        ).toLowerCase();
-
-        const contentLength = Number(
-            fileResponse.headers.get('content-length') || 0
-        );
-
-        if (contentLength > MAX_FILE_SIZE) {
-            await fileResponse.body?.cancel().catch(() => {});
-            throw new Error('File එක 150 MB ඉක්මවා තිබෙනවා.');
-        }
-
-        if (
-            contentType.includes('text/html') ||
-            contentType.includes('application/json')
-        ) {
-            await fileResponse.body?.cancel().catch(() => {});
-
-            throw new Error(
-                'Download link එකෙන් APK file එකක් වෙනුවට webpage/JSON එකක් ලැබුණා.'
-            );
-        }
-
-        if (!fileResponse.body) {
-            throw new Error('Download response එක හිස්.');
-        }
-
-        const chunks = [];
-        let totalSize = 0;
-
-        for await (const chunk of fileResponse.body) {
-            totalSize += chunk.length;
-
-            if (totalSize > MAX_FILE_SIZE) {
-                throw new Error('File එක 150 MB ඉක්මවා තිබෙනවා.');
-            }
-
-            chunks.push(chunk);
-        }
-
-        const buffer = Buffer.concat(chunks);
-
-        if (!buffer.length) {
-            throw new Error('Downloaded file එක හිස්.');
-        }
-
-        // APK is a ZIP-based package. Do not send an HTML page as an APK.
-        if (
-            buffer.length < 4 ||
-            buffer[0] !== 0x50 ||
-            buffer[1] !== 0x4b
-        ) {
-            console.error('[APK] Invalid package signature', {
-                contentType,
-                size: buffer.length,
-                firstBytes: buffer.subarray(0, 12).toString('hex')
-            });
-
-            throw new Error(
-                'ලැබුණු file එක APK package එකක් නොවේ.'
-            );
-        }
-
-        const fileName = `${safeFileName(appName)}.apk`;
-
-        await conn.sendMessage(
-            from,
-            {
-                document: buffer,
-                mimetype: 'application/vnd.android.package-archive',
-                fileName,
-                caption:
-                    '╭─〔 *📦 APK DOWNLOADED* 〕\n' +
-                    '│\n' +
-                    `│ 📱 *Name:* ${appName}\n` +
-                    `│ 💾 *Size:* ${(buffer.length / 1024 / 1024).toFixed(2)} MB\n` +
-                    '│ ✅ *Download successful*\n' +
-                    '│\n' +
-                    '╰────────────────\n\n' +
-                    `*${FOOTER}*`
-            },
-            { quoted: mek }
-        );
-
-        console.log('[APK] Successfully sent:', fileName);
-
-    } catch (error) {
-        console.error('[APK DOWNLOAD ERROR]', {
-            name: error.name,
-            message: error.message,
-            code: error.cause?.code
-        });
-
-        return reply(
-            '❌ *DOWNLOAD FAILED*\n\n' +
-            `${getErrorMessage(error)}\n\n` +
-            '🔄 නැවත උත්සාහ කරන්න.'
-        );
+        return {
+            url: parsed.href,
+            packageName,
+            size: Number(file?.size) || 0
+        };
+    } catch {
+        return null;
     }
-});
+}
+
+async function downloadApk(url, expectedSize = 0) {
+    if (expectedSize > MAX_FILE_SIZE) {
+        throw new Error('File is larger than the configured size limit.');
+    }
+
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'THENUVA-X-MD/2.0',
+            Accept: 'application/vnd.android.package-archive, application/octet-stream, */*'
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(120000)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Download HTTP ${response.status}`);
+    }
+
+    const contentType = (
+        response.headers.get('content-type') || ''
+    ).toLowerCase();
+
+    const contentLength = Number(
+        response.headers.get('content-length') || 0
+    );
+
+    if (contentLength > MAX_FILE_SIZE) {
+        throw new Error('Downloaded file exceeds the size limit.');
+    }
+
+    if (contentType.includes('text/html') ||
+        contentType.includes('application/json')) {
+        throw new Error('The server returned a webpage, not an APK file.');
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (!buffer.length || buffer.length > MAX_FILE_SIZE) {
+        throw new Error('Invalid file size.');
+    }
+
+    // APK files are ZIP containers and normally begin with PK.
+    if (
+        buffer.length < 4 ||
+        buffer[0] !== 0x50 ||
+        buffer[1] !== 0x4b
+    ) {
+        throw new Error('The server response is not a valid APK/ZIP file.');
+    }
+
+    return buffer;
+}
+
+cmd(
+    {
+        pattern: 'apk',
+        alias: ['downloadapk', 'playstore', 'app'],
+        react: '📦',
+        desc: 'Search apps and download APK when a direct file is available',
+        category: 'download',
+        filename: __filename
+    },
+    async (conn, mek, m, { from, q, reply }) => {
+        try {
+            const query = String(q || '').trim();
+
+            if (!query) {
+                return reply(
+                    '*📦 APK DOWNLOADER*\n\n' +
+                    'App එකේ නම ලබා දෙන්න.\n\n' +
+                    'උදාහරණය: `.apk whatsapp`\n\n' +
+                    FOOTER
+                );
+            }
+
+            // If a search is pending, ".apk 1" selects the first result.
+            const selection = query.match(/^(\d+)$/);
+            const saved = pendingApps.get(from);
+
+            if (selection && saved) {
+                const index = Number(selection[1]) - 1;
+                const app = saved.apps[index];
+
+                if (!app) {
+                    return reply(
+                        `❌ Invalid selection. 1 - ${saved.apps.length} අතර අංකයක් දෙන්න.`
+                    );
+                }
+
+                pendingApps.delete(from);
+
+                const title = String(app.title || 'Unknown app');
+                const storeLink = getStoreLink(app);
+
+                await reply(
+                    `⏳ *${title}*\n\n` +
+                    'Download link එක පරීක්ෂා කරනවා...\n\n' +
+                    FOOTER
+                );
+
+                let directUrl = null;
+                let expectedSize = 0;
+
+                // Use an explicit direct URL only if the API supplies one.
+                const possibleDirect =
+                    app.download_url ||
+                    app.apk_url ||
+                    app.download ||
+                    app.file_url;
+
+                if (isDirectDownload(possibleDirect)) {
+                    directUrl = possibleDirect;
+                    expectedSize = Number(app.size_bytes) || 0;
+                } else if (storeLink) {
+                    try {
+                        const resolved = await resolveAptoideDownload(storeLink);
+
+                        if (resolved) {
+                            directUrl = resolved.url;
+                            expectedSize = resolved.size;
+                        }
+                    } catch (error) {
+                        console.error(
+                            '[APK] Aptoide metadata lookup failed:',
+                            error.message
+                        );
+                    }
+                }
+
+                if (!directUrl) {
+                    if (storeLink) {
+                        return reply(
+                            `❌ *සෘජු APK download link එකක් ලබාගන්න බැරි වුණා.*\n\n` +
+                            `📱 *App:* ${title}\n` +
+                            `🔖 *Version:* ${app.version || 'Unknown'}\n` +
+                            `📦 *Size:* ${app.size || 'Unknown'}\n\n` +
+                            `🌐 *Store page:*\n${storeLink}\n\n` +
+                            'API එකෙන් සෘජු APK URL එකක් නොලැබුණු නිසා file එකක් ලෙස යැව්වේ නැහැ.\n\n' +
+                            FOOTER
+                        );
+                    }
+
+                    return reply(
+                        '❌ මේ app එකට වලංගු download URL එකක් ලැබුණේ නැහැ.\n\n' +
+                        FOOTER
+                    );
+                }
+
+                await reply('⬇️ APK file එක ලබාගන්න උත්සාහ කරනවා...');
+
+                const buffer = await downloadApk(directUrl, expectedSize);
+                const fileName = `${safeName(title)}.apk`;
+
+                await conn.sendMessage(
+                    from,
+                    {
+                        document: buffer,
+                        mimetype: 'application/vnd.android.package-archive',
+                        fileName,
+                        caption:
+                            `📦 *${title}*\n` +
+                            `🔖 Version: ${app.version || 'Unknown'}\n` +
+                            `💾 Size: ${formatSize(buffer.length)}\n\n` +
+                            FOOTER
+                    },
+                    { quoted: mek }
+                );
+
+                return;
+            }
+
+            const apiKey = process.env.SASA_DEV_API_KEY;
+
+            if (!apiKey) {
+                return reply(
+                    '❌ `SASA_DEV_API_KEY` environment variable එක සකස් කරලා නැහැ.'
+                );
+            }
+
+            const endpoint = new URL('/api/search/apk', API_BASE);
+            endpoint.searchParams.set('mode', 'search_dl');
+            endpoint.searchParams.set('apikey', apiKey);
+            endpoint.searchParams.set('q', query);
+
+            await reply(
+                `🔎 *APK SEARCH*\n\n` +
+                `📱 Search: ${query}\n` +
+                'App results සොයනවා...\n\n' +
+                FOOTER
+            );
+
+            const data = await getJson(endpoint.href);
+            const apps = getResults(data).slice(0, 10);
+
+            if (data?.status !== true || apps.length === 0) {
+                return reply(
+                    '❌ App results හමු වුණේ නැහැ.\n\n' +
+                    'වෙනත් app නමක් යොදා නැවත උත්සාහ කරන්න.'
+                );
+            }
+
+            pendingApps.set(from, {
+                apps,
+                createdAt: Date.now()
+            });
+
+            // Remove stale selections.
+            for (const [chat, entry] of pendingApps.entries()) {
+                if (Date.now() - entry.createdAt > 10 * 60 * 1000) {
+                    pendingApps.delete(chat);
+                }
+            }
+
+            let text =
+                '╭─〔 *ᴀᴘᴋ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ* 〕──●●►\n' +
+                `│ 🔎 Search: ${query}\n` +
+                '╰──────────────────●●►\n\n';
+
+            apps.forEach((app, index) => {
+                text +=
+                    `*${index + 1}. ${app.title || 'Unknown app'}*\n` +
+                    `   🔖 Version: ${app.version || 'Unknown'}\n` +
+                    `   💾 Size: ${app.size || 'Unknown'}\n`;
+
+                if (app.rating) {
+                    text += `   ⭐ Rating: ${app.rating}\n`;
+                }
+
+                text += '\n';
+            });
+
+            text +=
+                '╭─〔 *ᴄʜᴏᴏsᴇ ᴀɴ ᴀᴘᴘ* 〕──●●►\n' +
+                '│ තෝරාගැනීමට: `.apk 1`\n' +
+                '│ දෙවැනි app එකට: `.apk 2`\n' +
+                '╰──────────────────●●►\n\n' +
+                'සටහන: සියලුම results සඳහා direct APK link එකක් තිබෙන බව සහතික නැහැ.\n\n' +
+                FOOTER;
+
+            return reply(text);
+        } catch (error) {
+            console.error('[APK] Error:', error.message);
+
+            return reply(
+                '❌ *APK Downloader Error*\n\n' +
+                `${error.message || 'Unknown error'}\n\n` +
+                'නැවත උත්සාහ කරන්න. Direct download server එකෙන් file එකක් නොලැබුණොත් app store link එක භාවිතා කරන්න.'
+            );
+        }
+    }
+);
