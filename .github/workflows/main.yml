@@ -65,9 +65,14 @@ jobs:
             exit 1
           fi
 
+          if [ ! -d plugins ]; then
+            echo "ERROR: plugins directory not found"
+            exit 1
+          fi
+
           echo "THENUVA X MD environment ready"
 
-      # CHECK SASA API TLS CONNECTION
+      # CHECK SASA APK API CONNECTION
       - name: Check SASA APK API connection
         continue-on-error: true
         run: |
@@ -79,7 +84,21 @@ jobs:
             -o /dev/null \
             -w "HTTP status: %{http_code}\n" \
             "https://sasa-dev-api.xyz/api/search/apk?mode=search_dl" \
-            || echo "SASA API HTTPS check failed"
+            || echo "SASA APK API connection check failed"
+
+      # CHECK SASA YOUTUBE MP3 API CONNECTION
+      - name: Check SASA YouTube MP3 API connection
+        continue-on-error: true
+        run: |
+          echo "Checking SASA YouTube MP3 API HTTPS connection..."
+
+          curl -sS \
+            --connect-timeout 15 \
+            --max-time 30 \
+            -o /dev/null \
+            -w "HTTP status: %{http_code}\n" \
+            "https://sasa-dev-api.xyz/api/yt/mp3-dl" \
+            || echo "SASA MP3 API connection check failed"
 
       # SESSION CHECK
       - name: Check SESSION_ID
@@ -114,6 +133,9 @@ jobs:
 
           # SASA DEV TTS API
           SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
+
+          # SASA DEV YOUTUBE MP3 API
+          SASA_YTMP3_API_KEY: ${{ secrets.SASA_YTMP3_API_KEY }}
 
           # SASA DEV YOUTUBE MP4 API
           SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
