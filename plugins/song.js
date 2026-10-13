@@ -6,8 +6,7 @@ const { sendListMenu } = require('../lib/buttons');
 const pendingSongs = new Map();
 const activeDownloads = new Set();
 
-const FOOTER =
-    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+const FOOTER 
 
 function isYouTubeUrl(text) {
     return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(text);
@@ -178,7 +177,7 @@ cmd({
         });
 
         const caption =
-            `╭─〔 *🎵 SONG DOWNLOADER* 〕\n` +
+            `╭─〔 *🎵 SONG DOWNLOADER 🎵* 〕\n` +
             `│\n` +
             `│ 🎶 *Title:* ${song.title}\n` +
             `│ 👤 *Artist:* ${song.author?.name || 'Unknown'}\n` +
