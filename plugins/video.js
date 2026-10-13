@@ -1,5 +1,6 @@
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
+const { ytmp3 } = require("@vreden/youtube_scraper");
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
