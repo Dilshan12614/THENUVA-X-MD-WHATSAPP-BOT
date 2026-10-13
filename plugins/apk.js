@@ -1,7 +1,6 @@
 const { cmd } = require('../command');
-const axios = require('axios');
 
-const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍ帶 • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 // ෆයිල් නමේ අඩංගු විය නොහැකි විශේෂ ලකුණු ඉවත් කිරීමට
 function safeFileName(name) {
@@ -34,12 +33,20 @@ cmd({
 
         await reply('🔎 *Application එක සොයමින් පවතියි...*');
 
-        // කිසිදු විචල්‍යයක් නැතිව සෘජුවම සාදන ලද සම්පූර්ණ URL එක
-        const apiUrl = `https://sasa-dev-api.xyz{encodeURIComponent(query)}`;
+        // බොට් එකේ Axios Wrapper එක බයිපාස් කිරීමට සම්පූර්ණ ලිපිනය String එකක් ලෙස
+        const finalUrl = 'https://sasa-dev-api.xyz' + encodeURIComponent(query);
 
-        // API එකට request එක යැවීම
-        const response = await axios.get(apiUrl, { timeout: 60000 });
-        const resData = response.data;
+        // Axios වෙනුවට බොට් එකේ interceptors වලට අහුවෙන්නේ නැති native fetch පාවිච්චි කිරීම
+        const response = await fetch(finalUrl, {
+            method: 'GET',
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API server HTTP ${response.status}`);
+        }
+
+        const resData = await response.json();
 
         // API ප්‍රතිචාරය නිවැරදිදැයි බැලීම
         if (!resData || resData.status !== true || !resData.result) {
@@ -68,14 +75,17 @@ cmd({
 
         await reply(caption);
 
-        // APK ලින්ක් එකෙන් ගොනුව බෆර් එකක් ලෙස ඩවුන්ලෝඩ් කරගැනීම (Timeout 120s)
-        const fileResponse = await axios.get(downloadUrl, {
-            responseType: 'arraybuffer',
-            timeout: 120000,
+        // APK ලින්ක් එකෙන් ගොනුව native fetch එකෙන්ම ArrayBuffer එකක් ලෙස බාගත කිරීම
+        const fileResponse = await fetch(downloadUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
-        const buffer = Buffer.from(fileResponse.data);
+        if (!fileResponse.ok) {
+            throw new Error(`Download server HTTP ${fileResponse.status}`);
+        }
+
+        const arrayBuffer = await fileResponse.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
         if (!buffer.length) {
             throw new Error('Downloaded APK file එක හිස්.');
