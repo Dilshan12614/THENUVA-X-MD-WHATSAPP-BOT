@@ -1,492 +1,452 @@
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
+const { ytmp3 } = require("@vreden/youtube_scraper");
 
-const https = require('https');
-const http = require('http');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const crypto = require('crypto');
-
-const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
+const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
 
 const API_URL =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
 
-const MAX_FILE_SIZE = 64 * 1024 * 1024;
 const TIMEOUT = 300000;
+const MAX_VIDEO_SIZE = 64 * 1024 * 1024;
 
 const FOOTER =
-    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
+// Store selected YouTube URLs by chat.
 const pendingVideos = new Map();
-const activeDownloads = new Set();
 
-function safeFileName(name) {
-    return String(name || 'THENUVA_X_MD')
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 100) || 'THENUVA_X_MD';
-}
-
-function isValidHttpUrl(value) {
+function isYouTubeUrl(value) {
     try {
         const url = new URL(value);
-        return url.protocol === 'https:' || url.protocol === 'http:';
+
+        return [
+            'youtube.com',
+            'www.youtube.com',
+            'm.youtube.com',
+            'youtu.be',
+            'www.youtu.be'
+        ].includes(url.hostname) &&
+        ['http:', 'https:'].includes(url.protocol);
     } catch {
         return false;
     }
 }
 
-function requestJson(url, options = {}) {
-    return new Promise((resolve, reject) => {
-        const parsed = new URL(url);
-        const transport = parsed.protocol === 'http:' ? http : https;
+function findMediaUrl(data, mode) {
+    const seen = new Set();
+    const queue = [data];
 
-        const request = transport.request(parsed, {
-            method: options.method || 'GET',
-            headers: options.headers || {},
-            timeout: TIMEOUT
-        }, (response) => {
-            let data = '';
+    const keys = mode === 'mp3'
+        ? [
+            'audioUrl',
+            'audio_url',
+            'downloadUrl',
+            'download_url',
+            'url',
+            'link'
+        ]
+        : [
+            'downloadUrl',
+            'download_url',
+            'videoUrl',
+            'video_url',
+            'url',
+            'link'
+        ];
 
-            response.setEncoding('utf8');
+    while (queue.length) {
+        const item = queue.shift();
 
-            response.on('data', chunk => {
-                data += chunk;
-
-                if (data.length > 5 * 1024 * 1024) {
-                    request.destroy(
-                        new Error('API response is too large')
-                    );
-                }
-            });
-
-            response.on('end', () => {
-                if (
-                    response.statusCode < 200 ||
-                    response.statusCode >= 300
-                ) {
-                    return reject(
-                        new Error(
-                            `API returned HTTP ${response.statusCode}: ` +
-                            data.slice(0, 300)
-                        )
-                    );
-                }
-
-                try {
-                    resolve(JSON.parse(data));
-                } catch {
-                    reject(
-                        new Error('API returned invalid JSON')
-                    );
-                }
-            });
-        });
-
-        request.on('timeout', () => {
-            request.destroy(new Error('API request timed out'));
-        });
-
-        request.on('error', reject);
-        request.end();
-    });
-}
-
-function downloadFile(url, destination, maxBytes = MAX_FILE_SIZE) {
-    return new Promise((resolve, reject) => {
-        if (!isValidHttpUrl(url)) {
-            return reject(new Error('Invalid download URL'));
+        if (
+            !item ||
+            typeof item !== 'object' ||
+            seen.has(item)
+        ) {
+            continue;
         }
 
-        const parsed = new URL(url);
-        const transport = parsed.protocol === 'http:' ? http : https;
-
-        const request = transport.get(parsed, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 THENUVA-X-MD'
-            },
-            timeout: TIMEOUT
-        }, (response) => {
-            if (
-                response.statusCode >= 300 &&
-                response.statusCode < 400 &&
-                response.headers.location
-            ) {
-                response.resume();
-
-                const redirected = new URL(
-                    response.headers.location,
-                    parsed
-                ).toString();
-
-                return downloadFile(
-                    redirected,
-                    destination,
-                    maxBytes
-                ).then(resolve).catch(reject);
-            }
-
-            if (response.statusCode !== 200) {
-                response.resume();
-                return reject(
-                    new Error(
-                        `Download failed: HTTP ${response.statusCode}`
-                    )
-                );
-            }
-
-            const contentType = String(
-                response.headers['content-type'] || ''
-            ).toLowerCase();
-
-            if (
-                contentType.includes('text/html') ||
-                contentType.includes('application/json')
-            ) {
-                response.resume();
-                return reject(
-                    new Error(
-                        `Server returned ${contentType}, not a media file`
-                    )
-                );
-            }
-
-            const declaredSize = Number(
-                response.headers['content-length'] || 0
-            );
-
-            if (declaredSize > maxBytes) {
-                response.destroy();
-                return reject(
-                    new Error('File exceeds the 64 MB limit')
-                );
-            }
-
-            let total = 0;
-            const output = fs.createWriteStream(destination);
-
-            response.on('data', chunk => {
-                total += chunk.length;
-
-                if (total > maxBytes) {
-                    response.destroy(
-                        new Error('File exceeds the 64 MB limit')
-                    );
-                    output.destroy(
-                        new Error('File exceeds the 64 MB limit')
-                    );
-                }
-            });
-
-            response.on('error', error => {
-                output.destroy();
-                reject(error);
-            });
-
-            output.on('error', reject);
-
-            output.on('finish', () => {
-                const buffer = Buffer.alloc(16);
-                const fd = fs.openSync(destination, 'r');
-
-                try {
-                    fs.readSync(fd, buffer, 0, 16, 0);
-                } finally {
-                    fs.closeSync(fd);
-                }
-
-                const signature = buffer.toString('hex');
-
-                if (
-                    contentType.includes('text/') ||
-                    signature.startsWith('3c68746d6c') ||
-                    signature.startsWith('7b226572726f72')
-                ) {
-                    fs.unlink(destination, () => {});
-                    return reject(
-                        new Error('Downloaded content is not a media file')
-                    );
-                }
-
-                resolve({
-                    path: destination,
-                    size: total,
-                    contentType
-                });
-            });
-
-            response.pipe(output);
-        });
-
-        request.setTimeout(TIMEOUT, () => {
-            request.destroy(new Error('Download timed out'));
-        });
-
-        request.on('error', reject);
-    });
-}
-
-function findMediaUrl(item, format) {
-    if (!item || typeof item !== 'object') return '';
-
-    const candidates = [
-        item.downloadUrl,
-        item.download_url,
-        item.url,
-        item.videoUrl,
-        item.video_url,
-        item.audioUrl,
-        item.audio_url,
-        item.mp4,
-        item.mp3,
-        item.fileUrl,
-        item.file_url,
-        item.download,
-        item.result?.url,
-        item.result?.downloadUrl,
-        item.data?.url,
-        item.data?.downloadUrl
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === 'string' && isValidHttpUrl(candidate)) {
-            return candidate;
-        }
-    }
-
-    const links = item.links;
-
-    if (links && typeof links === 'object') {
-        const keys = format === 'mp3'
-            ? ['mp3', 'audio', 'm4a', 'download']
-            : ['mp4', 'video', 'download'];
+        seen.add(item);
 
         for (const key of keys) {
-            const candidate = links[key];
+            const value = item[key];
 
             if (
-                typeof candidate === 'string' &&
-                isValidHttpUrl(candidate)
+                typeof value !== 'string' ||
+                !/^https?:\/\//i.test(value)
             ) {
-                return candidate;
+                continue;
             }
 
             if (
-                candidate &&
-                typeof candidate.url === 'string' &&
-                isValidHttpUrl(candidate.url)
+                mode === 'mp3' &&
+                /\.(mp3|m4a)(?:[?#]|$)/i.test(value)
             ) {
-                return candidate.url;
+                return value;
+            }
+
+            if (
+                mode !== 'mp3' &&
+                /\.(mp4|m4v|webm)(?:[?#]|$)/i.test(value)
+            ) {
+                return value;
+            }
+        }
+
+        for (const value of Object.values(item)) {
+            if (value && typeof value === 'object') {
+                queue.push(value);
             }
         }
     }
 
-    return '';
+    return null;
 }
 
-function findTitle(item) {
-    return (
-        item?.title ||
-        item?.videoTitle ||
-        item?.video_title ||
-        item?.name ||
-        item?.data?.title ||
-        'THENUVA X MD Download'
+function findTitle(data) {
+    const queue = Array.isArray(data)
+        ? [...data]
+        : [data];
+
+    const seen = new Set();
+
+    while (queue.length) {
+        const item = queue.shift();
+
+        if (
+            !item ||
+            typeof item !== 'object' ||
+            seen.has(item)
+        ) {
+            continue;
+        }
+
+        seen.add(item);
+
+        const title =
+            item.title ||
+            item.videoTitle ||
+            item.name ||
+            item.data?.title;
+
+        if (
+            typeof title === 'string' &&
+            title.trim()
+        ) {
+            return title;
+        }
+
+        for (const value of Object.values(item)) {
+            if (value && typeof value === 'object') {
+                queue.push(value);
+            }
+        }
+    }
+
+    return 'YouTube Video';
+}
+
+function safeFileName(value) {
+    return value
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .slice(0, 100) || 'THENUVA-X-MD';
+}
+
+async function sendFormatMenu(conn, from, mek, url) {
+    pendingVideos.set(from, url);
+
+    return sendListMenu(
+        conn,
+        from,
+        {
+            title:
+                '╭━━〔 *ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 〕━━╮\n' +
+                '┃ 🎬 *SELECT FORMAT*\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                '┃\n' +
+                '┃ 📥 *Download Options*\n' +
+                '┃\n' +
+                '┃ 🎵 Audio (MP3)\n' +
+                '┃ ➜ Download audio only\n' +
+                '┃\n' +
+                '┃ 🎬 Video (Playable)\n' +
+                '┃ ➜ MP4 playable video\n' +
+                '┃\n' +
+                '┃ 📁 Video Document\n' +
+                '┃ ➜ MP4 as document\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯',
+
+            buttonText: 'Select',
+
+            footer: FOOTER,
+
+            sections: [
+                {
+                    title: '📥 Download Options',
+                    rows: [
+                        {
+                            id: 'ytformat_mp3',
+                            title: '🎵 Audio (MP3)',
+                            description: 'Download audio only'
+                        },
+                        {
+                            id: 'ytformat_mp4',
+                            title: '🎬 Video (Playable)',
+                            description: 'MP4 playable video'
+                        },
+                        {
+                            id: 'ytformat_doc',
+                            title: '📁 Video Document',
+                            description: 'MP4 as document'
+                        }
+                    ]
+                }
+            ]
+        },
+        mek
     );
 }
 
-async function getApifyResult(videoUrl, format) {
-    if (!APIFY_TOKEN) {
-        throw new Error(
-            'APIFY_TOKEN is missing. Add it to Railway Variables.'
-        );
-    }
+async function downloadSelected(
+    conn,
+    mek,
+    from,
+    reply,
+    mode
+) {
+    try {
+        const input = pendingVideos.get(from);
 
-    const endpoint = new URL(API_URL);
-    endpoint.searchParams.set('token', APIFY_TOKEN);
-    endpoint.searchParams.set('timeout', '300');
-    endpoint.searchParams.set('memory', '1024');
-
-    const payload = {
-        url: videoUrl,
-        videoUrl,
-        format,
-        quality: '720p'
-    };
-
-    console.log(`[VIDEO] Starting Apify job (${format})`);
-
-    const result = await requestJson(endpoint.toString(), {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+        if (!input) {
+            return reply(
+                '╭━━〔 *ɴᴏ ᴠɪᴅᴇᴏ sᴇʟᴇᴄᴛᴇᴅ* 〕━━╮\n' +
+                '┃ ❌ මුලින් `.video YouTube_URL` යවන්න.\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
+            );
         }
-    });
 
-    // If the endpoint expects JSON in the POST body,
-    // use the requestJsonWithBody helper below instead.
-    return result;
-}
+        if (!APIFY_TOKEN) {
+            return reply(
+                '╭━━〔 *ᴀᴘɪ ᴄᴏɴғɪɢ* 〕━━╮\n' +
+                '┃ ❌ GitHub Secrets වල APIFY_TOKEN සකස් කරන්න.\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
+            );
+        }
 
-async function runApify(videoUrl, format) {
-    if (!APIFY_TOKEN) {
-        throw new Error(
-            'APIFY_TOKEN is missing. Add it to Railway Variables.'
+        await conn.sendMessage(from, {
+            react: {
+                text: '⏳',
+                key: mek.key
+            }
+        });
+
+        const formatName = mode === 'mp3'
+            ? 'Audio (MP3)'
+            : mode === 'doc'
+                ? 'Video Document'
+                : 'Video (Playable)';
+
+        await reply(
+            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
+            '┃ ⏳ *ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...*\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            `┃ 📌 Format: ${formatName}\n` +
+            '┃ ➜ Please wait...\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            FOOTER
         );
-    }
 
-    const endpoint = new URL(API_URL);
-    endpoint.searchParams.set('token', APIFY_TOKEN);
-    endpoint.searchParams.set('timeout', '300');
-    endpoint.searchParams.set('memory', '1024');
-
-    const body = JSON.stringify({
-        url: videoUrl,
-        videoUrl,
-        format,
-        quality: '720p'
-    });
-
-    const result = await new Promise((resolve, reject) => {
-        const request = https.request(endpoint, {
+        const apiResponse = await fetch(API_URL, {
             method: 'POST',
             headers: {
+                Authorization: `Bearer ${APIFY_TOKEN}`,
                 'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(body),
-                'Accept': 'application/json'
+                Accept: 'application/json'
             },
-            timeout: TIMEOUT
-        }, response => {
-            let data = '';
-
-            response.setEncoding('utf8');
-            response.on('data', chunk => {
-                data += chunk;
-            });
-
-            response.on('end', () => {
-                if (
-                    response.statusCode < 200 ||
-                    response.statusCode >= 300
-                ) {
-                    return reject(
-                        new Error(
-                            `Apify HTTP ${response.statusCode}: ` +
-                            data.slice(0, 300)
-                        )
-                    );
-                }
-
-                try {
-                    resolve(JSON.parse(data));
-                } catch {
-                    reject(
-                        new Error('Apify returned invalid JSON')
-                    );
-                }
-            });
+            body: JSON.stringify({
+                urls: [{ url: input }],
+                quality: '1080',
+                format: mode === 'mp3'
+                    ? 'mp3'
+                    : 'default',
+                residentialProxyMode: 'disabled',
+                proxyCountry: ''
+            }),
+            signal: AbortSignal.timeout(TIMEOUT)
         });
 
-        request.on('timeout', () => {
-            request.destroy(new Error('Apify request timed out'));
-        });
+        const responseText = await apiResponse.text();
 
-        request.on('error', reject);
-        request.write(body);
-        request.end();
-    });
+        if (!apiResponse.ok) {
+            console.error(
+                '[APIFY VIDEO] HTTP:',
+                apiResponse.status
+            );
 
-    const item = Array.isArray(result) ? result[0] : result;
+            console.error(
+                '[APIFY VIDEO] Error:',
+                responseText.slice(0, 500)
+            );
 
-    if (!item) {
-        throw new Error('Apify returned no download result');
-    }
-
-    const mediaUrl = findMediaUrl(item, format);
-
-    if (!mediaUrl) {
-        console.error(
-            '[VIDEO] Apify response keys:',
-            Object.keys(item)
-        );
-
-        throw new Error(
-            'Apify response did not contain a usable media URL'
-        );
-    }
-
-    return {
-        url: mediaUrl,
-        title: findTitle(item),
-        thumbnail:
-            item.thumbnail ||
-            item.thumbnailUrl ||
-            item.data?.thumbnail ||
-            null
-    };
-}
-
-async function sendDownloadedFile({
-    conn,
-    from,
-    mek,
-    videoUrl,
-    format
-}) {
-    const download = await runApify(videoUrl, format);
-
-    const extension = format === 'mp3' ? '.mp3' : '.mp4';
-    const tempFile = path.join(
-        os.tmpdir(),
-        `thenuva_${crypto.randomBytes(8).toString('hex')}${extension}`
-    );
-
-    try {
-        const file = await downloadFile(
-            download.url,
-            tempFile,
-            MAX_FILE_SIZE
-        );
-
-        const title = safeFileName(download.title);
-
-        console.log(
-            `[VIDEO] Downloaded ${format}: ${file.size} bytes`
-        );
-
-        if (format === 'mp3') {
-            await conn.sendMessage(from, {
-                audio: { url: file.path },
-                mimetype: 'audio/mpeg',
-                fileName: `${title}.mp3`,
-                ptt: false
-            }, { quoted: mek });
-        } else if (format === 'mp4') {
-            await conn.sendMessage(from, {
-                video: { url: file.path },
-                mimetype: 'video/mp4',
-                fileName: `${title}.mp4`,
-                caption: `🎬 *${title}*\n\n${FOOTER}`
-            }, { quoted: mek });
-        } else if (format === 'document') {
-            await conn.sendMessage(from, {
-                document: { url: file.path },
-                mimetype: 'video/mp4',
-                fileName: `${title}.mp4`,
-                caption: `📄 *${title}*\n\n${FOOTER}`
-            }, { quoted: mek });
+            throw new Error(
+                `Apify API HTTP ${apiResponse.status}`
+            );
         }
-    } finally {
-        fs.unlink(tempFile, error => {
-            if (error && error.code !== 'ENOENT') {
-                console.error('[VIDEO] Temp cleanup:', error.message);
+
+        let result;
+
+        try {
+            result = JSON.parse(responseText);
+        } catch {
+            throw new Error(
+                'Apify returned invalid JSON'
+            );
+        }
+
+        const mediaUrl = findMediaUrl(result, mode);
+
+        if (!mediaUrl) {
+            console.error(
+                '[APIFY VIDEO] Output:',
+                JSON.stringify(result).slice(0, 1500)
+            );
+
+            throw new Error(
+                `Actor output එකේ ${mode === 'mp3' ? 'MP3' : 'MP4'} URL එක හමු වුණේ නැහැ`
+            );
+        }
+
+        const mediaResponse = await fetch(mediaUrl, {
+            headers: {
+                Accept:
+                    'video/*, audio/*, application/octet-stream'
+            },
+            signal: AbortSignal.timeout(TIMEOUT)
+        });
+
+        if (!mediaResponse.ok) {
+            throw new Error(
+                `Media download HTTP ${mediaResponse.status}`
+            );
+        }
+
+        const contentType = (
+            mediaResponse.headers.get('content-type') || ''
+        ).toLowerCase();
+
+        if (
+            mode === 'mp3'
+                ? !contentType.includes('audio/')
+                : !contentType.includes('video/') &&
+                  !contentType.includes('application/octet-stream')
+        ) {
+            throw new Error(
+                `Invalid media content type: ${contentType || 'unknown'}`
+            );
+        }
+
+        const declaredSize = Number(
+            mediaResponse.headers.get('content-length') || 0
+        );
+
+        if (declaredSize > MAX_VIDEO_SIZE) {
+            throw new Error('FILE_TOO_LARGE');
+        }
+
+        const buffer = Buffer.from(
+            await mediaResponse.arrayBuffer()
+        );
+
+        if (!buffer.length) {
+            throw new Error('Downloaded file is empty');
+        }
+
+        if (buffer.length > MAX_VIDEO_SIZE) {
+            throw new Error('FILE_TOO_LARGE');
+        }
+
+        const title = safeFileName(findTitle(result));
+
+        const caption =
+            '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴄᴄᴇss* 〕━━╮\n' +
+            `┃ 📌 *${title}*\n` +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            `┃ 🎞️ Format: ${formatName}\n` +
+            '┃ ✅ Status: Success\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            FOOTER;
+
+        if (mode === 'mp3') {
+            await conn.sendMessage(
+                from,
+                {
+                    audio: buffer,
+                    mimetype: 'audio/mpeg',
+                    fileName: `${title}.mp3`,
+                    ptt: false
+                },
+                { quoted: mek }
+            );
+        } else if (mode === 'doc') {
+            await conn.sendMessage(
+                from,
+                {
+                    document: buffer,
+                    mimetype: 'video/mp4',
+                    fileName: `${title}.mp4`,
+                    caption
+                },
+                { quoted: mek }
+            );
+        } else {
+            await conn.sendMessage(
+                from,
+                {
+                    video: buffer,
+                    mimetype: 'video/mp4',
+                    fileName: `${title}.mp4`,
+                    caption
+                },
+                { quoted: mek }
+            );
+        }
+
+        pendingVideos.delete(from);
+
+        await conn.sendMessage(from, {
+            react: {
+                text: '✅',
+                key: mek.key
             }
         });
+
+    } catch (error) {
+        console.error(
+            '[APIFY DOWNLOAD ERROR]',
+            error.message
+        );
+
+        await conn.sendMessage(from, {
+            react: {
+                text: '❌',
+                key: mek.key
+            }
+        });
+
+        return reply(
+            '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ* 〕━━╮\n' +
+            `┃ ❌ ${
+                error.message === 'FILE_TOO_LARGE'
+                    ? 'ගොනුව 64 MB සීමාව ඉක්මවයි.'
+                    : error.message
+            }\n` +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            FOOTER
+        );
     }
 }
 
@@ -494,145 +454,70 @@ cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo'],
     react: '🎬',
-    desc: 'Download YouTube video, audio, or document',
+    desc: 'Download YouTube media',
     category: 'download',
     filename: __filename
-}, async (conn, mek, m, { from, args, q, reply }) => {
-    try {
-        const videoUrl = (q || args.join(' ')).trim();
+}, async (conn, mek, m, { from, args, reply }) => {
+    const input = args.join(' ').trim();
 
-        if (!videoUrl) {
-            return reply(
-                '❌ YouTube video URL එකක් දෙන්න.\n\n' +
-                'උදාහරණය: .video https://youtube.com/watch?v=...'
-            );
-        }
-
-        if (!isValidHttpUrl(videoUrl)) {
-            return reply('❌ Valid video URL එකක් දෙන්න.');
-        }
-
-        if (activeDownloads.has(from)) {
-            return reply(
-                '⏳ මේ chat එකේ download එකක් දැනටමත් ක්‍රියාත්මකයි.'
-            );
-        }
-
-        pendingVideos.set(from, {
-            url: videoUrl,
-            timestamp: Date.now()
-        });
-
-        await sendListMenu(conn, from, {
-            title: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴠɪᴅᴇᴏ ᴅᴏᴡɴʟᴏᴀᴅ',
-            text: 'ඔයාට අවශ්‍ය format එක තෝරන්න.',
-            buttonText: 'Select',
-            footer: FOOTER,
-            sections: [{
-                title: 'DOWNLOAD FORMAT',
-                rows: [
-                    {
-                        title: '🎵 MP3 Audio',
-                        description: 'Audio file එක download කරන්න',
-                        id: 'ytformat_mp3'
-                    },
-                    {
-                        title: '🎬 MP4 Video',
-                        description: 'Video එකක් ලෙස යවන්න',
-                        id: 'ytformat_mp4'
-                    },
-                    {
-                        title: '📄 MP4 Document',
-                        description: 'MP4 එක document එකක් ලෙස යවන්න',
-                        id: 'ytformat_doc'
-                    }
-                ]
-            }]
-        }, mek);
-    } catch (error) {
-        console.error('[VIDEO MENU ERROR]', error);
-        reply(`❌ Menu error: ${error.message}`);
+    if (!input) {
+        return reply(
+            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
+            '┃ 🎬 *ʏᴏᴜᴛᴜʙᴇ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            '┃ ➜ .video YouTube_URL\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            FOOTER
+        );
     }
+
+    if (!isYouTubeUrl(input)) {
+        return reply(
+            '╭━━〔 *ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ* 〕━━╮\n' +
+            '┃ ❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.\n' +
+            '┣━━━━━━━━━━━━━━━━━━╯\n' +
+            FOOTER
+        );
+    }
+
+    return sendFormatMenu(
+        conn,
+        from,
+        mek,
+        input
+    );
 });
 
-async function handleVideoFormat(conn, mek, from, format) {
-    const pending = pendingVideos.get(from);
-
-    if (!pending || Date.now() - pending.timestamp > 10 * 60 * 1000) {
-        pendingVideos.delete(from);
-
-        return conn.sendMessage(from, {
-            text:
-                '⌛ Video URL එක කල් ඉකුත් වෙලා.\n' +
-                'ආයෙත් `.video URL` යවලා format එක තෝරන්න.'
-        }, { quoted: mek });
-    }
-
-    if (activeDownloads.has(from)) {
-        return conn.sendMessage(from, {
-            text: '⏳ Download එකක් දැනටමත් ක්‍රියාත්මකයි.'
-        }, { quoted: mek });
-    }
-
-    activeDownloads.add(from);
-
-    const formatName = {
-        mp3: 'MP3 Audio',
-        mp4: 'MP4 Video',
-        document: 'MP4 Document'
-    }[format];
-
-    try {
-        await conn.sendMessage(from, {
-            text: `⏳ *${formatName}* download කරමින්...`
-        }, { quoted: mek });
-
-        await sendDownloadedFile({
-            conn,
-            from,
-            mek,
-            videoUrl: pending.url,
-            format
-        });
-
-        pendingVideos.delete(from);
-    } catch (error) {
-        console.error(`[VIDEO ${format.toUpperCase()} ERROR]`, error);
-
-        await conn.sendMessage(from, {
-            text:
-                `❌ ${formatName} download එක අසාර්ථකයි.\n\n` +
-                `${error.message}\n\n` +
-                'Railway Variables වල APIFY_TOKEN එක සහ Apify actor output එක පරීක්ෂා කරන්න.'
-        }, { quoted: mek });
-    } finally {
-        activeDownloads.delete(from);
-    }
-}
-
+// WhatsApp list selections are handled by these commands.
 cmd({
     pattern: 'ytformat_mp3',
-    desc: 'Download video as MP3',
+    desc: 'Download selected MP3 format',
     category: 'download',
     filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await handleVideoFormat(conn, mek, from, 'mp3');
+}, async (conn, mek, m, { from, reply }) => {
+    return downloadSelected(
+        conn, mek, from, reply, 'mp3'
+    );
 });
 
 cmd({
     pattern: 'ytformat_mp4',
-    desc: 'Download video as MP4',
+    desc: 'Download selected playable MP4',
     category: 'download',
     filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await handleVideoFormat(conn, mek, from, 'mp4');
+}, async (conn, mek, m, { from, reply }) => {
+    return downloadSelected(
+        conn, mek, from, reply, 'mp4'
+    );
 });
 
 cmd({
     pattern: 'ytformat_doc',
-    desc: 'Send MP4 as document',
+    desc: 'Download selected MP4 document',
     category: 'download',
     filename: __filename
-}, async (conn, mek, m, { from }) => {
-    await handleVideoFormat(conn, mek, from, 'document');
+}, async (conn, mek, m, { from, reply }) => {
+    return downloadSelected(
+        conn, mek, from, reply, 'doc'
+    );
 });
