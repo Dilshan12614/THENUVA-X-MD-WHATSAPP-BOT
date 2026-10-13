@@ -6,8 +6,6 @@ const { sendListMenu } = require('../lib/buttons');
 const pendingSongs = new Map();
 const activeDownloads = new Set();
 
-const FOOTER 
-
 function isYouTubeUrl(text) {
     return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(text);
 }
