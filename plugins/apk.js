@@ -1,7 +1,7 @@
 const { cmd } = require('../command');
 const axios = require('axios');
 
-const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇ Dz Dilshan Ashinsa';
+const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 // ෆයිල් නමේ අඩංගු විය නොහැකි විශේෂ ලකුණු ඉවත් කිරීමට
 function safeFileName(name) {
@@ -34,9 +34,9 @@ cmd({
 
         await reply('🔎 *Application එක සොයමින් පවතියි...*');
 
-        // Sasa Dev API එකේ නිවැරදිම URL එක (Concatenation එක නිවැරදි කර ඇත)
-        const apiKey = "Sasa_Dev_Api_79346efacb553ec6ee94f2f6453dec8658ec5e7b";
-        const apiUrl = `https://sasa-dev-api.xyz{apiKey}&q=${encodeURIComponent(query)}`;
+        // පින්තූරයේ ඇති පරිදි සෘජු නිවැරදි URL එක (String Literal එකක් ලෙස)
+        const apiKey = "Sasa_Dev_Api_79346efacb553ec6ee94f2f6453dec8658ec5e7b&q=";
+        const apiUrl = "https://sasa-dev-api.xyz" + apiKey + encodeURIComponent(query);
 
         // API එකට request එක යැවීම
         const response = await axios.get(apiUrl, { timeout: 60000 });
