@@ -123,7 +123,8 @@ cmd({
                 `│ 👤 *User:* ${targetNumber}\n` +
                 '│\n' +
                 '╰────────────────\n\n' +
-                '*ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ*'
+                
+                '> *ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa*'
         }, { quoted: mek });
 
     } catch (error) {
