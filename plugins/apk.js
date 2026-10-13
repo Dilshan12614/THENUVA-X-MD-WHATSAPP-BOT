@@ -14,68 +14,106 @@ function safeFileName(name) {
         .slice(0, 80);
 }
 
-function findDownloadUrl(obj, depth = 0) {
-    if (!obj || typeof obj !== 'object' || depth > 8) {
+function isHttpUrl(value) {
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' ||
+            parsed.protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+function isStorePage(value) {
+    try {
+        const url = new URL(value);
+        const host = url.hostname.toLowerCase();
+        const path = url.pathname.toLowerCase();
+
+        if (
+            /(^|\.)aptoide\.com$/.test(host) &&
+            !/\.(apk|xapk)$/i.test(path)
+        ) {
+            return true;
+        }
+
+        return host === 'play.google.com' ||
+            host === 'apps.apple.com';
+    } catch {
+        return true;
+    }
+}
+
+function findDownloadUrl(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 8) {
         return null;
     }
 
-    const keys = [
-        'download_url',
-        'downloadUrl',
+    const directKeys = [
         'direct_download',
         'directDownload',
-        'download_link',
-        'downloadLink',
+        'download_url',
+        'downloadUrl',
         'apk_url',
         'apkUrl',
-        'download',
-        'url',
-        'link'
+        'direct_url',
+        'directUrl',
+        'download_link',
+        'downloadLink'
     ];
 
-    for (const key of keys) {
-        const value = obj[key];
+    for (const key of directKeys) {
+        const value = data[key];
 
-        if (typeof value !== 'string') continue;
-
-        try {
-            const parsed = new URL(value.trim());
-
-            if (
-                parsed.protocol === 'https:' ||
-                parsed.protocol === 'http:'
-            ) {
-                return value.trim();
-            }
-        } catch {}
+        if (
+            typeof value === 'string' &&
+            isHttpUrl(value) &&
+            !isStorePage(value)
+        ) {
+            return value.trim();
+        }
     }
 
-    for (const value of Object.values(obj)) {
+    for (const value of Object.values(data)) {
         if (value && typeof value === 'object') {
             const result = findDownloadUrl(value, depth + 1);
             if (result) return result;
         }
     }
 
+    for (const key of ['url', 'link', 'download', 'website', 'page']) {
+        const value = data[key];
+
+        if (
+            typeof value === 'string' &&
+            isHttpUrl(value) &&
+            !isStorePage(value)
+        ) {
+            return value.trim();
+        }
+    }
+
     return null;
 }
 
-function findAppName(obj, fallback, depth = 0) {
-    if (!obj || typeof obj !== 'object' || depth > 8) {
+function findAppName(data, fallback, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 8) {
         return fallback;
     }
 
     for (const key of ['app_name', 'appName', 'title', 'name']) {
+        const value = data[key];
+
         if (
-            typeof obj[key] === 'string' &&
-            obj[key].trim() &&
-            !/^https?:\/\//i.test(obj[key])
+            typeof value === 'string' &&
+            value.trim() &&
+            !/^https?:\/\//i.test(value)
         ) {
-            return obj[key].trim();
+            return value.trim();
         }
     }
 
-    for (const value of Object.values(obj)) {
+    for (const value of Object.values(data)) {
         if (value && typeof value === 'object') {
             const result = findAppName(value, '', depth + 1);
             if (result) return result;
@@ -86,16 +124,14 @@ function findAppName(obj, fallback, depth = 0) {
 }
 
 function isZipFile(buffer) {
-    return (
-        buffer.length >= 4 &&
+    return buffer.length >= 4 &&
         buffer[0] === 0x50 &&
         buffer[1] === 0x4b &&
         (
             (buffer[2] === 0x03 && buffer[3] === 0x04) ||
             (buffer[2] === 0x05 && buffer[3] === 0x06) ||
             (buffer[2] === 0x07 && buffer[3] === 0x08)
-        )
-    );
+        );
 }
 
 async function fetchWithTimeout(url, options = {}, timeout = 60000) {
@@ -130,33 +166,30 @@ async function fetchWithTimeout(url, options = {}, timeout = 60000) {
 function getErrorMessage(error) {
     const code = error?.cause?.code;
     const name = error?.name;
-    const message = error?.message || 'Unknown error';
 
     if (name === 'AbortError' || name === 'TimeoutError') {
-        return 'Request timed out. Server එක ප්‍රතිචාර දක්වන්නේ නැහැ.';
+        return 'Request timeout වුණා. නැවත උත්සාහ කරන්න.';
     }
 
     if (code === 'ENOTFOUND') {
-        return 'API hostname එක සොයාගත නොහැක. API URL එක පරීක්ෂා කරන්න.';
+        return 'API hostname එක සොයාගත නොහැක.';
     }
 
     if (code === 'ECONNREFUSED') {
-        return 'API server එක connection එක ප්‍රතික්ෂේප කළා.';
+        return 'Server එක connection එක ප්‍රතික්ෂේප කළා.';
     }
 
     if (code === 'ECONNRESET') {
-        return 'API server එක connection එක විසන්ධි කළා.';
+        return 'Server එක connection එක විසන්ධි කළා.';
     }
 
-    if (code === 'CERT_HAS_EXPIRED') {
-        return 'API server SSL certificate එක කල් ඉකුත් වී ඇත.';
+    if (code === 'ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE') {
+        return 'Download server SSL/TLS connection එක අසාර්ථකයි.';
     }
 
-    if (code === 'UND_ERR_CONNECT_TIMEOUT') {
-        return 'API server එකට connect වීමට timeout වුණා.';
-    }
-
-    return `${name || 'Error'}: ${message}`.slice(0, 450);
+    return `${name || 'Error'}: ${
+        error?.message || 'Unknown error'
+    }`.slice(0, 400);
 }
 
 cmd(
@@ -207,7 +240,7 @@ cmd(
                 '╰──────────────'
             );
 
-            // STEP 1: Request the APK API
+            // STEP 1: Build SASA DEV API URL.
             const apiUrl = new URL(API_BASE);
             apiUrl.searchParams.set('mode', 'search_dl');
             apiUrl.searchParams.set('apikey', API_KEY);
@@ -232,19 +265,19 @@ cmd(
             if (!apiResponse.ok) {
                 console.error('[APK API HTTP ERROR]', {
                     status: apiResponse.status,
-                    body: apiText.slice(0, 500)
+                    body: apiText.slice(0, 300)
                 });
 
                 if ([401, 403].includes(apiResponse.status)) {
                     return reply(
                         '❌ *API AUTHENTICATION FAILED*\n\n' +
-                        'API key එක හෝ API permissions පරීක්ෂා කරන්න.'
+                        'SASA_DEV_API_KEY එක පරීක්ෂා කරන්න.'
                     );
                 }
 
                 if (apiResponse.status === 429) {
                     return reply(
-                        '⏳ API rate limit එක ඉක්මවා තිබෙනවා. ' +
+                        '⏳ API rate limit ඉක්මවා තිබෙනවා. ' +
                         'පසුව නැවත උත්සාහ කරන්න.'
                     );
                 }
@@ -262,7 +295,7 @@ cmd(
             } catch {
                 console.error(
                     '[APK] Invalid JSON response:',
-                    apiText.slice(0, 500)
+                    apiText.slice(0, 300)
                 );
 
                 return reply(
@@ -280,36 +313,37 @@ cmd(
                         ? data.message
                         : typeof data.error === 'string'
                             ? data.error
-                            : 'No APK result returned';
-
-                console.error('[APK API RESPONSE ERROR]', message);
+                            : 'APK search failed';
 
                 return reply(
                     '❌ *APK SEARCH FAILED*\n\n' +
-                    message.slice(0, 300)
+                    message.slice(0, 250)
                 );
             }
 
-            // STEP 2: Find download link
+            // STEP 2: Find a direct download URL.
             const downloadUrl = findDownloadUrl(data);
             const appName = findAppName(data, query);
 
             if (!downloadUrl) {
                 console.error(
-                    '[APK] No supported download URL field:',
-                    JSON.stringify(data).slice(0, 1800)
+                    '[APK] No direct download URL found:',
+                    JSON.stringify(data).slice(0, 1500)
                 );
 
                 return reply(
-                    '⚠️ *DOWNLOAD LINK NOT FOUND*\n\n' +
-                    'API response එකේ download URL එක හඳුනාගත නොහැකි වුණා.\n' +
-                    'SASA API response format එකට අනුව code එක වෙනස් කළ යුතුයි.'
+                    '⚠️ *DIRECT DOWNLOAD LINK NOT FOUND*\n\n' +
+                    'API response එකේ සැබෑ download URL එකක් හමු වුණේ නැහැ.\n' +
+                    'API එකෙන් ලැබුණු response එක පරීක්ෂා කළ යුතුයි.'
                 );
             }
 
-            // STEP 3: Download file
-            console.log('[APK] Downloading APK file');
+            console.log(
+                '[APK] Download host:',
+                new URL(downloadUrl).hostname
+            );
 
+            // STEP 3: Download the APK.
             const fileResponse = await fetchWithTimeout(
                 downloadUrl,
                 {
@@ -317,24 +351,22 @@ cmd(
                     redirect: 'follow',
                     headers: {
                         'User-Agent':
-                            'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+                            'Mozilla/5.0 (Linux; Android 10) ' +
+                            'AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
                         Accept:
-                            'application/vnd.android.package-archive, application/octet-stream, */*'
+                            'application/vnd.android.package-archive, ' +
+                            'application/octet-stream, */*'
                     }
                 },
                 DOWNLOAD_TIMEOUT
             );
 
             if (!fileResponse.ok) {
-                console.error(
-                    '[APK DOWNLOAD HTTP ERROR]',
-                    fileResponse.status
-                );
-
                 return reply(
                     '❌ *APK DOWNLOAD FAILED*\n\n' +
                     `HTTP Status: ${fileResponse.status}\n` +
-                    'Download link එක expire වී හෝ අවහිර වී තිබිය හැකියි.'
+                    'Download URL එක expire වී හෝ server එකෙන් ' +
+                    'අවහිර වී තිබිය හැකියි.'
                 );
             }
 
@@ -347,6 +379,7 @@ cmd(
             );
 
             if (contentLength > MAX_FILE_SIZE) {
+                await fileResponse.body?.cancel().catch(() => {});
                 return reply('❌ APK file එක 100 MB ඉක්මවා තිබෙනවා.');
             }
 
@@ -354,16 +387,11 @@ cmd(
                 contentType.includes('text/html') ||
                 contentType.includes('application/json')
             ) {
-                const body = await fileResponse.text();
-
-                console.error(
-                    '[APK INVALID CONTENT]',
-                    body.slice(0, 500)
-                );
+                await fileResponse.body?.cancel().catch(() => {});
 
                 return reply(
                     '❌ Download link එකෙන් APK file එකක් වෙනුවට ' +
-                    'webpage එකක් ලැබුණා.'
+                    'webpage/JSON එකක් ලැබුණා.'
                 );
             }
 
@@ -371,7 +399,7 @@ cmd(
                 throw new Error('Download response body is empty');
             }
 
-            // STEP 4: Read with a size limit
+            // STEP 4: Read the file with a size limit.
             const chunks = [];
             let totalSize = 0;
 
@@ -391,9 +419,9 @@ cmd(
                 throw new Error('Downloaded file is empty');
             }
 
-            // STEP 5: Validate ZIP/APK signature
+            // STEP 5: Validate the APK ZIP signature.
             if (!isZipFile(buffer)) {
-                console.error('[APK] Invalid ZIP signature', {
+                console.error('[APK] Invalid APK signature:', {
                     contentType,
                     size: buffer.length,
                     firstBytes: buffer.subarray(0, 12).toString('hex')
@@ -406,7 +434,7 @@ cmd(
                 );
             }
 
-            // STEP 6: Send document
+            // STEP 6: Send the APK.
             const fileName = `${safeFileName(appName)}.apk`;
 
             await conn.sendMessage(
@@ -443,8 +471,7 @@ cmd(
             return reply(
                 '❌ *APK DOWNLOAD ERROR*\n\n' +
                 `📌 ${details}\n\n` +
-                'GitHub Actions logs තුළ [APK FETCH ERROR] ' +
-                'සෙවීමෙන් වැඩි විස්තර ලබාගත හැකියි.'
+                'GitHub Actions logs තුළ [APK FETCH ERROR] සොයන්න.'
             );
         }
     }
