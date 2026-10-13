@@ -15,13 +15,15 @@ function isYouTubeUrl(text) {
     try {
         const url = new URL(String(text).trim());
 
-        return (
-            ['youtube.com', 'www.youtube.com', 'm.youtube.com',
-             'music.youtube.com', 'youtu.be', 'www.youtu.be'].includes(
-                url.hostname.toLowerCase()
-            ) &&
-            ['http:', 'https:'].includes(url.protocol)
-        );
+        return [
+            'youtube.com',
+            'www.youtube.com',
+            'm.youtube.com',
+            'music.youtube.com',
+            'youtu.be',
+            'www.youtu.be'
+        ].includes(url.hostname.toLowerCase()) &&
+        ['http:', 'https:'].includes(url.protocol);
     } catch {
         return false;
     }
@@ -49,7 +51,10 @@ function getDurationSeconds(timestamp) {
         return 0;
     }
 
-    return parts.reduce((total, part) => total * 60 + part, 0);
+    return parts.reduce(
+        (total, part) => total * 60 + part,
+        0
+    );
 }
 
 async function findSong(query) {
@@ -64,8 +69,12 @@ async function findSong(query) {
 
         const exact = videos.find(video => {
             try {
-                return new URL(video.url).searchParams.get('v') === requestedId ||
-                    new URL(video.url).pathname.slice(1) === requestedId;
+                const videoUrl = new URL(video.url);
+                const videoId = videoUrl.hostname.includes('youtu.be')
+                    ? videoUrl.pathname.slice(1)
+                    : videoUrl.searchParams.get('v');
+
+                return videoId === requestedId;
             } catch {
                 return false;
             }
@@ -93,7 +102,11 @@ async function getDownloadUrl(songUrl) {
 
     const result = await ytmp3(songUrl, '192');
 
-    if (!result || result.success === false || result.status === false) {
+    if (
+        !result ||
+        result.success === false ||
+        result.status === false
+    ) {
         throw new Error(
             result?.message ||
             result?.error ||
@@ -120,13 +133,11 @@ async function getDownloadUrl(songUrl) {
 
     if (!downloadUrl) {
         console.error(
-            '[SONG API] No download URL. Response keys:',
+            '[SONG API] Download URL not found. Response keys:',
             Object.keys(result || {})
         );
 
-        throw new Error(
-            'API එකෙන් download URL එකක් ලැබුණේ නැහැ. API response එක පරීක්ෂා කරන්න.'
-        );
+        throw new Error('API එකෙන් download URL එකක් ලැබුණේ නැහැ.');
     }
 
     let parsedUrl;
@@ -134,7 +145,7 @@ async function getDownloadUrl(songUrl) {
     try {
         parsedUrl = new URL(downloadUrl);
     } catch {
-        throw new Error('API එකෙන් ලැබුණු download URL එක වලංගු නැහැ.');
+        throw new Error('API එකෙන් ලැබුණු URL එක වලංගු නැහැ.');
     }
 
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
@@ -149,7 +160,7 @@ function looksLikeMp3(buffer) {
         return false;
     }
 
-    // ID3 metadata header
+    // MP3 ID3 header
     if (
         buffer[0] === 0x49 &&
         buffer[1] === 0x44 &&
@@ -185,8 +196,8 @@ async function downloadSong(conn, from, quoted, song, format) {
     try {
         await conn.sendMessage(from, {
             text: format === 'audio'
-                ? '🎧 *MP3 Audio එක සකස් කරමින්... ටිකක් ඉන්න.*'
-                : '📁 *MP3 Document එක සකස් කරමින්... ටිකක් ඉන්න.*'
+                ? '🎧 *MP3 Audio එක සකස් කරමින්...*'
+                : '📁 *MP3 Document එක සකස් කරමින්...*'
         }, { quoted });
 
         const downloadUrl = await getDownloadUrl(song.url);
@@ -224,8 +235,7 @@ async function downloadSong(conn, from, quoted, song, format) {
             throw new Error('File එක 64 MB සීමාව ඉක්මවා තිබෙනවා.');
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        const buffer = Buffer.from(await response.arrayBuffer());
 
         if (!buffer.length) {
             throw new Error('Downloaded file එක හිස්.');
@@ -237,7 +247,7 @@ async function downloadSong(conn, from, quoted, song, format) {
 
         if (!looksLikeMp3(buffer)) {
             throw new Error(
-                'ලැබුණු file එක වලංගු MP3 audio එකක් නොවේ. API එකේ download response එක පරීක්ෂා කරන්න.'
+                'ලැබුණු file එක වලංගු MP3 audio එකක් නොවේ.'
             );
         }
 
@@ -248,7 +258,15 @@ async function downloadSong(conn, from, quoted, song, format) {
                 audio: buffer,
                 mimetype: 'audio/mpeg',
                 fileName,
-                ptt: false
+                ptt: false,
+                contextInfo: {
+                    externalAdReply: {
+                        title: 'THENUVA X MD',
+                        body: FOOTER,
+                        mediaType: 1,
+                        renderLargerThumbnail: false
+                    }
+                }
             }, { quoted });
         } else {
             await conn.sendMessage(from, {
@@ -256,9 +274,10 @@ async function downloadSong(conn, from, quoted, song, format) {
                 mimetype: 'audio/mpeg',
                 fileName,
                 caption:
-                    `╭─〔 *🎵 SONG DOWNLOADED 🎵* 〕\n` +
+                    `╭─〔 *🎵 SONG DOWNLOADED* 〕\n` +
                     `│\n` +
                     `│ 🎶 *Title:* ${song.title}\n` +
+                    `│ 👤 *Artist:* ${song.author || 'Unknown'}\n` +
                     `│ ⏱️ *Duration:* ${song.timestamp || 'Unknown'}\n` +
                     `│\n` +
                     `╰────────────────\n\n` +
@@ -304,11 +323,8 @@ cmd({
                 '│\n' +
                 '│ 🎧 YouTube song එකක් download කරන්න.\n' +
                 '│\n' +
-                '│ *භාවිතය:*\n' +
-                '│ .song song name\n' +
-                '│\n' +
-                '│ *උදාහරණය:*\n' +
-                '│ .song Shape of You\n' +
+                '│ *භාවිතය:* .song song name\n' +
+                '│ *උදාහරණය:* .song Shape of You\n' +
                 '╰────────────────\n\n' +
                 `*${FOOTER}*`
             );
@@ -326,14 +342,12 @@ cmd({
             );
         }
 
-        // Save the selected song for this chat.
         pendingSongs.set(from, {
             url: song.url,
             title: song.title,
             timestamp: durationText,
             thumbnail: song.thumbnail || null,
-            author: song.author?.name || 'Unknown',
-            selectedAt: Date.now()
+            author: song.author?.name || 'Unknown'
         });
 
         const caption =
@@ -387,7 +401,7 @@ cmd({
 });
 
 // ==========================================
-// MP3 AUDIO COMMAND
+// MP3 AUDIO
 // ==========================================
 
 cmd({
@@ -408,7 +422,7 @@ cmd({
 });
 
 // ==========================================
-// MP3 DOCUMENT COMMAND
+// MP3 DOCUMENT
 // ==========================================
 
 cmd({
