@@ -1,7 +1,9 @@
 const { cmd } = require('../command');
+const { sendListMenu } = require('../lib/buttons');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
+
 const API_URL =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
 
@@ -9,11 +11,9 @@ const TIMEOUT = 300000;
 const MAX_VIDEO_SIZE = 64 * 1024 * 1024;
 
 const FOOTER =
-    '╭━━━━━━━━━━━━━━━━━━╮\n' +
-    '┃ ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ\n' +
-    '┃ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ\n' +
-    '╰━━━━━━━━━━━━●●►';
+    'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
+// Store selected YouTube URLs by chat.
 const pendingVideos = new Map();
 
 function isYouTubeUrl(value) {
@@ -37,18 +37,36 @@ function findMediaUrl(data, mode) {
     const seen = new Set();
     const queue = [data];
 
+    const keys = mode === 'mp3'
+        ? [
+            'audioUrl',
+            'audio_url',
+            'downloadUrl',
+            'download_url',
+            'url',
+            'link'
+        ]
+        : [
+            'downloadUrl',
+            'download_url',
+            'videoUrl',
+            'video_url',
+            'url',
+            'link'
+        ];
+
     while (queue.length) {
         const item = queue.shift();
 
-        if (!item || typeof item !== 'object' || seen.has(item)) {
+        if (
+            !item ||
+            typeof item !== 'object' ||
+            seen.has(item)
+        ) {
             continue;
         }
 
         seen.add(item);
-
-        const keys = mode === 'mp3'
-            ? ['audioUrl', 'audio_url', 'downloadUrl', 'download_url', 'url', 'link']
-            : ['downloadUrl', 'download_url', 'videoUrl', 'video_url', 'url', 'link'];
 
         for (const key of keys) {
             const value = item[key];
@@ -60,7 +78,10 @@ function findMediaUrl(data, mode) {
                 continue;
             }
 
-            if (mode === 'mp3' && /\.(mp3|m4a)(?:[?#]|$)/i.test(value)) {
+            if (
+                mode === 'mp3' &&
+                /\.(mp3|m4a)(?:[?#]|$)/i.test(value)
+            ) {
                 return value;
             }
 
@@ -83,16 +104,35 @@ function findMediaUrl(data, mode) {
 }
 
 function findTitle(data) {
-    const queue = Array.isArray(data) ? [...data] : [data];
+    const queue = Array.isArray(data)
+        ? [...data]
+        : [data];
+
+    const seen = new Set();
 
     while (queue.length) {
         const item = queue.shift();
 
-        if (!item || typeof item !== 'object') continue;
+        if (
+            !item ||
+            typeof item !== 'object' ||
+            seen.has(item)
+        ) {
+            continue;
+        }
 
-        const title = item.title || item.videoTitle || item.name;
+        seen.add(item);
 
-        if (typeof title === 'string' && title.trim()) {
+        const title =
+            item.title ||
+            item.videoTitle ||
+            item.name ||
+            item.data?.title;
+
+        if (
+            typeof title === 'string' &&
+            title.trim()
+        ) {
             return title;
         }
 
@@ -116,56 +156,71 @@ function safeFileName(value) {
 async function sendFormatMenu(conn, from, mek, url) {
     pendingVideos.set(from, url);
 
-    return conn.sendMessage(from, {
-        text:
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎬 *SELECT FORMAT*\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            '┃\n' +
-            '┃ 📥 *Download Options*\n' +
-            '┃\n' +
-            '┃ 🎵 *Audio (MP3)*\n' +
-            '┃ ➜ Download audio only\n' +
-            '┃\n' +
-            '┃ 🎬 *Video (Playable)*\n' +
-            '┃ ➜ MP4 playable video\n' +
-            '┃\n' +
-            '┃ 📁 *Video Document*\n' +
-            '┃ ➜ MP4 as document\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER,
-        title: '🎬 SELECT FORMAT',
-        buttonText: 'Select',
-        sections: [{
-            title: '📥 Download Options',
-            rows: [
+    return sendListMenu(
+        conn,
+        from,
+        {
+            title:
+                '╭━━〔 *ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 〕━━╮\n' +
+                '┃ 🎬 *SELECT FORMAT*\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                '┃\n' +
+                '┃ 📥 *Download Options*\n' +
+                '┃\n' +
+                '┃ 🎵 Audio (MP3)\n' +
+                '┃ ➜ Download audio only\n' +
+                '┃\n' +
+                '┃ 🎬 Video (Playable)\n' +
+                '┃ ➜ MP4 playable video\n' +
+                '┃\n' +
+                '┃ 📁 Video Document\n' +
+                '┃ ➜ MP4 as document\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯',
+
+            buttonText: 'Select',
+
+            footer: FOOTER,
+
+            sections: [
                 {
-                    title: '🎵 Audio (MP3)',
-                    description: 'Download audio only',
-                    rowId: '.ytformat_mp3'
-                },
-                {
-                    title: '🎬 Video (Playable)',
-                    description: 'MP4 playable video',
-                    rowId: '.ytformat_mp4'
-                },
-                {
-                    title: '📁 Video Document',
-                    description: 'MP4 as document',
-                    rowId: '.ytformat_doc'
+                    title: '📥 Download Options',
+                    rows: [
+                        {
+                            id: 'ytformat_mp3',
+                            title: '🎵 Audio (MP3)',
+                            description: 'Download audio only'
+                        },
+                        {
+                            id: 'ytformat_mp4',
+                            title: '🎬 Video (Playable)',
+                            description: 'MP4 playable video'
+                        },
+                        {
+                            id: 'ytformat_doc',
+                            title: '📁 Video Document',
+                            description: 'MP4 as document'
+                        }
+                    ]
                 }
             ]
-        }]
-    }, { quoted: mek });
+        },
+        mek
+    );
 }
 
-async function downloadSelected(conn, mek, from, reply, mode) {
+async function downloadSelected(
+    conn,
+    mek,
+    from,
+    reply,
+    mode
+) {
     try {
         const input = pendingVideos.get(from);
 
         if (!input) {
             return reply(
-                '╭━━〔 *ɴᴏ ᴘᴇɴᴅɪɴɢ ᴠɪᴅᴇᴏ* 〕━━╮\n' +
+                '╭━━〔 *ɴᴏ ᴠɪᴅᴇᴏ sᴇʟᴇᴄᴛᴇᴅ* 〕━━╮\n' +
                 '┃ ❌ මුලින් `.video YouTube_URL` යවන්න.\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 FOOTER
@@ -175,14 +230,17 @@ async function downloadSelected(conn, mek, from, reply, mode) {
         if (!APIFY_TOKEN) {
             return reply(
                 '╭━━〔 *ᴀᴘɪ ᴄᴏɴғɪɢ* 〕━━╮\n' +
-                '┃ ❌ APIFY_TOKEN GitHub Secret එක සකස් කරන්න.\n' +
+                '┃ ❌ GitHub Secrets වල APIFY_TOKEN සකස් කරන්න.\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 FOOTER
             );
         }
 
         await conn.sendMessage(from, {
-            react: { text: '⏳', key: mek.key }
+            react: {
+                text: '⏳',
+                key: mek.key
+            }
         });
 
         const formatName = mode === 'mp3'
@@ -195,8 +253,8 @@ async function downloadSelected(conn, mek, from, reply, mode) {
             '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
             '┃ ⏳ *ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...*\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 📌 ғᴏʀᴍᴀᴛ: ${formatName}\n` +
-            '┃ ➜ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ\n' +
+            `┃ 📌 Format: ${formatName}\n` +
+            '┃ ➜ Please wait...\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
@@ -211,7 +269,9 @@ async function downloadSelected(conn, mek, from, reply, mode) {
             body: JSON.stringify({
                 urls: [{ url: input }],
                 quality: '1080',
-                format: mode === 'mp3' ? 'mp3' : 'default',
+                format: mode === 'mp3'
+                    ? 'mp3'
+                    : 'default',
                 residentialProxyMode: 'disabled',
                 proxyCountry: ''
             }),
@@ -221,9 +281,19 @@ async function downloadSelected(conn, mek, from, reply, mode) {
         const responseText = await apiResponse.text();
 
         if (!apiResponse.ok) {
-            console.error('[APIFY VIDEO] HTTP:', apiResponse.status);
-            console.error('[APIFY VIDEO] Error:', responseText.slice(0, 500));
-            throw new Error(`Apify API HTTP ${apiResponse.status}`);
+            console.error(
+                '[APIFY VIDEO] HTTP:',
+                apiResponse.status
+            );
+
+            console.error(
+                '[APIFY VIDEO] Error:',
+                responseText.slice(0, 500)
+            );
+
+            throw new Error(
+                `Apify API HTTP ${apiResponse.status}`
+            );
         }
 
         let result;
@@ -231,7 +301,9 @@ async function downloadSelected(conn, mek, from, reply, mode) {
         try {
             result = JSON.parse(responseText);
         } catch {
-            throw new Error('Apify returned invalid JSON');
+            throw new Error(
+                'Apify returned invalid JSON'
+            );
         }
 
         const mediaUrl = findMediaUrl(result, mode);
@@ -249,13 +321,16 @@ async function downloadSelected(conn, mek, from, reply, mode) {
 
         const mediaResponse = await fetch(mediaUrl, {
             headers: {
-                Accept: 'video/*, audio/*, application/octet-stream'
+                Accept:
+                    'video/*, audio/*, application/octet-stream'
             },
             signal: AbortSignal.timeout(TIMEOUT)
         });
 
         if (!mediaResponse.ok) {
-            throw new Error(`Media download HTTP ${mediaResponse.status}`);
+            throw new Error(
+                `Media download HTTP ${mediaResponse.status}`
+            );
         }
 
         const contentType = (
@@ -281,7 +356,9 @@ async function downloadSelected(conn, mek, from, reply, mode) {
             throw new Error('FILE_TOO_LARGE');
         }
 
-        const buffer = Buffer.from(await mediaResponse.arrayBuffer());
+        const buffer = Buffer.from(
+            await mediaResponse.arrayBuffer()
+        );
 
         if (!buffer.length) {
             throw new Error('Downloaded file is empty');
@@ -297,54 +374,75 @@ async function downloadSelected(conn, mek, from, reply, mode) {
             '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴄᴄᴇss* 〕━━╮\n' +
             `┃ 📌 *${title}*\n` +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 🎞️ ғᴏʀᴍᴀᴛ: ${formatName}\n` +
-            '┃ ✅ sᴛᴀᴛᴜs: sᴜᴄᴄᴇss\n' +
+            `┃ 🎞️ Format: ${formatName}\n` +
+            '┃ ✅ Status: Success\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER;
 
         if (mode === 'mp3') {
-            await conn.sendMessage(from, {
-                audio: buffer,
-                mimetype: 'audio/mpeg',
-                fileName: `${title}.mp3`,
-                ptt: false
-            }, { quoted: mek });
-
+            await conn.sendMessage(
+                from,
+                {
+                    audio: buffer,
+                    mimetype: 'audio/mpeg',
+                    fileName: `${title}.mp3`,
+                    ptt: false
+                },
+                { quoted: mek }
+            );
         } else if (mode === 'doc') {
-            await conn.sendMessage(from, {
-                document: buffer,
-                mimetype: 'video/mp4',
-                fileName: `${title}.mp4`,
-                caption
-            }, { quoted: mek });
-
+            await conn.sendMessage(
+                from,
+                {
+                    document: buffer,
+                    mimetype: 'video/mp4',
+                    fileName: `${title}.mp4`,
+                    caption
+                },
+                { quoted: mek }
+            );
         } else {
-            await conn.sendMessage(from, {
-                video: buffer,
-                mimetype: 'video/mp4',
-                fileName: `${title}.mp4`,
-                caption
-            }, { quoted: mek });
+            await conn.sendMessage(
+                from,
+                {
+                    video: buffer,
+                    mimetype: 'video/mp4',
+                    fileName: `${title}.mp4`,
+                    caption
+                },
+                { quoted: mek }
+            );
         }
 
         pendingVideos.delete(from);
 
         await conn.sendMessage(from, {
-            react: { text: '✅', key: mek.key }
+            react: {
+                text: '✅',
+                key: mek.key
+            }
         });
 
     } catch (error) {
-        console.error('[APIFY DOWNLOAD ERROR]', error.message);
+        console.error(
+            '[APIFY DOWNLOAD ERROR]',
+            error.message
+        );
 
         await conn.sendMessage(from, {
-            react: { text: '❌', key: mek.key }
+            react: {
+                text: '❌',
+                key: mek.key
+            }
         });
 
         return reply(
             '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ* 〕━━╮\n' +
-            `┃ ❌ ${error.message === 'FILE_TOO_LARGE'
-                ? 'ගොනුව 64 MB සීමාව ඉක්මවයි.'
-                : error.message}\n` +
+            `┃ ❌ ${
+                error.message === 'FILE_TOO_LARGE'
+                    ? 'ගොනුව 64 MB සීමාව ඉක්මවයි.'
+                    : error.message
+            }\n` +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
@@ -381,32 +479,44 @@ cmd({
         );
     }
 
-    return sendFormatMenu(conn, from, mek, input);
+    return sendFormatMenu(
+        conn,
+        from,
+        mek,
+        input
+    );
 });
 
+// WhatsApp list selections are handled by these commands.
 cmd({
     pattern: 'ytformat_mp3',
     desc: 'Download selected MP3 format',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(conn, mek, from, reply, 'mp3');
+    return downloadSelected(
+        conn, mek, from, reply, 'mp3'
+    );
 });
 
 cmd({
     pattern: 'ytformat_mp4',
-    desc: 'Download selected playable MP4 format',
+    desc: 'Download selected playable MP4',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(conn, mek, from, reply, 'mp4');
+    return downloadSelected(
+        conn, mek, from, reply, 'mp4'
+    );
 });
 
 cmd({
     pattern: 'ytformat_doc',
-    desc: 'Download selected MP4 document format',
+    desc: 'Download selected MP4 document',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(conn, mek, from, reply, 'doc');
+    return downloadSelected(
+        conn, mek, from, reply, 'doc'
+    );
 });
