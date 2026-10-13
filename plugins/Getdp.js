@@ -4,43 +4,91 @@ cmd({
     pattern: 'getdp',
     alias: ['dp', 'profilepic', 'getprofile'],
     react: '🖼️',
-    desc: 'Get the profile picture of the command sender',
+    desc: 'Get the other participant profile picture',
     category: 'tools',
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
-        // Identify the person who sent the command.
-        const sender =
-            m?.sender ||
-            mek?.key?.participant ||
-            (mek?.key?.fromMe ? null : mek?.key?.remoteJid);
+        const isGroup = from.endsWith('@g.us');
 
-        if (!sender || sender === 'status@broadcast') {
-            return reply('❌ මේ chat එකේ sender හඳුනාගන්න බැරි වුණා.');
+        let targetJid;
+
+        if (isGroup) {
+            // In a group, prefer the person whose message was quoted.
+            const contextInfo =
+                mek?.message?.extendedTextMessage?.contextInfo ||
+                mek?.message?.imageMessage?.contextInfo ||
+                mek?.message?.videoMessage?.contextInfo;
+
+            targetJid =
+                m?.quoted?.sender ||
+                m?.quoted?.participant ||
+                contextInfo?.participant ||
+                m?.sender ||
+                mek?.key?.participant;
+
+        } else {
+            // In a private chat, get the other participant,
+            // not the person who sent the command.
+            const remoteJid = mek?.key?.remoteJid || from;
+
+            if (mek?.key?.fromMe) {
+                targetJid = remoteJid;
+            } else {
+                targetJid = remoteJid;
+            }
         }
 
-        await reply('🖼️ *ඔයාගේ profile picture එක ලබාගනිමින්...*');
+        if (!targetJid || targetJid === 'status@broadcast') {
+            return reply('❌ User හඳුනාගන්න බැරි වුණා.');
+        }
 
-        let dpUrl;
+        // Never fetch the bot's own DP when the user wants the other participant.
+        const botJid = conn.user?.id
+            ? conn.user.id.split(':')[0].split('@')[0]
+            : null;
 
-        try {
-            dpUrl = await conn.profilePictureUrl(sender, 'image');
-        } catch (error) {
-            console.error('[GETDP PROFILE ERROR]', error.message);
+        const targetNumber = targetJid
+            .split('@')[0]
+            .split(':')[0];
 
+        if (!isGroup && botJid && targetNumber === botJid) {
             return reply(
-                '❌ *මේ userගේ DP එක ලබාගන්න බැරි වුණා.*\n\n' +
-                'Profile picture එක නැති හෝ privacy settings නිසා සීමා කර තිබිය හැකියි.'
+                '❌ Chat එකේ අනිත් userගේ JID එක හඳුනාගන්න බැරි වුණා.'
             );
         }
 
-        if (!dpUrl) {
-            return reply('❌ Profile picture එකක් හමු වුණේ නැහැ.');
+        await conn.sendMessage(from, {
+            text: '🖼️ *අදාළ userගේ profile picture එක ලබාගනිමින්...*'
+        }, { quoted: mek });
+
+        let imageUrl;
+
+        try {
+            imageUrl = await conn.profilePictureUrl(
+                targetJid,
+                'image'
+            );
+        } catch (error) {
+            console.error('[GETDP PROFILE ERROR]', error);
+
+            return reply(
+                '❌ *Profile picture එක ලබාගන්න බැරි වුණා.*\n\n' +
+                '• DP එක නොමැති විය හැකියි.\n' +
+                '• Privacy settings නිසා සීමා කර තිබිය හැකියි.\n' +
+                '• WhatsApp JID එක ලබාගත නොහැකි විය හැකියි.'
+            );
         }
 
-        const response = await fetch(dpUrl, {
-            signal: AbortSignal.timeout(30000),
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+        if (!imageUrl) {
+            return reply('❌ Profile picture URL එකක් ලැබුණේ නැහැ.');
+        }
+
+        const response = await fetch(imageUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
+            },
+            signal: AbortSignal.timeout(30000)
         });
 
         if (!response.ok) {
@@ -52,25 +100,30 @@ cmd({
         ).toLowerCase();
 
         if (!contentType.startsWith('image/')) {
-            throw new Error('Server එක image එකක් එවා නැහැ.');
+            throw new Error('Server එකෙන් image එකක් ලැබුණේ නැහැ.');
         }
 
-        const image = Buffer.from(await response.arrayBuffer());
+        const imageBuffer = Buffer.from(
+            await response.arrayBuffer()
+        );
 
-        if (!image.length) {
+        if (!imageBuffer.length) {
             throw new Error('Image file එක හිස්.');
         }
 
+        if (imageBuffer.length > 10 * 1024 * 1024) {
+            return reply('❌ Image එක 10 MB සීමාව ඉක්මවා තිබෙනවා.');
+        }
+
         await conn.sendMessage(from, {
-            image,
+            image: imageBuffer,
             caption:
                 '╭─〔 *🖼️ PROFILE PICTURE* 〕\n' +
                 '│\n' +
-                `│ 👤 *User:* ${sender.split('@')[0]}\n` +
+                `│ 👤 *User:* ${targetNumber}\n` +
                 '│\n' +
                 '╰────────────────\n\n' +
-                
-                '> *ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa*'
+                '*ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ*'
         }, { quoted: mek });
 
     } catch (error) {
