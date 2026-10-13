@@ -95,6 +95,9 @@ jobs:
           # DAVID CYRIL API
           DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
 
+          # SASA DEV APK SEARCH & DOWNLOAD API
+          SASA_DEV_API_KEY: ${{ secrets.SASA_DEV_API_KEY }}
+
           # SASA DEV TTS API
           SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
 
