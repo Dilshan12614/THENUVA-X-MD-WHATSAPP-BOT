@@ -1,130 +1,280 @@
-const { cmd, commands } = require("../command");
-const yts = require("yt-search");
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const { cmd } = require('../command');
+const yts = require('yt-search');
+const { ytmp3 } = require('@vreden/youtube_scraper');
+const { sendListMenu } = require('../lib/buttons');
 
-cmd(
-  {
-    pattern: "song",
-    alias: ["play", "music", "ytmp3"],
-    react: "🎶",
-    desc: "Download YouTube songs as MP3 audio/document.",
-    category: "download",
-    filename: __filename,
-  },
-  async (
-    danuwa,
-    mek,
-    m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
+const pendingSongs = new Map();
+const activeDownloads = new Set();
+
+const FOOTER =
+    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+
+function isYouTubeUrl(text) {
+    return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(text);
+}
+
+function safeFileName(name) {
+    return String(name || 'THENUVA-SONG')
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 150) || 'THENUVA-SONG';
+}
+
+async function getSongInfo(query) {
+    const result = await yts(query);
+    const videos = result?.videos || [];
+
+    if (!videos.length) {
+        throw new Error('No YouTube song was found.');
     }
-  ) => {
+
+    if (isYouTubeUrl(query)) {
+        const exact = videos.find(video => video.url === query);
+        if (exact) return exact;
+    }
+
+    return videos[0];
+}
+
+async function getDownloadUrl(songUrl) {
+    const result = await ytmp3(songUrl, '192');
+
+    if (result?.status === false || result?.success === false) {
+        throw new Error(result?.message || 'MP3 conversion failed.');
+    }
+
+    const url =
+        result?.download?.url ||
+        result?.downloadUrl ||
+        result?.url;
+
+    if (!url || typeof url !== 'string') {
+        throw new Error('The API did not return a valid download URL.');
+    }
+
+    return url;
+}
+
+async function downloadSong(conn, from, quoted, song, format) {
+    const key = `${from}:${format}`;
+
+    if (activeDownloads.has(key)) {
+        return conn.sendMessage(
+            from,
+            { text: '⏳ *මේ song එක දැනටමත් download වෙනවා.*' },
+            { quoted }
+        );
+    }
+
+    activeDownloads.add(key);
+
     try {
-      // 1. පරිශීලකයා නමක් හෝ ලින්ක් එකක් ලබා දී ඇත්දැයි බැලීම
-      if (!q) return reply("⚠️ *Please provide a song name or a YouTube link!*");
+        await conn.sendMessage(from, {
+            text: format === 'audio'
+                ? '🎧 *MP3 Audio එක සකස් කරමින්...*'
+                : '📁 *MP3 Document එක සකස් කරමින්...*'
+        }, { quoted });
 
-      // JID එක සදහා ආරක්ෂිතව String එකක් ලබා ගැනීම
-      const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
+        const downloadUrl = await getDownloadUrl(song.url);
 
-      // 2. සින්දුව සෙවීම ආරම්භ කළ බව පෙන්වීම
-      const loadingMsg = await danuwa.sendMessage(targetJid, { 
-        text: `🎵 *DENETH-MD Searching Your Song...*\n\`"${q}"\`` 
-      }, { quoted: mek });
+        const response = await fetch(downloadUrl, {
+            signal: AbortSignal.timeout(120000)
+        });
 
-      const search = await yts(q);
-      if (!search.videos || search.videos.length === 0) {
-        return await danuwa.sendMessage(targetJid, { text: "❌ *Song not found! Please check the name and try again.*", edit: loadingMsg.key });
-      }
-      
-      const data = search.videos[0];
-      const url = data.url;
+        if (!response.ok) {
+            throw new Error(`Download server returned HTTP ${response.status}.`);
+        }
 
-      // 3. සින්දුවේ විස්තර ලස්සනට Format කිරීම
-      let desc = `*🎶 DENETH-MD SONG DOWNLOADER 🎶*
+        const contentType = (
+            response.headers.get('content-type') || ''
+        ).toLowerCase();
 
-🎬 *Title:* ${data.title}
-⏱️ *Duration:* ${data.timestamp}
-📅 *Uploaded:* ${data.ago}
-👀 *Views:* ${data.views.toLocaleString()}
-🔗 *URL:* ${data.url}
+        if (
+            contentType.includes('text/html') ||
+            contentType.includes('application/json')
+        ) {
+            throw new Error('Download server returned an invalid file.');
+        }
 
-> *Downloading your audio... Please wait!* ⏳`;
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-      // විස්තර පත්‍රිකාව Thumbnail එක සමඟ යැවීම සහ කලින් සෙවුම් මැසේජ් එක මකා දැමීම/වෙනස් කිරීම
-      await danuwa.sendMessage(targetJid, { text: `✅ *Song Found! Sending details...*` }, { edit: loadingMsg.key });
-      
-      await danuwa.sendMessage(
-        targetJid,
-        { image: { url: data.thumbnail }, caption: desc },
-        { quoted: mek }
-      );
+        if (!buffer.length) {
+            throw new Error('Downloaded file is empty.');
+        }
 
-      // 4. කාලය පරීක්ෂා කිරීම (විනාඩි 30 සීමාව)
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
+        if (buffer.length > 64 * 1024 * 1024) {
+            throw new Error('File එක 64 MB සීමාව ඉක්මවා තිබෙනවා.');
+        }
 
-      if (totalSeconds > 1800) {
-        return reply("⏳ *Sorry, audio files longer than 30 minutes are not supported.*");
-      }
+        const fileName = `${safeFileName(song.title)}.mp3`;
 
-      // 5. යූටියුබ් වෙතින් සින්දුව ඩවුන්ලෝඩ් කර ගැනීම
-      const quality = "192";
-      const songData = await ytmp3(url, quality);
+        if (format === 'audio') {
+            await conn.sendMessage(from, {
+                audio: buffer,
+                mimetype: 'audio/mpeg',
+                fileName,
+                ptt: false
+            }, { quoted });
+        } else {
+            await conn.sendMessage(from, {
+                document: buffer,
+                mimetype: 'audio/mpeg',
+                fileName,
+                caption:
+                    `📁 *${song.title}*\n\n${FOOTER}`
+            }, { quoted });
+        }
 
-      if (!songData || !songData.download || !songData.download.url) {
-        return reply("❌ *Failed to fetch download link. Please try again later.*");
-      }
+    } catch (error) {
+        console.error('[SONG DOWNLOAD ERROR]', error);
 
-      // 6. වට්සැප් එකට Audio එකක් ලෙස යැවීම
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          audio: { url: songData.download.url },
-          mimetype: "audio/mp4",
-        },
-        { quoted: mek }
-      );
+        await conn.sendMessage(from, {
+            text:
+                `❌ *Download failed!*\n\n` +
+                `${error.message || 'Unknown error'}\n\n` +
+                `🔄 ටික වෙලාවකින් නැවත උත්සාහ කරන්න.`
+        }, { quoted });
 
-      // 7. වට්සැප් එකට Document එකක් ලෙස යැවීම
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          document: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`,
-          caption: "🎶 *Your song document is ready!* \n\n> *Generated by DENETH-MD* 🚀",
-        },
-        { quoted: mek }
-      );
-
-      return reply("✅ *Thank you for using DENETH-MD!*");
-    } catch (e) {
-      console.log(e);
-      reply(`❌ *Error:* ${e.message} 😞`);
+    } finally {
+        activeDownloads.delete(key);
     }
-  }
-);
+}
+
+cmd({
+    pattern: 'song',
+    alias: ['play', 'music', 'ytmp3'],
+    react: '🎵',
+    desc: 'Search and download YouTube songs',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        const query = String(q || '').trim();
+
+        if (!query) {
+            return reply(
+                '🎵 *SONG DOWNLOADER*\n\n' +
+                'භාවිතය: `.song song name`\n' +
+                'උදාහරණය: `.song Shape of You`'
+            );
+        }
+
+        await reply('🔎 *Song එක සොයමින්...*');
+
+        const song = await getSongInfo(query);
+
+        const durationText = song.timestamp || 'Unknown';
+        const durationParts = durationText.split(':').map(Number);
+        const durationSeconds = durationParts.reduce(
+            (total, part) => total * 60 + part,
+            0
+        );
+
+        if (
+            Number.isFinite(durationSeconds) &&
+            durationSeconds > 0 &&
+            durationSeconds > 1800
+        ) {
+            return reply('⚠️ *විනාඩි 30කට වඩා දිග songs download කරන්න බැහැ.*');
+        }
+
+        pendingSongs.set(from, {
+            url: song.url,
+            title: song.title,
+            timestamp: durationText
+        });
+
+        const caption =
+            `╭─〔 *🎵 SONG FOUND* 〕\n` +
+            `│\n` +
+            `│ 🎶 *Title:* ${song.title}\n` +
+            `│ ⏱️ *Duration:* ${durationText}\n` +
+            `│ 👤 *Artist:* ${song.author?.name || 'Unknown'}\n` +
+            `│\n` +
+            `╰───────────────\n\n` +
+            `👇 *Select Format එක තෝරන්න*\n\n` +
+            `${FOOTER}`;
+
+        const sections = [{
+            title: '🎧 SELECT FORMAT',
+            rows: [
+                {
+                    title: '🎧 MP3 Audio',
+                    description: 'Song එක audio එකක් විදිහට ලබාගන්න',
+                    id: 'thenuva_song_mp3'
+                },
+                {
+                    title: '📁 MP3 Document',
+                    description: 'Song එක MP3 file එකක් විදිහට ලබාගන්න',
+                    id: 'thenuva_song_doc'
+                }
+            ]
+        }];
+
+        if (song.thumbnail) {
+            await conn.sendMessage(from, {
+                image: { url: song.thumbnail },
+                caption
+            }, { quoted: mek });
+        } else {
+            await conn.sendMessage(from, {
+                text: caption
+            }, { quoted: mek });
+        }
+
+        await sendListMenu(
+            conn,
+            from,
+            {
+                title: '🎵 SONG FORMAT',
+                buttonText: 'Select Format',
+                sections,
+                footer: FOOTER
+            },
+            mek
+        );
+
+    } catch (error) {
+        console.error('[SONG SEARCH ERROR]', error);
+        reply(
+            '❌ *Song එක සොයාගන්න බැරි වුණා.*\n\n' +
+            'නම නිවැරදිද බලලා නැවත උත්සාහ කරන්න.'
+        );
+    }
+});
+
+cmd({
+    pattern: 'thenuva_song_mp3',
+    desc: 'Download song as MP3 audio',
+    dontAddCommandList: true,
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    const song = pendingSongs.get(from);
+
+    if (!song) {
+        return conn.sendMessage(from, {
+            text: '⚠️ *මුලින් `.song song name` භාවිතා කර song එකක් තෝරන්න.*'
+        }, { quoted: mek });
+    }
+
+    await downloadSong(conn, from, mek, song, 'audio');
+});
+
+cmd({
+    pattern: 'thenuva_song_doc',
+    desc: 'Download song as MP3 document',
+    dontAddCommandList: true,
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    const song = pendingSongs.get(from);
+
+    if (!song) {
+        return conn.sendMessage(from, {
+            text: '⚠️ *මුලින් `.song song name` භාවිතා කර song එකක් තෝරන්න.*'
+        }, { quoted: mek });
+    }
+
+    await downloadSong(conn, from, mek, song, 'document');
+});
