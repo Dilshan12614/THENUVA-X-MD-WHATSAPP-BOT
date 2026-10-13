@@ -39,7 +39,7 @@ jobs:
       - name: Install FFmpeg and ImageMagick
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
+          sudo apt-get install -y ffmpeg imagemagick curl ca-certificates
 
           echo "FFmpeg:"
           ffmpeg -version | head -n 1
@@ -66,6 +66,20 @@ jobs:
           fi
 
           echo "THENUVA X MD environment ready"
+
+      # CHECK SASA API TLS CONNECTION
+      - name: Check SASA APK API connection
+        continue-on-error: true
+        run: |
+          echo "Checking SASA APK API HTTPS connection..."
+
+          curl -sS \
+            --connect-timeout 15 \
+            --max-time 30 \
+            -o /dev/null \
+            -w "HTTP status: %{http_code}\n" \
+            "https://sasa-dev-api.xyz/api/search/apk?mode=search_dl" \
+            || echo "SASA API HTTPS check failed"
 
       # SESSION CHECK
       - name: Check SESSION_ID
@@ -95,13 +109,13 @@ jobs:
           # DAVID CYRIL API
           DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
 
-          # SASA DEV APK SEARCH & DOWNLOAD API
+          # SASA DEV APK API
           SASA_DEV_API_KEY: ${{ secrets.SASA_DEV_API_KEY }}
 
           # SASA DEV TTS API
           SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
 
-          # SASA DEV YOUTUBE MP4 API (OLD)
+          # SASA DEV YOUTUBE MP4 API
           SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
 
           # APIFY YOUTUBE VIDEO DOWNLOADER
