@@ -3,11 +3,28 @@ const yts = require('yt-search');
 const { ytmp3 } = require('@vreden/youtube_scraper');
 const { sendListMenu } = require('../lib/buttons');
 
+const FOOTER = 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ';
+
 const pendingSongs = new Map();
 const activeDownloads = new Set();
 
+const MAX_FILE_SIZE = 64 * 1024 * 1024;
+const MAX_DURATION = 30 * 60;
+
 function isYouTubeUrl(text) {
-    return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(text);
+    try {
+        const url = new URL(String(text).trim());
+
+        return (
+            ['youtube.com', 'www.youtube.com', 'm.youtube.com',
+             'music.youtube.com', 'youtu.be', 'www.youtu.be'].includes(
+                url.hostname.toLowerCase()
+            ) &&
+            ['http:', 'https:'].includes(url.protocol)
+        );
+    } catch {
+        return false;
+    }
 }
 
 function safeFileName(name) {
@@ -18,7 +35,47 @@ function safeFileName(name) {
         .slice(0, 150) || 'THENUVA-SONG';
 }
 
+function getDurationSeconds(timestamp) {
+    if (!timestamp || typeof timestamp !== 'string') {
+        return 0;
+    }
+
+    const parts = timestamp.split(':').map(Number);
+
+    if (
+        !parts.length ||
+        parts.some(part => !Number.isFinite(part) || part < 0)
+    ) {
+        return 0;
+    }
+
+    return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
 async function findSong(query) {
+    if (isYouTubeUrl(query)) {
+        const result = await yts(query);
+        const videos = result?.videos || [];
+
+        const requestedUrl = new URL(query);
+        const requestedId = requestedUrl.hostname.includes('youtu.be')
+            ? requestedUrl.pathname.slice(1)
+            : requestedUrl.searchParams.get('v');
+
+        const exact = videos.find(video => {
+            try {
+                return new URL(video.url).searchParams.get('v') === requestedId ||
+                    new URL(video.url).pathname.slice(1) === requestedId;
+            } catch {
+                return false;
+            }
+        });
+
+        if (exact) return exact;
+
+        throw new Error('ඒ YouTube video එක සොයාගන්න බැරි වුණා.');
+    }
+
     const result = await yts(query);
     const videos = result?.videos || [];
 
@@ -26,31 +83,92 @@ async function findSong(query) {
         throw new Error('Song එකක් හමු වුණේ නැහැ.');
     }
 
-    if (isYouTubeUrl(query)) {
-        const exact = videos.find(video => video.url === query);
-        if (exact) return exact;
-    }
-
     return videos[0];
 }
 
 async function getDownloadUrl(songUrl) {
+    if (!isYouTubeUrl(songUrl)) {
+        throw new Error('වලංගු YouTube URL එකක් නොවේ.');
+    }
+
     const result = await ytmp3(songUrl, '192');
 
     if (!result || result.success === false || result.status === false) {
-        throw new Error(result?.message || 'MP3 conversion failed.');
+        throw new Error(
+            result?.message ||
+            result?.error ||
+            'MP3 conversion failed.'
+        );
     }
 
-    const url =
-        result?.download?.url ||
-        result?.downloadUrl ||
-        result?.url;
+    const candidates = [
+        result?.download?.url,
+        result?.download?.link,
+        result?.data?.download?.url,
+        result?.data?.download?.link,
+        result?.data?.url,
+        result?.data?.link,
+        result?.downloadUrl,
+        result?.download_url,
+        result?.url,
+        result?.link
+    ];
 
-    if (!url || typeof url !== 'string') {
-        throw new Error('API එකෙන් download URL එකක් ලැබුණේ නැහැ.');
+    const downloadUrl = candidates.find(
+        value => typeof value === 'string' && value.trim()
+    );
+
+    if (!downloadUrl) {
+        console.error(
+            '[SONG API] No download URL. Response keys:',
+            Object.keys(result || {})
+        );
+
+        throw new Error(
+            'API එකෙන් download URL එකක් ලැබුණේ නැහැ. API response එක පරීක්ෂා කරන්න.'
+        );
     }
 
-    return url;
+    let parsedUrl;
+
+    try {
+        parsedUrl = new URL(downloadUrl);
+    } catch {
+        throw new Error('API එකෙන් ලැබුණු download URL එක වලංගු නැහැ.');
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Download URL protocol එක වලංගු නැහැ.');
+    }
+
+    return parsedUrl.href;
+}
+
+function looksLikeMp3(buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 4) {
+        return false;
+    }
+
+    // ID3 metadata header
+    if (
+        buffer[0] === 0x49 &&
+        buffer[1] === 0x44 &&
+        buffer[2] === 0x33
+    ) {
+        return true;
+    }
+
+    // MPEG audio frame sync
+    for (let i = 0; i < Math.min(buffer.length - 1, 8192); i++) {
+        if (
+            buffer[i] === 0xff &&
+            (buffer[i + 1] & 0xe0) === 0xe0
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 async function downloadSong(conn, from, quoted, song, format) {
@@ -58,7 +176,7 @@ async function downloadSong(conn, from, quoted, song, format) {
 
     if (activeDownloads.has(key)) {
         return conn.sendMessage(from, {
-            text: '⏳ *මේ format එක දැනටමත් සකස් කරනවා.*'
+            text: '⏳ *මේ format එකේ download එකක් දැනටමත් ක්‍රියාත්මකයි.*'
         }, { quoted });
     }
 
@@ -67,14 +185,17 @@ async function downloadSong(conn, from, quoted, song, format) {
     try {
         await conn.sendMessage(from, {
             text: format === 'audio'
-                ? '🎧 *MP3 Audio එක සකස් කරමින්...*'
-                : '📁 *MP3 Document එක සකස් කරමින්...*'
+                ? '🎧 *MP3 Audio එක සකස් කරමින්... ටිකක් ඉන්න.*'
+                : '📁 *MP3 Document එක සකස් කරමින්... ටිකක් ඉන්න.*'
         }, { quoted });
 
         const downloadUrl = await getDownloadUrl(song.url);
 
         const response = await fetch(downloadUrl, {
-            signal: AbortSignal.timeout(120000)
+            signal: AbortSignal.timeout(120000),
+            headers: {
+                'User-Agent': 'Mozilla/5.0 THENUVA-X-MD'
+            }
         });
 
         if (!response.ok) {
@@ -87,19 +208,37 @@ async function downloadSong(conn, from, quoted, song, format) {
 
         if (
             contentType.includes('text/html') ||
-            contentType.includes('application/json')
+            contentType.includes('application/json') ||
+            contentType.includes('text/plain')
         ) {
-            throw new Error('Server එකෙන් MP3 file එකක් වෙනුවට වෙනත් content එකක් ලැබුණා.');
+            throw new Error(
+                'Server එක MP3 file එක වෙනුවට HTML/text response එකක් ලබා දුන්නා.'
+            );
         }
 
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const declaredSize = Number(
+            response.headers.get('content-length') || 0
+        );
+
+        if (declaredSize > MAX_FILE_SIZE) {
+            throw new Error('File එක 64 MB සීමාව ඉක්මවා තිබෙනවා.');
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
         if (!buffer.length) {
             throw new Error('Downloaded file එක හිස්.');
         }
 
-        if (buffer.length > 64 * 1024 * 1024) {
+        if (buffer.length > MAX_FILE_SIZE) {
             throw new Error('File එක 64 MB සීමාව ඉක්මවා තිබෙනවා.');
+        }
+
+        if (!looksLikeMp3(buffer)) {
+            throw new Error(
+                'ලැබුණු file එක වලංගු MP3 audio එකක් නොවේ. API එකේ download response එක පරීක්ෂා කරන්න.'
+            );
         }
 
         const fileName = `${safeFileName(song.title)}.mp3`;
@@ -116,7 +255,14 @@ async function downloadSong(conn, from, quoted, song, format) {
                 document: buffer,
                 mimetype: 'audio/mpeg',
                 fileName,
-                caption: `🎵 *${song.title}*\n\n${FOOTER}`
+                caption:
+                    `╭─〔 *🎵 SONG DOWNLOADED 🎵* 〕\n` +
+                    `│\n` +
+                    `│ 🎶 *Title:* ${song.title}\n` +
+                    `│ ⏱️ *Duration:* ${song.timestamp || 'Unknown'}\n` +
+                    `│\n` +
+                    `╰────────────────\n\n` +
+                    `*${FOOTER}*`
             }, { quoted });
         }
 
@@ -128,12 +274,18 @@ async function downloadSong(conn, from, quoted, song, format) {
                 `❌ *Download failed!*\n\n` +
                 `${error.message || 'Unknown error'}\n\n` +
                 `🔄 නැවත උත්සාහ කරන්න.`
-        }, { quoted });
+        }, { quoted }).catch(err => {
+            console.error('[SONG ERROR MESSAGE]', err);
+        });
 
     } finally {
         activeDownloads.delete(key);
     }
 }
+
+// ==========================================
+// SONG SEARCH + FORMAT MENU
+// ==========================================
 
 cmd({
     pattern: 'song',
@@ -148,60 +300,68 @@ cmd({
 
         if (!query) {
             return reply(
-                '🎵 *SONG DOWNLOADER*\n\n' +
-                'භාවිතය: `.song song name`\n' +
-                'උදාහරණය: `.song Shape of You`'
+                '╭─〔 *🎵 SONG DOWNLOADER* 〕\n' +
+                '│\n' +
+                '│ 🎧 YouTube song එකක් download කරන්න.\n' +
+                '│\n' +
+                '│ *භාවිතය:*\n' +
+                '│ .song song name\n' +
+                '│\n' +
+                '│ *උදාහරණය:*\n' +
+                '│ .song Shape of You\n' +
+                '╰────────────────\n\n' +
+                `*${FOOTER}*`
             );
         }
 
         await reply('🔎 *Song එක සොයමින්...*');
 
         const song = await findSong(query);
-
         const durationText = song.timestamp || 'Unknown';
-        const seconds = durationText
-            .split(':')
-            .map(Number)
-            .reduce((total, part) => total * 60 + part, 0);
+        const seconds = getDurationSeconds(durationText);
 
-        if (seconds > 1800) {
-            return reply('⚠️ *විනාඩි 30කට වඩා දිග songs සහාය නොදක්වයි.*');
+        if (seconds > MAX_DURATION) {
+            return reply(
+                '⚠️ *විනාඩි 30කට වඩා දිග audio සඳහා සහාය නොදක්වයි.*'
+            );
         }
 
+        // Save the selected song for this chat.
         pendingSongs.set(from, {
             url: song.url,
             title: song.title,
-            timestamp: durationText
+            timestamp: durationText,
+            thumbnail: song.thumbnail || null,
+            author: song.author?.name || 'Unknown',
+            selectedAt: Date.now()
         });
 
         const caption =
-            `╭─〔 *🎵 SONG DOWNLOADER 🎵* 〕\n` +
+            `╭─〔 *🎵 SONG DOWNLOADER* 〕\n` +
             `│\n` +
             `│ 🎶 *Title:* ${song.title}\n` +
             `│ 👤 *Artist:* ${song.author?.name || 'Unknown'}\n` +
             `│ ⏱️ *Duration:* ${durationText}\n` +
             `│\n` +
             `╰────────────────\n\n` +
-            `👇 *ඔයාට අවශ්‍ය format එක තෝරන්න.*\n\n` +
-            `${FOOTER}`;
+            `👇 *ඔයාට අවශ්‍ය download format එක තෝරන්න.*`;
 
         const sections = [{
             title: '🎧 SELECT SONG FORMAT',
             rows: [
                 {
                     title: '🎧 MP3 Audio',
-                    description: 'Song එක audio message එකක් ලෙස',
+                    description: 'Song එක audio message එකක් ලෙස ලබාගන්න',
                     id: 'thenuva_song_mp3'
                 },
                 {
                     title: '📁 MP3 Document',
-                    description: 'Song එක MP3 file එකක් ලෙස',
+                    description: 'Song එක MP3 file එකක් ලෙස ලබාගන්න',
                     id: 'thenuva_song_doc'
                 }
             ]
         }];
 
-        // Song details, thumbnail සහ format menu එක එකම message එකක
         await sendListMenu(
             conn,
             from,
@@ -210,7 +370,7 @@ cmd({
                 buttonText: '🎵 Select Format',
                 sections,
                 footer: FOOTER,
-                image: song.thumbnail || null
+                image: song.thumbnail || undefined
             },
             mek
         );
@@ -220,10 +380,15 @@ cmd({
 
         await reply(
             '❌ *Song එක සොයාගන්න බැරි වුණා.*\n\n' +
-            'නම පරීක්ෂා කරලා නැවත උත්සාහ කරන්න.'
+            `${error.message || 'Unknown error'}\n\n` +
+            '🔄 Song නම හෝ YouTube URL එක පරීක්ෂා කර නැවත උත්සාහ කරන්න.'
         );
     }
 });
+
+// ==========================================
+// MP3 AUDIO COMMAND
+// ==========================================
 
 cmd({
     pattern: 'thenuva_song_mp3',
@@ -235,12 +400,16 @@ cmd({
 
     if (!song) {
         return conn.sendMessage(from, {
-            text: '⚠️ මුලින් `.song song name` භාවිතා කරන්න.'
+            text: '⚠️ මුලින් `.song song name` භාවිතා කර song එකක් තෝරන්න.'
         }, { quoted: mek });
     }
 
     await downloadSong(conn, from, mek, song, 'audio');
 });
+
+// ==========================================
+// MP3 DOCUMENT COMMAND
+// ==========================================
 
 cmd({
     pattern: 'thenuva_song_doc',
@@ -252,7 +421,7 @@ cmd({
 
     if (!song) {
         return conn.sendMessage(from, {
-            text: '⚠️ මුලින් `.song song name` භාවිතා කරන්න.'
+            text: '⚠️ මුලින් `.song song name` භාවිතා කර song එකක් තෝරන්න.'
         }, { quoted: mek });
     }
 
