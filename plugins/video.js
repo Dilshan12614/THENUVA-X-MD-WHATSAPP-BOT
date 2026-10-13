@@ -1,7 +1,7 @@
 const { cmd } = require('../command');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const ACTOR_ID = 'decorated_cheer~youtube-video-downloader-task-1';
+const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
 
 const API_URL =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
