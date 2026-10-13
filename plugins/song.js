@@ -4,7 +4,7 @@ const yts = require('yt-search');
 const { ytmp3 } = require('@vreden/youtube_scraper');
 const { sendListMenu } = require('../lib/buttons');
 
-const FOOTER = 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ';
+const FOOTER = 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
 const pendingSongs = new Map();
 const activeDownloads = new Set();
