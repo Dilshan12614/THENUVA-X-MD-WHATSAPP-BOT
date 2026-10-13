@@ -6,7 +6,7 @@ const os = require('os');
 const { promisify } = require('util');
 const { execFile } = require('child_process');
 
-require('dotenv').config({ path: './config.env' });
+
 
 const execFileAsync = promisify(execFile);
 
