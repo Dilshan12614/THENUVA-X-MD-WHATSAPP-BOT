@@ -112,6 +112,19 @@ jobs:
 
           echo "SESSION_ID is configured"
 
+      # SASA YOUTUBE MP4 API KEY CHECK
+      - name: Check SASA YouTube MP4 API key
+        env:
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
+        run: |
+          if [ -z "$SASA_API_KEY" ]; then
+            echo "ERROR: SASA_API_KEY secret is missing"
+            echo "Add SASA_API_KEY in GitHub Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          echo "SASA_API_KEY is configured"
+
       # START BOT
       - name: Start THENUVA X MD
         env:
@@ -139,6 +152,9 @@ jobs:
 
           # SASA DEV YOUTUBE MP4 API
           SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
+
+          # SASA VIDEO DOWNLOADER API
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
 
           # APIFY YOUTUBE VIDEO DOWNLOADER
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
