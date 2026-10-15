@@ -552,13 +552,11 @@ cmd({
         pendingVideoNames.set(from, true);
 
         return reply(
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎬 *ʏᴏᴜᴛᴜʙᴇ ᴠɪᴅᴇᴏ sᴇᴀʀᴄʜ*\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            '┃ 🎵 දැන් වීඩියෝ එකේ නම එවන්න.\n' +
-            '┃ ➜ URL එකක් අවශ්‍ය නැහැ.\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER
+            '🎬 *THENUVA X MD VIDEO DOWNLOADER*\n\n' +
+            '📥 භාවිතය: `.video video name`\n\n' +
+            '🎵 උදාහරණය: `.video Sanda Mithuri`\n\n' +
+            
+            '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
         );
     }
 
