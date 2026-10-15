@@ -255,4 +255,4 @@ cmd({
     pendingSongs.delete(from);
 
     return downloadSong(conn, mek, from, reply, query);
-});ක්
+});
