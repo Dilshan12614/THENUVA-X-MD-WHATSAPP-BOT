@@ -1,3 +1,4 @@
+
 const { cmd } = require('../command');
 const yts = require('yt-search');
 const { sendListMenu } = require('../lib/buttons');
@@ -7,16 +8,15 @@ const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
 const API_URL =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
 
+const MAX_SIZE = 64 * 1024 * 1024;
 const TIMEOUT = 300000;
-const MAX_AUDIO_SIZE = 64 * 1024 * 1024;
 const FOOTER = '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
-// Selected songs are kept in memory until download completes.
-const songs = new Map();
+// Video IDs are saved so the selection command can find the song.
+const songResults = new Map();
 const activeDownloads = new Set();
-const registeredListeners = new WeakSet();
 
-function safeName(value) {
+function cleanName(value) {
     return String(value || 'THENUVA-X-MD')
         .replace(/[\\/:*?"<>|\x00-\x1F]/g, '')
         .trim()
@@ -26,10 +26,14 @@ function safeName(value) {
 function isYouTubeUrl(value) {
     try {
         const url = new URL(value);
-        return ['youtube.com', 'www.youtube.com', 'm.youtube.com',
-            'music.youtube.com', 'youtu.be', 'www.youtu.be']
-            .includes(url.hostname.toLowerCase()) &&
-            ['http:', 'https:'].includes(url.protocol);
+        return [
+            'youtube.com',
+            'www.youtube.com',
+            'm.youtube.com',
+            'music.youtube.com',
+            'youtu.be',
+            'www.youtu.be'
+        ].includes(url.hostname.toLowerCase());
     } catch {
         return false;
     }
@@ -40,18 +44,19 @@ async function searchSongs(query) {
     const videos = result?.videos || [];
     const unique = new Map();
 
-    for (const video of videos) {
-        if (!video?.videoId || !/^[\w-]{11}$/.test(video.videoId)) {
+    for (const item of videos) {
+        if (!item?.videoId || !/^[\w-]{11}$/.test(item.videoId)) {
             continue;
         }
 
-        if (!unique.has(video.videoId)) {
-            unique.set(video.videoId, {
-                id: video.videoId,
-                title: safeName(video.title),
-                url: `https://www.youtube.com/watch?v=${video.videoId}`,
-                duration: video.timestamp || 'Unknown',
-                author: video.author?.name || 'YouTube'
+        if (!unique.has(item.videoId)) {
+            unique.set(item.videoId, {
+                id: item.videoId,
+                title: cleanName(item.title),
+                url: `https://www.youtube.com/watch?v=${item.videoId}`,
+                author: item.author?.name || 'YouTube',
+                duration: item.timestamp || 'Unknown',
+                savedAt: Date.now()
             });
         }
 
@@ -61,9 +66,9 @@ async function searchSongs(query) {
     return [...unique.values()];
 }
 
-async function getActorAudio(video) {
+async function getAudioUrl(video) {
     if (!APIFY_TOKEN) {
-        throw new Error('Railway Variables වල APIFY_TOKEN සකස් කරන්න.');
+        throw new Error('APIFY_TOKEN is missing in Railway Variables.');
     }
 
     const response = await fetch(
@@ -85,40 +90,46 @@ async function getActorAudio(video) {
         }
     );
 
-    const text = await response.text();
+    const body = await response.text();
 
     if (!response.ok) {
-        console.error('[MP3 APIFY ERROR]', response.status, text.slice(0, 500));
-        throw new Error(`Apify HTTP ${response.status}`);
+        console.error('[MP3 API]', response.status, body.slice(0, 500));
+        throw new Error(`Apify returned HTTP ${response.status}`);
     }
 
-    let data;
+    let parsed;
+
     try {
-        data = JSON.parse(text);
+        parsed = JSON.parse(body);
     } catch {
-        throw new Error('Apify වෙතින් නිවැරදි JSON ලැබුණේ නැහැ.');
+        throw new Error('Apify did not return valid JSON.');
     }
 
-    const items = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.data)
-                ? data.data
-                : [data];
+    const root = Array.isArray(parsed)
+        ? parsed
+        : [parsed];
 
-    const queue = [...items];
-    const seen = new Set();
-    let audioUrl = null;
+    const queue = [...root];
+    const visited = new Set();
 
     while (queue.length) {
         const item = queue.shift();
-        if (!item || typeof item !== 'object' || seen.has(item)) continue;
-        seen.add(item);
 
+        if (!item || typeof item !== 'object' || visited.has(item)) {
+            continue;
+        }
+
+        visited.add(item);
+
+        // Prefer fields explicitly identified as audio/download URLs.
         for (const key of [
-            'audioUrl', 'audio_url', 'mp3Url', 'mp3_url',
-            'audioDownloadUrl', 'downloadUrl', 'download_url'
+            'audioUrl',
+            'audio_url',
+            'mp3Url',
+            'mp3_url',
+            'audioDownloadUrl',
+            'downloadUrl',
+            'download_url'
         ]) {
             const value = item[key];
 
@@ -127,101 +138,109 @@ async function getActorAudio(video) {
                 /^https?:\/\//i.test(value) &&
                 !/\.html?(?:[?#]|$)/i.test(value)
             ) {
-                audioUrl = value;
-                break;
+                return value;
             }
         }
-
-        if (audioUrl) break;
 
         for (const [key, value] of Object.entries(item)) {
             if (
+                value &&
+                typeof value === 'object'
+            ) {
+                queue.push(value);
+            } else if (
                 typeof value === 'string' &&
                 /^https?:\/\//i.test(value) &&
-                /^(audio|mp3|download|link|url)/i.test(key)
+                /^(audio|mp3|download)/i.test(key)
             ) {
-                audioUrl = value;
-                break;
+                return value;
             }
-
-            if (value && typeof value === 'object') queue.push(value);
         }
-
-        if (audioUrl) break;
     }
 
-    if (!audioUrl) {
-        console.error('[MP3 ACTOR OUTPUT]', JSON.stringify(items).slice(0, 2000));
-        throw new Error('Apify output එකෙන් audio URL එක හමු වුණේ නැහැ.');
-    }
-
-    return audioUrl;
+    console.error('[MP3 API OUTPUT]', JSON.stringify(parsed).slice(0, 2000));
+    throw new Error('Apify output did not contain an audio download URL.');
 }
 
 async function downloadAudio(url) {
     const response = await fetch(url, {
-        redirect: 'follow',
         headers: { Accept: 'audio/*, application/octet-stream, */*' },
         signal: AbortSignal.timeout(TIMEOUT)
     });
 
-    if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
-
-    const type = (response.headers.get('content-type') || '').toLowerCase();
-
-    if (
-        type.startsWith('text/') ||
-        type.includes('html') ||
-        type.includes('json')
-    ) {
-        throw new Error('Download URL එක audio වෙනුවට webpage එකක් ලබා දුන්නා.');
+    if (!response.ok) {
+        throw new Error(`Audio server returned HTTP ${response.status}`);
     }
 
-    const size = Number(response.headers.get('content-length') || 0);
-    if (size > MAX_AUDIO_SIZE) throw new Error('FILE_TOO_LARGE');
+    const contentType =
+        (response.headers.get('content-type') || '').toLowerCase();
 
-    if (!response.body) throw new Error('Audio response එක හිස්.');
+    if (
+        contentType.includes('text/html') ||
+        contentType.startsWith('text/') ||
+        contentType.includes('application/json')
+    ) {
+        throw new Error('Download server returned a webpage instead of audio.');
+    }
+
+    const declaredSize = Number(
+        response.headers.get('content-length') || 0
+    );
+
+    if (declaredSize > MAX_SIZE) {
+        throw new Error('FILE_TOO_LARGE');
+    }
+
+    if (!response.body) {
+        throw new Error('Empty audio response.');
+    }
 
     const chunks = [];
-    let total = 0;
+    let totalSize = 0;
 
     for await (const chunk of response.body) {
         const buffer = Buffer.from(chunk);
-        total += buffer.length;
+        totalSize += buffer.length;
 
-        if (total > MAX_AUDIO_SIZE) {
+        if (totalSize > MAX_SIZE) {
             try {
                 await response.body.cancel();
             } catch {}
+
             throw new Error('FILE_TOO_LARGE');
         }
 
         chunks.push(buffer);
     }
 
-    const buffer = Buffer.concat(chunks);
+    const audio = Buffer.concat(chunks);
 
-    const validSignature =
-        buffer.subarray(0, 3).toString() === 'ID3' ||
-        (buffer.length > 1 &&
-            buffer[0] === 0xff &&
-            (buffer[1] & 0xe0) === 0xe0) ||
-        buffer.subarray(4, 8).toString() === 'ftyp' ||
-        buffer.subarray(0, 4).toString() === 'OggS' ||
-        buffer.subarray(8, 12).toString() === 'WAVE';
-
-    if (!buffer.length || (!type.startsWith('audio/') && !validSignature)) {
-        throw new Error('ලැබුණු file එක audio file එකක් නොවෙයි.');
+    if (!audio.length) {
+        throw new Error('Downloaded audio is empty.');
     }
 
-    return buffer;
+    const looksLikeAudio =
+        audio.subarray(0, 3).toString() === 'ID3' ||
+        (
+            audio.length > 1 &&
+            audio[0] === 0xff &&
+            (audio[1] & 0xe0) === 0xe0
+        ) ||
+        audio.subarray(4, 8).toString() === 'ftyp' ||
+        audio.subarray(0, 4).toString() === 'OggS';
+
+    if (!contentType.startsWith('audio/') && !looksLikeAudio) {
+        throw new Error('The downloaded file does not look like audio.');
+    }
+
+    return audio;
 }
 
-async function downloadSelected(conn, mek, from, video) {
+async function sendSelectedSong(conn, mek, from, video) {
     if (activeDownloads.has(from)) {
         return conn.sendMessage(
             from,
-            { text: '⏳ මේ chat එකේ download එකක් දැනට ක්‍රියාත්මකයි.' },
+            { text: '⏳ Download එකක් දැනට ක්‍රියාත්මකයි. ටිකක් ඉන්න.' },
             { quoted: mek }
         );
     }
@@ -230,174 +249,80 @@ async function downloadSelected(conn, mek, from, video) {
 
     try {
         await conn.sendMessage(from, {
-            react: { text: '⬇️', key: mek.key }
-        }).catch(() => {});
-
-        await conn.sendMessage(from, {
             text:
                 '╭━━〔 *ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅ* 〕━━╮\n' +
                 `┃ 🎵 ${video.title}\n` +
                 '┃ ⏳ Audio එක සකස් කරමින්...\n' +
-                '╰━━━━━━━━━━━━━━━━━━╯\n' + FOOTER
+                '╰━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
         }, { quoted: mek });
 
-        const audioUrl = await getActorAudio(video);
+        const audioUrl = await getAudioUrl(video);
         const audio = await downloadAudio(audioUrl);
 
         await conn.sendMessage(from, {
             audio,
             mimetype: 'audio/mpeg',
-            fileName: `${safeName(video.title)}.mp3`,
+            fileName: `${cleanName(video.title)}.mp3`,
             ptt: false
         }, { quoted: mek });
 
-        await conn.sendMessage(from, {
-            react: { text: '✅', key: mek.key }
-        }).catch(() => {});
     } catch (error) {
         console.error('[MP3 DOWNLOAD ERROR]', error);
 
-        const message = error.message === 'FILE_TOO_LARGE'
-            ? 'Audio එක 64 MB සීමාව ඉක්මවයි.'
-            : String(error.message || 'Download failed').slice(0, 220);
+        const reason = error.message === 'FILE_TOO_LARGE'
+            ? 'Audio file එක 64 MB සීමාව ඉක්මවයි.'
+            : String(error.message || 'Unknown error').slice(0, 250);
 
         await conn.sendMessage(from, {
-            text: `❌ *MP3 Download Failed*\n${message}\n\n${FOOTER}`
+            text: `❌ *MP3 Download Failed*\n${reason}\n\n${FOOTER}`
         }, { quoted: mek });
 
-        await conn.sendMessage(from, {
-            react: { text: '❌', key: mek.key }
-        }).catch(() => {});
     } finally {
         activeDownloads.delete(from);
     }
 }
 
-async function showResults(conn, mek, from, query) {
-    const results = await searchSongs(query);
-
-    if (!results.length) {
-        return conn.sendMessage(from, {
-            text: '❌ ගීත හමු වුණේ නැහැ. වෙනත් නමක් උත්සාහ කරන්න.'
-        }, { quoted: mek });
-    }
-
-    for (const video of results) {
-        songs.set(video.id, video);
-    }
-
-    return sendListMenu(conn, from, {
-        title:
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎧 *SELECT YOUR SONG*\n' +
-            `┃ 🔎 ${safeName(query)}\n` +
-            '┃\n' +
-            '┃ කැමති ගීතය තෝරන්න.\n' +
-            '┃ තේරූ විගස MP3 download වේ.\n' +
-            '╰━━━━━━━━━━━━━━━━━━╯',
-
-        buttonText: 'SELECT SONG',
-
-        sections: [{
-            title: '🎵 YOUTUBE RESULTS',
-            rows: results.map((video, index) => ({
-                id: `thenuva:mp3pick:${video.id}`,
-                title: `${index + 1}. ${video.title}`.slice(0, 70),
-                description: `${video.author} • ${video.duration}`.slice(0, 70)
-            }))
-        }],
-
-        footer: FOOTER
-    }, mek);
-}
-
-function registerListener(conn) {
-    if (!conn?.ev || registeredListeners.has(conn)) return;
-    registeredListeners.add(conn);
-
-    conn.ev.on('messages.upsert', async ({ messages }) => {
-        for (const message of messages || []) {
-            try {
-                if (!message?.message || message.key?.fromMe) continue;
-
-                const msg = message.message;
-                const id =
-                    msg.interactiveResponseMessage?.nativeFlowResponseMessage
-                        ?.paramsJson;
-
-                if (!id) continue;
-
-                let parsed;
-                try {
-                    parsed = JSON.parse(id);
-                } catch {
-                    continue;
-                }
-
-                const match = /^thenuva:mp3pick:([\w-]{11})$/.exec(
-                    parsed.id || ''
-                );
-
-                if (!match) continue;
-
-                const from = message.key.remoteJid;
-                const video = songs.get(match[1]);
-
-                if (!from || !video) {
-                    await conn.sendMessage(from, {
-                        text: '❌ මෙම තේරීම කල් ඉකුත් වී ඇත. .mp3 නැවත ගහන්න.'
-                    }, { quoted: message });
-                    continue;
-                }
-
-                // Delete before starting to prevent repeated clicks.
-                songs.delete(match[1]);
-
-                await downloadSelected(conn, message, from, video);
-            } catch (error) {
-                console.error('[MP3 BUTTON ERROR]', error);
-            }
-        }
-    });
-}
-
+// Search songs and show a separate selection button for each result.
 cmd({
     pattern: 'mp3',
     alias: ['song', 'ytaudio', 'ytmp3'],
     react: '🎵',
-    desc: 'Search YouTube songs and download MP3',
+    desc: 'Search songs and download MP3',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
-    registerListener(conn);
-
-    const query = args.join(' ').trim();
+    const query = (args || []).join(' ').trim();
 
     if (!query) {
         return reply(
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎧 *ʏᴏᴜᴛᴜʙᴇ ᴍᴘ3*\n' +
-            '┃\n' +
-            '┃ 🎶 Song එකේ නම සමඟ command එක ගහන්න.\n' +
-            '┃ උදා: .mp3 sansara sihine\n' +
-            '╰━━━━━━━━━━━━━━━━━━╯\n' + FOOTER
+            '🎧 *YouTube MP3 Downloader*\n\n' +
+            'Song එකේ නම සමඟ command එක ගහන්න.\n\n' +
+            'උදාහරණය: `.mp3 sansara sihine`\n\n' +
+            'ඊට පස්සේ කැමති song button එක ඔබන්න.\n' +
+            FOOTER
         );
     }
 
     if (isYouTubeUrl(query)) {
-        const video = {
-            id: query.match(/(?:v=|youtu\.be\/)([\w-]{11})/)?.[1],
-            title: 'YouTube Audio',
-            url: query,
-            author: 'YouTube',
-            duration: 'Unknown'
-        };
+        let videoId;
 
-        if (!video.id) {
-            return reply('❌ නිවැරදි YouTube video URL එකක් එවන්න.');
+        try {
+            const url = new URL(query);
+            videoId = url.hostname.includes('youtu.be')
+                ? url.pathname.split('/').filter(Boolean)[0]
+                : url.searchParams.get('v');
+        } catch {}
+
+        if (!videoId || !/^[\w-]{11}$/.test(videoId)) {
+            return reply('❌ නිවැරදි YouTube video link එකක් දෙන්න.');
         }
 
-        return downloadSelected(conn, mek, from, video);
+        return sendSelectedSong(conn, mek, from, {
+            id: videoId,
+            title: 'YouTube Audio',
+            url: `https://www.youtube.com/watch?v=${videoId}`
+        });
     }
 
     try {
@@ -405,9 +330,80 @@ cmd({
             react: { text: '🔎', key: mek.key }
         }).catch(() => {});
 
-        return await showResults(conn, mek, from, query);
+        const results = await searchSongs(query);
+
+        if (!results.length) {
+            return reply('❌ ගීත හමු වුණේ නැහැ. වෙනත් නමක් උත්සාහ කරන්න.');
+        }
+
+        for (const video of results) {
+            songResults.set(video.id, video);
+        }
+
+        // Remove expired search results from memory.
+        for (const [id, video] of songResults) {
+            if (Date.now() - video.savedAt > 15 * 60 * 1000) {
+                songResults.delete(id);
+            }
+        }
+
+        return await sendListMenu(conn, from, {
+            title:
+                '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
+                '┃ 🎧 *SELECT YOUR SONG*\n' +
+                `┃ 🔎 ${cleanName(query)}\n` +
+                '┃\n' +
+                '┃ ගීතයක් තෝරන්න.\n' +
+                '┃ තේරූ විගස download වේ.\n' +
+                '╰━━━━━━━━━━━━━━━━━━╯',
+
+            buttonText: 'SELECT SONG',
+
+            sections: [{
+                title: '🎵 SEARCH RESULTS',
+                rows: results.map((video, index) => ({
+                    id: `thenuva:mp3pick:${video.id}`,
+                    title: `${index + 1}. ${video.title}`.slice(0, 70),
+                    description:
+                        `${video.author} • ${video.duration}`.slice(0, 70)
+                }))
+            }],
+
+            footer: FOOTER
+        }, mek);
+
     } catch (error) {
         console.error('[MP3 SEARCH ERROR]', error);
-        return reply('❌ Song search අසාර්ථකයි. ටික වේලාවකින් නැවත උත්සාහ කරන්න.');
+        return reply(
+            '❌ Song search අසාර්ථකයි.\n' +
+            'yt-search package එක සහ internet connection එක පරීක්ෂා කරන්න.'
+        );
     }
+});
+
+// This command is called by button-actions.js after a song is selected.
+cmd({
+    pattern: 'mp3pick',
+    desc: 'Download the selected song',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, args, reply }) => {
+    const videoId = String((args || [])[0] || '').trim();
+
+    if (!/^[\w-]{11}$/.test(videoId)) {
+        return reply('❌ Song selection එක නිවැරදි නැහැ. .mp3 නැවත භාවිත කරන්න.');
+    }
+
+    const video = songResults.get(videoId);
+
+    if (!video || Date.now() - video.savedAt > 15 * 60 * 1000) {
+        songResults.delete(videoId);
+
+        return reply(
+            '⌛ මේ song selection එක කල් ඉකුත් වෙලා.\n' +
+            'නැවත `.mp3 song name` භාවිත කර ගීතයක් තෝරන්න.'
+        );
+    }
+
+    return sendSelectedSong(conn, mek, from, video);
 });
