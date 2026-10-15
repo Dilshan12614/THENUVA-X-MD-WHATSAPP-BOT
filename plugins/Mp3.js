@@ -1,5 +1,6 @@
 const { cmd } = require('../command');
 const yts = require('yt-search');
+const { sendListMenu } = require('../lib/buttons');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
@@ -19,14 +20,18 @@ const registeredListeners = new WeakSet();
 function isYouTubeUrl(value) {
     try {
         const url = new URL(value);
-        return [
-            'youtube.com',
-            'www.youtube.com',
-            'm.youtube.com',
-            'youtu.be',
-            'www.youtu.be'
-        ].includes(url.hostname) &&
-        ['http:', 'https:'].includes(url.protocol);
+
+        return (
+            ['http:', 'https:'].includes(url.protocol) &&
+            [
+                'youtube.com',
+                'www.youtube.com',
+                'm.youtube.com',
+                'music.youtube.com',
+                'youtu.be',
+                'www.youtu.be'
+            ].includes(url.hostname.toLowerCase())
+        );
     } catch {
         return false;
     }
@@ -41,16 +46,25 @@ function safeFileName(value) {
 }
 
 function getMessageText(message) {
-    const msg = message?.message || {};
-    const inner = msg.ephemeralMessage?.message || {};
+    let msg = message?.message || {};
 
-    return (
+    for (let i = 0; i < 5; i++) {
+        const wrapped =
+            msg.ephemeralMessage?.message ||
+            msg.viewOnceMessage?.message ||
+            msg.viewOnceMessageV2?.message ||
+            msg.documentWithCaptionMessage?.message;
+
+        if (!wrapped) break;
+        msg = wrapped;
+    }
+
+    return String(
         msg.conversation ||
         msg.extendedTextMessage?.text ||
         msg.imageMessage?.caption ||
         msg.videoMessage?.caption ||
-        inner.conversation ||
-        inner.extendedTextMessage?.text ||
+        msg.documentMessage?.caption ||
         ''
     ).trim();
 }
@@ -58,6 +72,20 @@ function getMessageText(message) {
 function findAudioUrl(data) {
     const queue = Array.isArray(data) ? [...data] : [data];
     const seen = new Set();
+
+    const preferredKeys = [
+        'audioUrl',
+        'audio_url',
+        'mp3Url',
+        'mp3_url',
+        'audioDownloadUrl',
+        'audio_download_url',
+        'downloadUrl',
+        'download_url',
+        'audio',
+        'url',
+        'link'
+    ];
 
     while (queue.length) {
         const item = queue.shift();
@@ -68,20 +96,16 @@ function findAudioUrl(data) {
 
         seen.add(item);
 
-        for (const key of [
-            'audioUrl',
-            'audio_url',
-            'downloadUrl',
-            'download_url',
-            'url',
-            'link'
-        ]) {
+        for (const key of preferredKeys) {
             const value = item[key];
 
             if (
                 typeof value === 'string' &&
                 /^https?:\/\//i.test(value) &&
-                /\.(mp3|m4a)(?:[?#]|$)/i.test(value)
+                (
+                    /\.(mp3|m4a|aac|ogg|opus|wav)(?:[?#]|$)/i.test(value) ||
+                    /audio|download|mp3/i.test(key)
+                )
             ) {
                 return value;
             }
@@ -99,13 +123,18 @@ function findAudioUrl(data) {
 
 function findTitle(data, fallback) {
     const queue = Array.isArray(data) ? [...data] : [data];
+    const seen = new Set();
 
     while (queue.length) {
         const item = queue.shift();
 
-        if (!item || typeof item !== 'object') continue;
+        if (!item || typeof item !== 'object' || seen.has(item)) {
+            continue;
+        }
 
-        for (const key of ['title', 'fileTitle', 'videoTitle']) {
+        seen.add(item);
+
+        for (const key of ['title', 'fileTitle', 'videoTitle', 'name']) {
             if (typeof item[key] === 'string' && item[key].trim()) {
                 return safeFileName(item[key]);
             }
@@ -153,6 +182,7 @@ async function getActorOutput(videoUrl, fallbackTitle) {
             response.status,
             responseText.slice(0, 1000)
         );
+
         throw new Error(`Apify HTTP ${response.status}`);
     }
 
@@ -161,11 +191,7 @@ async function getActorOutput(videoUrl, fallbackTitle) {
     try {
         output = JSON.parse(responseText);
     } catch {
-        console.error(
-            '[APIFY MP3 NON-JSON]',
-            responseText.slice(0, 500)
-        );
-        throw new Error('Apify වෙතින් JSON output එකක් ලැබුණේ නැහැ.');
+        throw new Error('Apify වෙතින් නිවැරදි JSON output එකක් ලැබුණේ නැහැ.');
     }
 
     const items = Array.isArray(output)
@@ -179,10 +205,7 @@ async function getActorOutput(videoUrl, fallbackTitle) {
                     : [];
 
     if (!items.length) {
-        console.error('[APIFY MP3 EMPTY OUTPUT]', responseText.slice(0, 1500));
-        throw new Error(
-            'Apify output එක හිස්. Actor Log සහ Output පරීක්ෂා කරන්න.'
-        );
+        throw new Error('Apify output එක හිස්. Actor Log පරීක්ෂා කරන්න.');
     }
 
     const audioUrl = findAudioUrl(items);
@@ -190,11 +213,11 @@ async function getActorOutput(videoUrl, fallbackTitle) {
     if (!audioUrl) {
         console.error(
             '[APIFY MP3 OUTPUT]',
-            JSON.stringify(items).slice(0, 2500)
+            JSON.stringify(items).slice(0, 2000)
         );
 
         throw new Error(
-            'MP3 URL එකක් ලැබුණේ නැහැ. Actor එක MP3 format එක සහාය දක්වනවාද බලන්න.'
+            'Audio download URL එක හමු වුණේ නැහැ. Actor output එක පරීක්ෂා කරන්න.'
         );
     }
 
@@ -206,6 +229,7 @@ async function getActorOutput(videoUrl, fallbackTitle) {
 
 async function downloadAudio(audioUrl) {
     const response = await fetch(audioUrl, {
+        redirect: 'follow',
         headers: {
             Accept: 'audio/*, application/octet-stream, */*'
         },
@@ -213,30 +237,12 @@ async function downloadAudio(audioUrl) {
     });
 
     if (!response.ok) {
-        const details = await response.text().catch(() => '');
-
-        console.error(
-            '[MP3 FILE HTTP ERROR]',
-            response.status,
-            details.slice(0, 500)
-        );
-
         throw new Error(`Audio download HTTP ${response.status}`);
     }
 
     const contentType = (
         response.headers.get('content-type') || ''
     ).toLowerCase();
-
-    if (
-        contentType.startsWith('text/') ||
-        contentType.includes('application/json')
-    ) {
-        const details = await response.text().catch(() => '');
-        console.error('[MP3 INVALID CONTENT]', contentType, details.slice(0, 300));
-
-        throw new Error('Download URL එක audio file එකක් ලබාදුන්නේ නැහැ.');
-    }
 
     const declaredSize = Number(
         response.headers.get('content-length') || 0
@@ -246,14 +252,44 @@ async function downloadAudio(audioUrl) {
         throw new Error('FILE_TOO_LARGE');
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
+    if (
+        contentType.startsWith('text/') ||
+        contentType.includes('application/json') ||
+        contentType.includes('text/html')
+    ) {
+        throw new Error(
+            'Download URL එකෙන් audio වෙනුවට webpage එකක් ලැබුණා.'
+        );
+    }
+
+    // Prevent unexpectedly large downloads.
+    if (!response.body) {
+        throw new Error('Audio response එක හිස්.');
+    }
+
+    const chunks = [];
+    let totalSize = 0;
+
+    for await (const chunk of response.body) {
+        const part = Buffer.from(chunk);
+
+        totalSize += part.length;
+
+        if (totalSize > MAX_AUDIO_SIZE) {
+            try {
+                await response.body.cancel();
+            } catch {}
+
+            throw new Error('FILE_TOO_LARGE');
+        }
+
+        chunks.push(part);
+    }
+
+    const buffer = Buffer.concat(chunks);
 
     if (!buffer.length) {
         throw new Error('Audio file එක හිස් (0 bytes).');
-    }
-
-    if (buffer.length > MAX_AUDIO_SIZE) {
-        throw new Error('FILE_TOO_LARGE');
     }
 
     const hasId3 =
@@ -265,35 +301,110 @@ async function downloadAudio(audioUrl) {
         buffer[0] === 0xFF &&
         (buffer[1] & 0xE0) === 0xE0;
 
+    const hasMp4Signature =
+        buffer.length >= 12 &&
+        buffer.toString('ascii', 4, 8) === 'ftyp';
+
+    const hasOggSignature =
+        buffer.length >= 4 &&
+        buffer.toString('ascii', 0, 4) === 'OggS';
+
+    const hasWavSignature =
+        buffer.length >= 12 &&
+        buffer.toString('ascii', 0, 4) === 'RIFF' &&
+        buffer.toString('ascii', 8, 12) === 'WAVE';
+
+    const isAudioContentType = contentType.startsWith('audio/');
+
     if (
-        !contentType.startsWith('audio/') &&
-        !contentType.includes('application/octet-stream') &&
+        !isAudioContentType &&
         !hasId3 &&
-        !hasMpegFrame
+        !hasMpegFrame &&
+        !hasMp4Signature &&
+        !hasOggSignature &&
+        !hasWavSignature
     ) {
         throw new Error(
-            `ලැබුණු ගොනුව MP3 audio එකක් නොවෙයි (${contentType || 'unknown'}).`
+            `ලැබුණු ගොනුව audio එකක් නොවෙයි (${contentType || 'unknown'}).`
         );
     }
 
     return buffer;
 }
 
-async function processSong(conn, mek, from, query, reply) {
+async function showSongMenu(conn, mek, from) {
+    return sendListMenu(
+        conn,
+        from,
+        {
+            title:
+                '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
+                '┃ 🎧 *ʏᴏᴜᴛᴜʙᴇ ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n' +
+                '┃\n' +
+                '┃ 🎵 Search and download songs\n' +
+                '╰━━━━━━━━━━━━━━━━━━╯',
+
+            buttonText: 'SELECT OPTION',
+
+            sections: [
+                {
+                    title: '🎶 MP3 OPTIONS',
+                    rows: [
+                        {
+                            title: '🔎 Search Song',
+                            description: 'Song name එකෙන් සොයන්න',
+                            id: 'thenuva:mp3search'
+                        },
+                        {
+                            title: '🔗 Download by URL',
+                            description: 'YouTube link එක භාවිත කරන්න',
+                            id: 'thenuva:mp3url'
+                        }
+                    ]
+                }
+            ],
+
+            footer: FOOTER
+        },
+        mek
+    );
+}
+
+async function processSong(conn, mek, from, query, reply, mode = 'search') {
     try {
         if (!APIFY_TOKEN) {
             return reply(
-                '❌ Railway Variables හෝ GitHub Secrets වල APIFY_TOKEN සකස් කරන්න.'
+                '❌ APIFY_TOKEN එක Railway Variables වල සකස් කරන්න.'
             );
         }
 
         await conn.sendMessage(from, {
             react: { text: '🔎', key: mek.key }
-        });
+        }).catch(() => {});
 
-        const video = isYouTubeUrl(query)
-            ? { url: query, title: 'YouTube Audio' }
-            : (await yts(query))?.videos?.[0];
+        let video;
+
+        if (mode === 'url') {
+            if (!isYouTubeUrl(query)) {
+                return reply(
+                    '❌ නිවැරදි YouTube URL එකක් එවන්න.\n' +
+                    'උදා: https://youtu.be/VIDEO_ID'
+                );
+            }
+
+            video = {
+                url: query,
+                title: 'YouTube Audio'
+            };
+        } else if (isYouTubeUrl(query)) {
+            video = {
+                url: query,
+                title: 'YouTube Audio'
+            };
+        } else {
+            const result = await yts(query);
+            video = result?.videos?.[0];
+        }
 
         if (!video?.url || !isYouTubeUrl(video.url)) {
             return reply('❌ YouTube song එක හමු වුණේ නැහැ.');
@@ -303,7 +414,7 @@ async function processSong(conn, mek, from, query, reply) {
             '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
             '┃ 🎵 *ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 📌 ${video.title || query}\n` +
+            `┃ 📌 ${safeFileName(video.title || query)}\n` +
             '┃ ⏳ Audio එක බාගත කරමින්...\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
@@ -315,7 +426,6 @@ async function processSong(conn, mek, from, query, reply) {
         );
 
         console.log('[APIFY MP3] Title:', actor.title);
-        console.log('[APIFY MP3] Audio URL received:', Boolean(actor.audioUrl));
 
         const audioBuffer = await downloadAudio(actor.audioUrl);
 
@@ -326,7 +436,7 @@ async function processSong(conn, mek, from, query, reply) {
             {
                 audio: audioBuffer,
                 mimetype: 'audio/mpeg',
-                fileName: `${actor.title}.mp3`,
+                fileName: `${safeFileName(actor.title)}.mp3`,
                 ptt: false
             },
             { quoted: mek }
@@ -334,7 +444,8 @@ async function processSong(conn, mek, from, query, reply) {
 
         await conn.sendMessage(from, {
             react: { text: '✅', key: mek.key }
-        });
+        }).catch(() => {});
+
     } catch (error) {
         console.error('[APIFY MP3 ERROR]', error);
 
@@ -344,7 +455,7 @@ async function processSong(conn, mek, from, query, reply) {
 
         const message = error.message === 'FILE_TOO_LARGE'
             ? 'Audio file එක 64 MB සීමාව ඉක්මවයි.'
-            : String(error.message || 'Unknown error').slice(0, 300);
+            : String(error.message || 'Unknown error').slice(0, 250);
 
         return reply(
             '╭━━〔 *ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ* 〕━━╮\n' +
@@ -367,7 +478,11 @@ function registerSongListener(conn) {
 
                 const from = incoming.key?.remoteJid;
 
-                if (!from || !pendingSongs.has(from)) continue;
+                if (!from || from === 'status@broadcast') continue;
+
+                const pending = pendingSongs.get(from);
+
+                if (!pending) continue;
 
                 const query = getMessageText(incoming);
 
@@ -384,20 +499,43 @@ function registerSongListener(conn) {
                         from,
                         { text },
                         { quoted: incoming }
-                    )
+                    ),
+                    pending.mode
                 );
             } catch (error) {
-                console.error('[MP3 LISTENER ERROR]', error.message);
+                console.error('[MP3 LISTENER ERROR]', error);
             }
         }
     });
+}
+
+function requestSongInput(conn, from, mode, reply) {
+    pendingSongs.set(from, { mode });
+
+    return reply(
+        mode === 'url'
+            ? (
+                '╭━━〔 *ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅ* 〕━━╮\n' +
+                '┃ 🔗 YouTube URL එක එවන්න.\n' +
+                '┃ උදා: https://youtu.be/VIDEO_ID\n' +
+                '╰━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
+            )
+            : (
+                '╭━━〔 *sᴏɴɢ sᴇᴀʀᴄʜ* 〕━━╮\n' +
+                '┃ 🎶 Song name එක එවන්න.\n' +
+                '┃ උදා: Sinhala song name\n' +
+                '╰━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
+            )
+    );
 }
 
 cmd({
     pattern: 'mp3',
     alias: ['song', 'ytaudio', 'ytmp3'],
     react: '🎵',
-    desc: 'Search and download YouTube song as MP3',
+    desc: 'YouTube MP3 downloader with select menu',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
@@ -405,18 +543,31 @@ cmd({
 
     const query = args.join(' ').trim();
 
-    if (!query) {
-        pendingSongs.set(from, true);
-
-        return reply(
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎵 *ʏᴏᴜᴛᴜʙᴇ ᴍᴘ3 sᴇᴀʀᴄʜ*\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            '┃ 🎶 Song එකේ නම හෝ YouTube URL එක එවන්න.\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER
-        );
+    if (query) {
+        return processSong(conn, mek, from, query, reply, 'search');
     }
 
-    return processSong(conn, mek, from, query, reply);
+    return showSongMenu(conn, mek, from);
+});
+
+cmd({
+    pattern: 'mp3search',
+    alias: [],
+    desc: 'Search a song for MP3 download',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, reply }) => {
+    registerSongListener(conn);
+    return requestSongInput(conn, from, 'search', reply);
+});
+
+cmd({
+    pattern: 'mp3url',
+    alias: [],
+    desc: 'Download MP3 from YouTube URL',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, reply }) => {
+    registerSongListener(conn);
+    return requestSongInput(conn, from, 'url', reply);
 });
