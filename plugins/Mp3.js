@@ -1,258 +1,232 @@
 const { cmd } = require('../command');
 const yts = require('yt-search');
 
-const API_URL = 'https://sasa-dev-api.xyz/api/yt/mp3-dl';
-const API_KEY = process.env.SASA_YTMP3_API_KEY;
+const APIFY_TOKEN = process.env.APIFY_TOKEN;
+const ACTOR_ID = 'web.harvester~youtube-downloader';
 
-const FOOTER =
-    '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
-
-const pendingSongs = new Map();
-const activeChats = new Set();
+const MAX_AUDIO_SIZE = 25 * 1024 * 1024;
 
 function safeFileName(name) {
-    return String(name || 'THENUVA-X-MD')
-        .replace(/[\\/:*?"<>|]/g, '')
+    return String(name || 'song')
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .replace(/\s+/g, ' ')
-        .slice(0, 100) || 'THENUVA-X-MD';
+        .trim()
+        .slice(0, 100) || 'song';
 }
 
-function getAudioUrl(data) {
-    const keys = [
-        'download_url',
-        'downloadUrl',
-        'audio_url',
-        'audioUrl',
-        'url',
-        'link'
-    ];
+async function getApifyAudio(videoUrl) {
+    const endpoint =
+        `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items` +
+        `?token=${encodeURIComponent(APIFY_TOKEN)}&timeout=180`;
 
-    const queue = [data];
-    const seen = new Set();
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            includeInfo: true,
+            maxRequestRetries: 3,
+            proxyConfiguration: {
+                useApifyProxy: true
+            },
+            youtubeUrls: [
+                { url: videoUrl }
+            ]
+        }),
+        signal: AbortSignal.timeout(190000)
+    });
 
-    while (queue.length) {
-        const item = queue.shift();
+    const responseText = await response.text();
 
-        if (!item || typeof item !== 'object' || seen.has(item)) {
-            continue;
-        }
-
-        seen.add(item);
-
-        for (const key of keys) {
-            const value = item[key];
-
-            if (
-                typeof value === 'string' &&
-                /^https?:\/\//i.test(value)
-            ) {
-                return value;
-            }
-        }
-
-        for (const value of Object.values(item)) {
-            if (value && typeof value === 'object') {
-                queue.push(value);
-            }
-        }
+    if (!response.ok) {
+        throw new Error(
+            `Apify API error (${response.status}): ${responseText.slice(0, 300)}`
+        );
     }
 
-    return null;
-}
-
-async function downloadSong(conn, mek, from, reply, query) {
-    if (activeChats.has(from)) {
-        return reply('⏳ මේ chat එකේ download එකක් දැනටමත් සිදුවෙනවා.');
-    }
-
-    activeChats.add(from);
+    let items;
 
     try {
-        if (!API_KEY) {
-            return reply(
-                '❌ SASA_YTMP3_API_KEY එක GitHub Secrets / Railway Variables වල සකස් කරන්න.\n\n' +
-                FOOTER
-            );
-        }
-
-        await conn.sendMessage(from, {
-            react: { text: '🔎', key: mek.key }
-        });
-
-        const search = await yts(query);
-        const song = search?.videos?.[0];
-
-        if (!song?.url) {
-            return reply('❌ ඒ නමට ගැළපෙන YouTube සින්දුවක් හමු වුණේ නැහැ.');
-        }
-
-        await reply(
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎵 *MP3 DOWNLOAD*\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 📌 ${song.title}\n` +
-            '┃ ⏳ සින්දුව සකස් කරමින්...\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER
-        );
-
-        const endpoint = new URL(API_URL);
-        endpoint.searchParams.set('apikey', API_KEY);
-        endpoint.searchParams.set('url', song.url);
-        endpoint.searchParams.set('quality', '128');
-        endpoint.searchParams.set('raw', 'false');
-
-        const apiResponse = await fetch(endpoint, {
-            signal: AbortSignal.timeout(180000)
-        });
-
-        const contentType = (
-            apiResponse.headers.get('content-type') || ''
-        ).toLowerCase();
-
-        if (!apiResponse.ok) {
-            const errorText = await apiResponse.text();
-
-            console.error(
-                '[SASA MP3 ERROR]',
-                apiResponse.status,
-                errorText.slice(0, 500)
-            );
-
-            throw new Error(
-                `SASA API HTTP ${apiResponse.status}. පසුව නැවත උත්සාහ කරන්න.`
-            );
-        }
-
-        let audioBuffer;
-        let title = song.title;
-
-        if (
-            contentType.includes('audio/') ||
-            contentType.includes('application/octet-stream')
-        ) {
-            audioBuffer = Buffer.from(await apiResponse.arrayBuffer());
-        } else {
-            const responseData = await apiResponse.json();
-
-            if (
-                responseData?.success === false ||
-                responseData?.status === false
-            ) {
-                throw new Error(
-                    responseData?.message ||
-                    responseData?.error ||
-                    'API එකෙන් download එක අසාර්ථක බව දන්වා ඇත.'
-                );
-            }
-
-            const audioUrl = getAudioUrl(responseData);
-
-            if (!audioUrl) {
-                console.error(
-                    '[SASA MP3 RESPONSE]',
-                    JSON.stringify(responseData).slice(0, 1500)
-                );
-
-                throw new Error(
-                    'API response එකේ audio download URL එක හමු වුණේ නැහැ.'
-                );
-            }
-
-            title =
-                responseData?.data?.title ||
-                responseData?.title ||
-                song.title;
-
-            const audioResponse = await fetch(audioUrl, {
-                signal: AbortSignal.timeout(180000)
-            });
-
-            if (!audioResponse.ok) {
-                throw new Error(
-                    `Audio download HTTP ${audioResponse.status}`
-                );
-            }
-
-            const audioType = (
-                audioResponse.headers.get('content-type') || ''
-            ).toLowerCase();
-
-            if (
-                audioType.includes('text/html') ||
-                audioType.includes('application/json')
-            ) {
-                throw new Error('Download URL එකෙන් audio file එකක් ලැබුණේ නැහැ.');
-            }
-
-            audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-        }
-
-        if (!audioBuffer?.length) {
-            throw new Error('ලැබුණු audio file එක හිස්.');
-        }
-
-        if (audioBuffer.length > 64 * 1024 * 1024) {
-            throw new Error('Audio file එක 64 MB සීමාව ඉක්මවයි.');
-        }
-
-        const filename = safeFileName(title);
-
-        await conn.sendMessage(
-            from,
-            {
-                audio: audioBuffer,
-                mimetype: 'audio/mpeg',
-                fileName: `${filename}.mp3`,
-                ptt: false
-            },
-            { quoted: mek }
-        );
-
-        await conn.sendMessage(from, {
-            react: { text: '✅', key: mek.key }
-        });
-
-    } catch (error) {
-        console.error('[MP3 DOWNLOAD ERROR]', error.message);
-
-        await reply(
-            '╭━━〔 *ᴍᴘ3 ғᴀɪʟᴇᴅ* 〕━━╮\n' +
-            `┃ ❌ ${error.message}\n` +
-            '┃ නැවත ටික වේලාවකින් උත්සාහ කරන්න.\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER
-        );
-    } finally {
-        activeChats.delete(from);
+        items = JSON.parse(responseText);
+    } catch {
+        throw new Error('Apify returned invalid JSON.');
     }
+
+    if (!Array.isArray(items) || !items.length) {
+        throw new Error('Apify returned no output items.');
+    }
+
+    const item = items.find(
+        result => result && typeof result.fileUrl === 'string'
+    );
+
+    if (!item || !item.fileUrl) {
+        throw new Error('Apify output does not contain fileUrl.');
+    }
+
+    if (Number.parseFloat(item.fileSize) === 0) {
+        throw new Error(
+            'Apify reports fileSize as 0.00 MB. The audio may not have been generated.'
+        );
+    }
+
+    const audioResponse = await fetch(item.fileUrl, {
+        headers: {
+            'Accept': 'audio/mpeg, audio/*, application/octet-stream, */*'
+        },
+        signal: AbortSignal.timeout(120000)
+    });
+
+    if (!audioResponse.ok) {
+        const errorText = await audioResponse.text().catch(() => '');
+        throw new Error(
+            `Audio URL failed (${audioResponse.status}): ${errorText.slice(0, 200)}`
+        );
+    }
+
+    const contentType = (
+        audioResponse.headers.get('content-type') || ''
+    ).toLowerCase();
+
+    if (
+        contentType.includes('application/json') ||
+        contentType.includes('text/html') ||
+        contentType.startsWith('text/')
+    ) {
+        throw new Error(
+            `fileUrl returned ${contentType}, not an audio file.`
+        );
+    }
+
+    const declaredSize = Number(
+        audioResponse.headers.get('content-length') || 0
+    );
+
+    if (declaredSize > MAX_AUDIO_SIZE) {
+        throw new Error('Audio file exceeds the 25 MB limit.');
+    }
+
+    const audioBuffer = Buffer.from(
+        await audioResponse.arrayBuffer()
+    );
+
+    if (audioBuffer.length < 1024) {
+        throw new Error(
+            `Audio file is empty or too small (${audioBuffer.length} bytes).`
+        );
+    }
+
+    if (audioBuffer.length > MAX_AUDIO_SIZE) {
+        throw new Error('Audio file exceeds the 25 MB limit.');
+    }
+
+    // Check for common audio signatures.
+    const isMp3 =
+        audioBuffer.length >= 3 &&
+        audioBuffer.toString('ascii', 0, 3) === 'ID3';
+
+    const hasMpegFrame =
+        audioBuffer.length >= 2 &&
+        audioBuffer[0] === 0xFF &&
+        (audioBuffer[1] & 0xE0) === 0xE0;
+
+    const isMp4Audio =
+        audioBuffer.length >= 12 &&
+        audioBuffer.toString('ascii', 4, 8) === 'ftyp';
+
+    if (
+        !contentType.startsWith('audio/') &&
+        !isMp3 &&
+        !hasMpegFrame &&
+        !isMp4Audio
+    ) {
+        throw new Error(
+            'The fileUrl did not return a recognizable audio file.'
+        );
+    }
+
+    return {
+        buffer: audioBuffer,
+        title: safeFileName(item.fileTitle || 'song'),
+        mimeType: contentType.startsWith('audio/')
+            ? contentType.split(';')[0]
+            : 'audio/mpeg'
+    };
 }
 
-cmd({
-    pattern: 'mp3',
-    alias: ['song', 'audio', 'ytmp3'],
-    react: '🎵',
-    desc: 'Search and download MP3 by song name',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, args, reply }) => {
-    const query = args.join(' ').trim();
+cmd(
+    {
+        pattern: 'mp3',
+        alias: ['song', 'ytaudio', 'ytmp3'],
+        react: '🎵',
+        desc: 'Download a song as audio',
+        category: 'download',
+        filename: __filename
+    },
+    async (conn, mek, m, { from, args, q, reply }) => {
+        try {
+            const query = String(q || args?.join(' ') || '').trim();
 
-    if (!query) {
-        pendingSongs.set(from, true);
+            if (!query) {
+                return reply(
+                    '🎵 *YOUTUBE MP3 DOWNLOADER*\n\n' +
+                    'භාවිතය: `.mp3 song name`\n\n' +
+                    'උදාහරණය: `.mp3 Manike Mage Hithe`'
+                );
+            }
 
-        return reply(
-            '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎵 *MP3 SONG SEARCH*\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            '┃ සින්දුවේ නම දැන් එවන්න.\n' +
-            '┃ URL එකක් අවශ්‍ය නැහැ.\n' +
-            '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            FOOTER
-        );
+            if (!APIFY_TOKEN) {
+                return reply(
+                    '❌ APIFY_TOKEN සකස් කරලා නැහැ.\n' +
+                    'Railway Variables හෝ GitHub Secrets වල APIFY_TOKEN එක දාන්න.'
+                );
+            }
+
+            await reply(
+                '╭─〔 🎵 *MP3 DOWNLOADER* 〕\n' +
+                `│ 🔎 Song: ${query}\n` +
+                '│ ⏳ Searching YouTube...\n' +
+                '╰──────────────'
+            );
+
+            const search = await yts(query);
+            const video = search.videos && search.videos[0];
+
+            if (!video || !video.url) {
+                return reply('❌ ඒ නමින් YouTube song එකක් හොයාගන්න බැරි වුණා.');
+            }
+
+            await reply(
+                '🎶 *Song Found!*\n' +
+                `📌 ${video.title}\n` +
+                '⬇️ Audio එක සකස් කරමින් ඉන්නවා. ටිකක් ඉන්න...'
+            );
+
+            const result = await getApifyAudio(video.url);
+
+            await conn.sendMessage(
+                from,
+                {
+                    audio: result.buffer,
+                    mimetype: result.mimeType,
+                    fileName: `${result.title}.mp3`,
+                    ptt: false
+                },
+                { quoted: mek }
+            );
+
+        } catch (error) {
+            console.error('[MP3 DOWNLOADER ERROR]', error);
+
+            const message = String(error.message || '');
+
+            await reply(
+                '❌ *MP3 Download Failed*\n\n' +
+                `📌 හේතුව: ${message.slice(0, 500)}\n\n` +
+                'Apify Actor එකේ Run → Output සහ Log පරීක්ෂා කරන්න.'
+            );
+        }
     }
-
-    pendingSongs.delete(from);
-
-    return downloadSong(conn, mek, from, reply, query);
-});
+);
