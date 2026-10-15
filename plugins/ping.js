@@ -14,25 +14,80 @@ cmd(
 
     async (conn, mek, m, { from }) => {
         try {
-
             // ==============================
-            // SPEED TEST
+            // SPEED TEST ANIMATION
             // ==============================
             const start = Date.now();
 
-            await new Promise(resolve =>
-                setTimeout(resolve, 10)
-            );
+            const frames = [
+                '▰▱▱▱▱▱▱▱▱▱ 10%',
+                '▰▰▰▱▱▱▱▱▱▱ 30%',
+                '▰▰▰▰▰▱▱▱▱▱ 50%',
+                '▰▰▰▰▰▰▰▱▱▱ 70%',
+                '▰▰▰▰▰▰▰▰▰▰ 100%'
+            ];
 
+            let loadingMsg = null;
+
+            try {
+                loadingMsg = await conn.sendMessage(
+                    from,
+                    {
+                        text:
+                            '╭━━━〔 🏓 *THENUVA X MD* 〕━━━╮\n' +
+                            '┃\n' +
+                            '┃ ⚡ *INITIALIZING SPEED TEST*\n' +
+                            '┃\n' +
+                            '┃ ▱▱▱▱▱▱▱▱▱▱ 0%\n' +
+                            '┃\n' +
+                            '╰━━━━━━━━━━━━━━━━━━╯'
+                    },
+                    { quoted: mek }
+                );
+
+                for (const frame of frames) {
+                    await new Promise(resolve =>
+                        setTimeout(resolve, 180)
+                    );
+
+                    if (loadingMsg?.key) {
+                        await conn.sendMessage(
+                            from,
+                            {
+                                text:
+                                    '╭━━━〔 🏓 *THENUVA X MD* 〕━━━╮\n' +
+                                    '┃\n' +
+                                    '┃ 🚀 *CHECKING BOT SPEED*\n' +
+                                    '┃\n' +
+                                    `┃ ${frame}\n` +
+                                    '┃\n' +
+                                    '┃ ⚡ Please wait...\n' +
+                                    '┃\n' +
+                                    '╰━━━━━━━━━━━━━━━━━━╯',
+                                edit: loadingMsg.key
+                            }
+                        );
+                    }
+                }
+            } catch (animationError) {
+                console.log(
+                    '[PING ANIMATION]',
+                    animationError.message
+                );
+            }
+
+            // ==============================
+            // MEASURE RESPONSE TIME
+            // ==============================
             const speed = Date.now() - start;
 
             let status;
 
-            if (speed <= 50) {
+            if (speed <= 100) {
                 status = '🚀 SUPER FAST';
-            } else if (speed <= 150) {
+            } else if (speed <= 250) {
                 status = '⚡ VERY FAST';
-            } else if (speed <= 300) {
+            } else if (speed <= 500) {
                 status = '🟢 FAST';
             } else {
                 status = '🟡 NORMAL';
@@ -45,10 +100,9 @@ cmd(
                 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
             // ==============================
-            // PING MENU
+            // PING RESULT MENU
             // ==============================
             await sendListMenu(conn, from, {
-
                 title:
                     '🏓 THENUVA X MD',
 
@@ -58,18 +112,17 @@ cmd(
                 hideListButton:
                     true,
 
-                description: `
-╭━━━〔 🏓 PING 〕━━━╮
-┃
-┃ 🤖 *BOT* : THENUVA X MD
-┃ ⚡ *SPEED* : ${speed} ms
-┃ 📊 *STATUS* : ${status}
-┃
-┃ 🟢 *SYSTEM ONLINE*
-┃ 🔥 *BOT IS WORKING*
-┃
-╰━━━━━━━━━━━━━━━━━━╯
-                `.trim(),
+                description:
+                    '╭━━━〔 🏓 PING 〕━━━╮\n' +
+                    '┃\n' +
+                    '┃ 🤖 *BOT* : THENUVA X MD\n' +
+                    `┃ ⚡ *SPEED* : ${speed} ms\n` +
+                    `┃ 📊 *STATUS* : ${status}\n` +
+                    '┃\n' +
+                    '┃ 🟢 *SYSTEM ONLINE*\n' +
+                    '┃ 🔥 *BOT IS WORKING*\n' +
+                    '┃\n' +
+                    '╰━━━━━━━━━━━━━━━━━━╯',
 
                 footer:
                     '⚡ Powered by THENUVA X MD',
@@ -118,29 +171,26 @@ cmd(
                         ]
                     }
                 ]
-
             });
 
         } catch (error) {
-
             console.error(
                 '[PING ERROR]',
                 error
             );
 
             try {
-
                 await conn.sendMessage(
                     from,
                     {
                         text:
-                            `❌ *PING ERROR*\n\n` +
-                            `⚠️ ${error.message || 'Unknown error'}`
-                    }
+                            '╭━━━〔 ❌ PING ERROR 〕━━━╮\n' +
+                            `┃ ⚠️ ${error.message || 'Unknown error'}\n` +
+                            '╰━━━━━━━━━━━━━━━━━━╯'
+                    },
+                    { quoted: mek }
                 );
-
             } catch (sendError) {
-
                 console.error(
                     '[PING SEND ERROR]',
                     sendError
