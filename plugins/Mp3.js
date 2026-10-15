@@ -2,7 +2,7 @@ const { cmd } = require('../command');
 const yts = require('yt-search');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const ACTOR_ID = 'jhFDyDgMVUI';
+const ACTOR_ID = 's62HHSEOW9w92prnI';
 
 const API_URL =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
