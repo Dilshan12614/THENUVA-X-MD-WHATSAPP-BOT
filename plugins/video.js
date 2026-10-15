@@ -1,6 +1,6 @@
 const { cmd } = require('../command');
 const { sendListMenu } = require('../lib/buttons');
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const yts = require('yt-search');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
@@ -14,8 +14,9 @@ const MAX_VIDEO_SIZE = 64 * 1024 * 1024;
 const FOOTER =
     '> ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
 
-// Store selected YouTube URLs by chat.
 const pendingVideos = new Map();
+const pendingVideoNames = new Map();
+const registeredVideoListeners = new WeakSet();
 
 function isYouTubeUrl(value) {
     try {
@@ -222,7 +223,7 @@ async function downloadSelected(
         if (!input) {
             return reply(
                 '╭━━〔 *ɴᴏ ᴠɪᴅᴇᴏ sᴇʟᴇᴄᴛᴇᴅ* 〕━━╮\n' +
-                '┃ ❌ මුලින් `.video YouTube_URL` යවන්න.\n' +
+                '┃ ❌ මුලින් `.video` යවලා වීඩියෝ නමක් තෝරන්න.\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 FOOTER
             );
@@ -302,9 +303,7 @@ async function downloadSelected(
         try {
             result = JSON.parse(responseText);
         } catch {
-            throw new Error(
-                'Apify returned invalid JSON'
-            );
+            throw new Error('Apify returned invalid JSON');
         }
 
         const mediaUrl = findMediaUrl(result, mode);
@@ -450,42 +449,157 @@ async function downloadSelected(
     }
 }
 
+function getMessageText(message) {
+    const msg = message?.message || {};
+
+    return (
+        msg.conversation ||
+        msg.extendedTextMessage?.text ||
+        msg.imageMessage?.caption ||
+        msg.videoMessage?.caption ||
+        msg.documentMessage?.caption ||
+        msg.ephemeralMessage?.message?.conversation ||
+        msg.ephemeralMessage?.message?.extendedTextMessage?.text ||
+        ''
+    ).trim();
+}
+
+function registerVideoNameListener(conn) {
+    if (!conn?.ev || registeredVideoListeners.has(conn)) {
+        return;
+    }
+
+    registeredVideoListeners.add(conn);
+
+    conn.ev.on('messages.upsert', async ({ messages }) => {
+        for (const incoming of messages || []) {
+            try {
+                if (!incoming?.message || incoming.key?.fromMe) {
+                    continue;
+                }
+
+                const from = incoming.key?.remoteJid;
+
+                if (!from || !pendingVideoNames.has(from)) {
+                    continue;
+                }
+
+                const text = getMessageText(incoming);
+
+                if (!text || text.startsWith('.')) {
+                    continue;
+                }
+
+                pendingVideoNames.delete(from);
+
+                await conn.sendMessage(from, {
+                    react: {
+                        text: '🔎',
+                        key: incoming.key
+                    }
+                });
+
+                const search = await yts(text);
+                const video = search?.videos?.[0];
+
+                if (!video?.url) {
+                    await conn.sendMessage(
+                        from,
+                        {
+                            text:
+                                '╭━━〔 *ᴠɪᴅᴇᴏ ɴᴏᴛ ғᴏᴜɴᴅ* 〕━━╮\n' +
+                                '┃ ❌ ඒ නමට ගැළපෙන YouTube වීඩියෝවක් හමු වුණේ නැහැ.\n' +
+                                '┃ ➜ නැවත `.video` යවලා උත්සාහ කරන්න.\n' +
+                                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                                FOOTER
+                        },
+                        { quoted: incoming }
+                    );
+
+                    continue;
+                }
+
+                await sendFormatMenu(
+                    conn,
+                    from,
+                    incoming,
+                    video.url
+                );
+
+            } catch (error) {
+                console.error(
+                    '[VIDEO NAME SEARCH ERROR]',
+                    error.message
+                );
+            }
+        }
+    });
+}
+
 cmd({
     pattern: 'video',
     alias: ['ytmp4', 'ytvideo'],
     react: '🎬',
-    desc: 'Download YouTube media',
+    desc: 'Search and download YouTube video by name',
     category: 'download',
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
+    registerVideoNameListener(conn);
+
     const input = args.join(' ').trim();
 
     if (!input) {
+        pendingVideoNames.set(from, true);
+
         return reply(
             '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ 🎬 *ʏᴏᴜᴛᴜʙᴇ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ*\n' +
+            '┃ 🎬 *ʏᴏᴜᴛᴜʙᴇ ᴠɪᴅᴇᴏ sᴇᴀʀᴄʜ*\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            '┃ ➜ .video YouTube_URL\n' +
+            '┃ 🎵 දැන් වීඩියෝ එකේ නම එවන්න.\n' +
+            '┃ ➜ URL එකක් අවශ්‍ය නැහැ.\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
     }
 
-    if (!isYouTubeUrl(input)) {
+    try {
+        await conn.sendMessage(from, {
+            react: {
+                text: '🔎',
+                key: mek.key
+            }
+        });
+
+        const video = isYouTubeUrl(input)
+            ? { url: input }
+            : (await yts(input))?.videos?.[0];
+
+        if (!video?.url) {
+            return reply(
+                '╭━━〔 *ᴠɪᴅᴇᴏ ɴᴏᴛ ғᴏᴜɴᴅ* 〕━━╮\n' +
+                '┃ ❌ ඒ නමට ගැළපෙන YouTube වීඩියෝවක් හමු වුණේ නැහැ.\n' +
+                '┣━━━━━━━━━━━━━━━━━━╯\n' +
+                FOOTER
+            );
+        }
+
+        return sendFormatMenu(
+            conn,
+            from,
+            mek,
+            video.url
+        );
+
+    } catch (error) {
+        console.error('[VIDEO SEARCH ERROR]', error);
+
         return reply(
-            '╭━━〔 *ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ* 〕━━╮\n' +
-            '┃ ❌ නිවැරදි YouTube URL එකක් ලබා දෙන්න.\n' +
+            '╭━━〔 *sᴇᴀʀᴄʜ ғᴀɪʟᴇᴅ* 〕━━╮\n' +
+            `┃ ❌ ${error.message}\n` +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
     }
-
-    return sendFormatMenu(
-        conn,
-        from,
-        mek,
-        input
-    );
 });
 
 // WhatsApp list selections are handled by these commands.
