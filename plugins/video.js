@@ -8,11 +8,8 @@ const path = require('path');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 
-const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const ACTOR_ID = 'ZSKNl5eniyeAPcPkf';
-
-const API_URL =
-    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items`;
+const SASA_API_KEY = process.env.SASA_API_KEY;
+const API_URL = 'https://sasa-dev-api.xyz/api/yt/mp4-dl';
 
 const TIMEOUT = 300000;
 const MAX_MEDIA_SIZE = 512 * 1024 * 1024;
@@ -24,6 +21,8 @@ const pendingVideos = new Map();
 const pendingVideoNames = new Map();
 const registeredVideoListeners = new WeakSet();
 
+const QUALITIES = ['360', '480', '720', '1080'];
+
 function isYouTubeUrl(value) {
     try {
         const url = new URL(value);
@@ -34,141 +33,25 @@ function isYouTubeUrl(value) {
             'm.youtube.com',
             'youtu.be',
             'www.youtu.be'
-        ].includes(url.hostname) &&
+        ].includes(url.hostname.toLowerCase()) &&
         ['http:', 'https:'].includes(url.protocol);
     } catch {
         return false;
     }
 }
 
-function findMediaUrl(data, mode) {
-    const seen = new Set();
-    const queue = Array.isArray(data) ? [...data] : [data];
-
-    const keys = mode === 'mp3'
-        ? [
-            'audioUrl',
-            'audio_url',
-            'downloadUrl',
-            'download_url',
-            'url',
-            'link'
-        ]
-        : [
-            'downloadUrl',
-            'download_url',
-            'videoUrl',
-            'video_url',
-            'url',
-            'link'
-        ];
-
-    while (queue.length) {
-        const item = queue.shift();
-
-        if (
-            !item ||
-            typeof item !== 'object' ||
-            seen.has(item)
-        ) {
-            continue;
-        }
-
-        seen.add(item);
-
-        const type = String(
-            item.contentType ||
-            item.mimeType ||
-            item.mediaType ||
-            ''
-        ).toLowerCase();
-
-        for (const key of keys) {
-            const value = item[key];
-
-            if (
-                typeof value !== 'string' ||
-                !/^https?:\/\//i.test(value)
-            ) {
-                continue;
-            }
-
-            const isAudio =
-                /\.(mp3|m4a|aac|ogg|wav)(?:[?#]|$)/i.test(value) ||
-                type.startsWith('audio/');
-
-            const isVideo =
-                /\.(mp4|m4v|webm|mov)(?:[?#]|$)/i.test(value) ||
-                type.startsWith('video/');
-
-            if (mode === 'mp3' && isAudio) {
-                return value;
-            }
-
-            if (mode !== 'mp3' && isVideo) {
-                return value;
-            }
-        }
-
-        for (const value of Object.values(item)) {
-            if (value && typeof value === 'object') {
-                queue.push(value);
-            }
-        }
-    }
-
-    return null;
-}
-
-function findTitle(data) {
-    const queue = Array.isArray(data) ? [...data] : [data];
-    const seen = new Set();
-
-    while (queue.length) {
-        const item = queue.shift();
-
-        if (
-            !item ||
-            typeof item !== 'object' ||
-            seen.has(item)
-        ) {
-            continue;
-        }
-
-        seen.add(item);
-
-        const title =
-            item.title ||
-            item.videoTitle ||
-            item.name ||
-            item.data?.title;
-
-        if (
-            typeof title === 'string' &&
-            title.trim()
-        ) {
-            return title;
-        }
-
-        for (const value of Object.values(item)) {
-            if (value && typeof value === 'object') {
-                queue.push(value);
-            }
-        }
-    }
-
-    return 'YouTube Video';
-}
-
 function safeFileName(value) {
-    return String(value)
+    return String(value || 'THENUVA-X-MD')
         .replace(/[\\/:*?"<>|]/g, '')
         .replace(/\s+/g, ' ')
         .slice(0, 100) || 'THENUVA-X-MD';
 }
 
-async function sendFormatMenu(conn, from, mek, url) {
-    pendingVideos.set(from, url);
+async function sendQualityMenu(conn, from, mek, video) {
+    pendingVideos.set(from, {
+        url: video.url,
+        title: video.title || 'YouTube Video'
+    });
 
     return sendListMenu(
         conn,
@@ -176,42 +59,45 @@ async function sendFormatMenu(conn, from, mek, url) {
         {
             title:
                 '╭━━〔 *ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ* 〕━━╮\n' +
-                '┃ 🎬 *SELECT FORMAT*\n' +
+                '┃ 🎬 *SELECT VIDEO QUALITY*\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 '┃\n' +
-                '┃ 📥 *Download Options*\n' +
+                `┃ 📌 ${video.title || 'YouTube Video'}\n` +
                 '┃\n' +
-                '┃ 🎵 Audio (MP3)\n' +
-                '┃ ➜ Download audio only\n' +
+                '┃ 📥 අවශ්‍ය Quality එක තෝරන්න\n' +
                 '┃\n' +
-                '┃ 🎬 Video (Playable)\n' +
-                '┃ ➜ MP4 playable video\n' +
-                '┃\n' +
-                '┃ 📁 Video Document\n' +
-                '┃ ➜ MP4 as document\n' +
+                '┃ 📺 360p  •  අඩු Data භාවිතය\n' +
+                '┃ 📺 480p  •  සාමාන්‍ය Quality\n' +
+                '┃ 📺 720p  •  HD Quality\n' +
+                '┃ 📺 1080p •  Full HD Quality\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯',
 
-            buttonText: 'Select',
+            buttonText: 'Select Quality',
             footer: FOOTER,
 
             sections: [
                 {
-                    title: '📥 Download Options',
+                    title: '🎬 MP4 Video Quality',
                     rows: [
                         {
-                            id: 'ytformat_mp3',
-                            title: '🎵 Audio (MP3)',
-                            description: 'Download audio only'
+                            id: 'ytquality_360',
+                            title: '📺 360p',
+                            description: 'Small size • Save data'
                         },
                         {
-                            id: 'ytformat_mp4',
-                            title: '🎬 Video (Playable)',
-                            description: 'MP4 playable video'
+                            id: 'ytquality_480',
+                            title: '📺 480p',
+                            description: 'Standard video quality'
                         },
                         {
-                            id: 'ytformat_doc',
-                            title: '📁 Video Document',
-                            description: 'MP4 as document'
+                            id: 'ytquality_720',
+                            title: '📺 720p HD',
+                            description: 'High definition video'
+                        },
+                        {
+                            id: 'ytquality_1080',
+                            title: '📺 1080p Full HD',
+                            description: 'Full HD, if supported'
                         }
                     ]
                 }
@@ -221,19 +107,13 @@ async function sendFormatMenu(conn, from, mek, url) {
     );
 }
 
-async function downloadSelected(
-    conn,
-    mek,
-    from,
-    reply,
-    mode
-) {
+async function downloadVideo(conn, mek, from, reply, quality) {
     let tempDir;
 
     try {
-        const input = pendingVideos.get(from);
+        const selected = pendingVideos.get(from);
 
-        if (!input) {
+        if (!selected?.url) {
             return reply(
                 '╭━━〔 *ɴᴏ ᴠɪᴅᴇᴏ sᴇʟᴇᴄᴛᴇᴅ* 〕━━╮\n' +
                 '┃ ❌ මුලින් `.video` යවලා වීඩියෝවක් තෝරන්න.\n' +
@@ -242,177 +122,112 @@ async function downloadSelected(
             );
         }
 
-        if (!APIFY_TOKEN) {
+        if (!SASA_API_KEY) {
             return reply(
                 '╭━━〔 *ᴀᴘɪ ᴄᴏɴғɪɢ* 〕━━╮\n' +
-                '┃ ❌ GitHub Secrets වල APIFY_TOKEN සකස් කරන්න.\n' +
+                '┃ ❌ SASA_API_KEY එක සකස් කර නැහැ.\n' +
+                '┃ ➜ Railway Variables වලට API key එක එක් කරන්න.\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 FOOTER
             );
         }
 
-        await conn.sendMessage(from, {
-            react: {
-                text: '⏳',
-                key: mek.key
-            }
-        });
+        if (!QUALITIES.includes(String(quality))) {
+            return reply('❌ Invalid video quality.');
+        }
 
-        const formatName = mode === 'mp3'
-            ? 'Audio (MP3)'
-            : mode === 'doc'
-                ? 'Video Document'
-                : 'Video (Playable)';
+        await conn.sendMessage(from, {
+            react: { text: '⏳', key: mek.key }
+        });
 
         await reply(
             '╭━━〔 *ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ* 〕━━╮\n' +
-            '┃ ⏳ *ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...*\n' +
+            '┃ ⏳ *ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ...*\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 📌 Format: ${formatName}\n` +
-            '┃ 📥 Large file support enabled\n' +
+            `┃ 📺 Quality: ${quality}p\n` +
+            '┃ 📥 Format: MP4\n' +
             '┃ ➜ Please wait...\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
 
-        const apiResponse = await fetch(API_URL, {
-            method: 'POST',
+        const requestUrl = new URL(API_URL);
+        requestUrl.searchParams.set('apikey', SASA_API_KEY);
+        requestUrl.searchParams.set('url', selected.url);
+        requestUrl.searchParams.set('quality', String(quality));
+        requestUrl.searchParams.set('raw', '1');
+
+        const response = await fetch(requestUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            signal: AbortSignal.timeout(TIMEOUT),
             headers: {
-                Authorization: `Bearer ${APIFY_TOKEN}`,
-                'Content-Type': 'application/json',
-                Accept: 'application/json'
-            },
-            body: JSON.stringify({
-                urls: [{ url: input }],
-                quality: '720',
-                format: mode === 'mp3' ? 'mp3' : 'default',
-                residentialProxyMode: 'fallback',
-                proxyCountry: ''
-            }),
-            signal: AbortSignal.timeout(TIMEOUT)
+                Accept: 'video/mp4, application/octet-stream, application/json'
+            }
         });
 
-        const responseText = await apiResponse.text();
-
-        if (!apiResponse.ok) {
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
             console.error(
-                '[APIFY VIDEO] HTTP:',
-                apiResponse.status
+                '[SASA VIDEO API]',
+                response.status,
+                errorText.slice(0, 500)
             );
 
-            console.error(
-                '[APIFY VIDEO] Error:',
-                responseText.slice(0, 1000)
-            );
-
-            throw new Error(
-                `Apify API HTTP ${apiResponse.status}`
-            );
-        }
-
-        let result;
-
-        try {
-            result = JSON.parse(responseText);
-        } catch {
-            throw new Error('Apify returned invalid JSON');
-        }
-
-        const failedItem = Array.isArray(result)
-            ? result.find(item =>
-                item?.status === 'failed' || item?.error
-            )
-            : null;
-
-        if (failedItem) {
-            console.error(
-                '[APIFY ACTOR FAILED]',
-                JSON.stringify({
-                    errorCode: failedItem.errorCode,
-                    error: failedItem.error,
-                    quality: failedItem.quality
-                })
-            );
-
-            throw new Error(
-                failedItem.errorCode ||
-                failedItem.error ||
-                'Apify download failed'
-            );
-        }
-
-        const mediaUrl = findMediaUrl(result, mode);
-
-        if (!mediaUrl) {
-            console.error(
-                '[APIFY VIDEO] Output:',
-                JSON.stringify(result).slice(0, 2000)
-            );
-
-            throw new Error(
-                `Actor output එකේ ${
-                    mode === 'mp3' ? 'MP3' : 'MP4'
-                } download URL එක හමු වුණේ නැහැ`
-            );
-        }
-
-        const mediaResponse = await fetch(mediaUrl, {
-            headers: {
-                Accept:
-                    'video/*, audio/*, application/octet-stream'
-            },
-            signal: AbortSignal.timeout(TIMEOUT)
-        });
-
-        if (!mediaResponse.ok) {
-            throw new Error(
-                `Media download HTTP ${mediaResponse.status}`
-            );
+            throw new Error(`API_HTTP_${response.status}`);
         }
 
         const contentType = (
-            mediaResponse.headers.get('content-type') || ''
+            response.headers.get('content-type') || ''
         ).toLowerCase();
 
         if (
-            mode === 'mp3'
-                ? !contentType.includes('audio/') &&
-                  !contentType.includes('application/octet-stream')
-                : !contentType.includes('video/') &&
-                  !contentType.includes('application/octet-stream')
+            contentType.includes('text/html') ||
+            contentType.includes('application/json') ||
+            contentType.includes('text/plain')
+        ) {
+            const body = await response.text().catch(() => '');
+
+            console.error(
+                '[SASA API NON-VIDEO RESPONSE]',
+                body.slice(0, 1000)
+            );
+
+            throw new Error(
+                'API returned a message instead of an MP4 file. Check API response and key.'
+            );
+        }
+
+        if (
+            !contentType.includes('video/') &&
+            !contentType.includes('application/octet-stream') &&
+            !contentType.includes('binary/octet-stream')
         ) {
             throw new Error(
-                `Invalid media content type: ${
-                    contentType || 'unknown'
-                }`
+                `Unsupported content type: ${contentType || 'unknown'}`
             );
         }
 
         const declaredSize = Number(
-            mediaResponse.headers.get('content-length') || 0
+            response.headers.get('content-length') || 0
         );
 
         if (declaredSize > MAX_MEDIA_SIZE) {
             throw new Error('FILE_TOO_LARGE');
         }
 
-        if (!mediaResponse.body) {
-            throw new Error('Media response has no data stream');
+        if (!response.body) {
+            throw new Error('API returned an empty response.');
         }
 
         tempDir = await fs.promises.mkdtemp(
             path.join(os.tmpdir(), 'thenuva-video-')
         );
 
-        const extension = mode === 'mp3' ? 'mp3' : 'mp4';
-        const tempFile = path.join(
-            tempDir,
-            `download.${extension}`
-        );
-
+        const tempFile = path.join(tempDir, 'video.mp4');
         let downloadedSize = 0;
 
-        const source = Readable.fromWeb(mediaResponse.body);
+        const source = Readable.fromWeb(response.body);
 
         source.on('data', chunk => {
             downloadedSize += chunk.length;
@@ -441,103 +256,96 @@ async function downloadSelected(
         const fileInfo = await fs.promises.stat(tempFile);
 
         if (!fileInfo.size) {
-            throw new Error('Downloaded file is empty');
+            throw new Error('Downloaded MP4 is empty.');
         }
 
         if (fileInfo.size > MAX_MEDIA_SIZE) {
             throw new Error('FILE_TOO_LARGE');
         }
 
-        const title = safeFileName(findTitle(result));
+        // Basic MP4 signature validation (ftyp box).
+        const fileHandle = await fs.promises.open(tempFile, 'r');
+
+        try {
+            const header = Buffer.alloc(12);
+            const { bytesRead } = await fileHandle.read(
+                header, 0, 12, 0
+            );
+
+            if (
+                bytesRead < 8 ||
+                header.toString('ascii', 4, 8) !== 'ftyp'
+            ) {
+                throw new Error(
+                    'The API response is not a valid MP4 file.'
+                );
+            }
+        } finally {
+            await fileHandle.close();
+        }
+
+        const title = safeFileName(selected.title);
 
         const caption =
             '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴄᴄᴇss* 〕━━╮\n' +
-            `┃ 📌 *${title}*\n` +
+            `┃ 🎬 *${title}*\n` +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
-            `┃ 🎞️ Format: ${formatName}\n` +
+            `┃ 📺 Quality: ${quality}p\n` +
+            '┃ 📁 Format: MP4\n' +
             `┃ 📦 Size: ${(fileInfo.size / (1024 * 1024)).toFixed(1)} MB\n` +
             '┃ ✅ Status: Success\n' +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER;
 
-        if (mode === 'mp3') {
-            await conn.sendMessage(
-                from,
-                {
-                    audio: { url: tempFile },
-                    mimetype: 'audio/mpeg',
-                    fileName: `${title}.mp3`,
-                    ptt: false
-                },
-                { quoted: mek }
-            );
-        } else if (mode === 'doc') {
-            await conn.sendMessage(
-                from,
-                {
-                    document: { url: tempFile },
-                    mimetype: 'video/mp4',
-                    fileName: `${title}.mp4`,
-                    caption
-                },
-                { quoted: mek }
-            );
-        } else {
-            await conn.sendMessage(
-                from,
-                {
-                    video: { url: tempFile },
-                    mimetype: 'video/mp4',
-                    fileName: `${title}.mp4`,
-                    caption
-                },
-                { quoted: mek }
-            );
-        }
+        await conn.sendMessage(
+            from,
+            {
+                video: { url: tempFile },
+                mimetype: 'video/mp4',
+                fileName: `${title}.mp4`,
+                caption
+            },
+            { quoted: mek }
+        );
 
         pendingVideos.delete(from);
 
         await conn.sendMessage(from, {
-            react: {
-                text: '✅',
-                key: mek.key
-            }
+            react: { text: '✅', key: mek.key }
         });
 
     } catch (error) {
         console.error(
-            '[APIFY DOWNLOAD ERROR]',
+            '[SASA VIDEO DOWNLOAD ERROR]',
             error.stack || error.message
         );
 
         await conn.sendMessage(from, {
-            react: {
-                text: '❌',
-                key: mek.key
-            }
+            react: { text: '❌', key: mek.key }
         }).catch(() => {});
 
-        let errorMessage = error.message;
+        let message = error.message || 'Unknown error';
 
-        if (error.message === 'FILE_TOO_LARGE') {
-            errorMessage =
-                'වීඩියෝව 512 MB සීමාව ඉක්මවයි. කුඩා quality එකක් උත්සාහ කරන්න.';
-        } else if (
-            error.message === 'LOGIN_REQUIRED' ||
-            error.message === 'HTTP_403'
-        ) {
-            errorMessage =
-                'YouTube download එක ප්‍රතික්ෂේප කළා. Apify account එකේ Residential Proxy access සක්‍රීයද බලන්න.';
-        } else if (
-            /proxy|residential/i.test(error.message)
-        ) {
-            errorMessage =
-                'Apify Proxy access එක පරීක්ෂා කරන්න. Residential Proxy සඳහා අමතර access හෝ credits අවශ්‍ය විය හැකියි.';
+        if (message === 'FILE_TOO_LARGE') {
+            message =
+                'වීඩියෝව 512 MB සීමාව ඉක්මවයි. අඩු Quality එකක් තෝරන්න.';
+        } else if (/API_HTTP_401|API_HTTP_403/.test(message)) {
+            message =
+                'API key එක වැරදි විය හැකියි, නැත්නම් API access ප්‍රතික්ෂේප වී ඇත.';
+        } else if (/API_HTTP_429/.test(message)) {
+            message =
+                'API requests වැඩියි. ටික වේලාවකින් නැවත උත්සාහ කරන්න.';
+        } else if (/API_HTTP_5\d\d/.test(message)) {
+            message =
+                'Sasa API server එකේ ගැටලුවක්. පසුව නැවත උත්සාහ කරන්න.';
+        } else if (/AbortError|TimeoutError/i.test(message)) {
+            message =
+                'Download එකට වැඩි වේලාවක් ගියා. නැවත උත්සාහ කරන්න.';
         }
 
         return reply(
             '╭━━〔 *ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ* 〕━━╮\n' +
-            `┃ ❌ ${errorMessage}\n` +
+            `┃ ❌ ${message}\n` +
             '┣━━━━━━━━━━━━━━━━━━╯\n' +
             FOOTER
         );
@@ -601,10 +409,7 @@ function registerVideoNameListener(conn) {
                 pendingVideoNames.delete(from);
 
                 await conn.sendMessage(from, {
-                    react: {
-                        text: '🔎',
-                        key: incoming.key
-                    }
+                    react: { text: '🔎', key: incoming.key }
                 });
 
                 const search = await yts(text);
@@ -616,7 +421,7 @@ function registerVideoNameListener(conn) {
                         {
                             text:
                                 '╭━━〔 *ᴠɪᴅᴇᴏ ɴᴏᴛ ғᴏᴜɴᴅ* 〕━━╮\n' +
-                                '┃ ❌ ඒ නමට ගැළපෙන YouTube වීඩියෝවක් හමු වුණේ නැහැ.\n' +
+                                '┃ ❌ YouTube වීඩියෝවක් හමු වුණේ නැහැ.\n' +
                                 '┃ ➜ නැවත `.video` යවලා උත්සාහ කරන්න.\n' +
                                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                                 FOOTER
@@ -627,11 +432,14 @@ function registerVideoNameListener(conn) {
                     continue;
                 }
 
-                await sendFormatMenu(
+                await sendQualityMenu(
                     conn,
                     from,
                     incoming,
-                    video.url
+                    {
+                        url: video.url,
+                        title: video.title
+                    }
                 );
 
             } catch (error) {
@@ -669,30 +477,30 @@ cmd({
 
     try {
         await conn.sendMessage(from, {
-            react: {
-                text: '🔎',
-                key: mek.key
-            }
+            react: { text: '🔎', key: mek.key }
         });
 
         const video = isYouTubeUrl(input)
-            ? { url: input }
+            ? { url: input, title: 'YouTube Video' }
             : (await yts(input))?.videos?.[0];
 
         if (!video?.url) {
             return reply(
                 '╭━━〔 *ᴠɪᴅᴇᴏ ɴᴏᴛ ғᴏᴜɴᴅ* 〕━━╮\n' +
-                '┃ ❌ ඒ නමට ගැළපෙන YouTube වීඩියෝවක් හමු වුණේ නැහැ.\n' +
+                '┃ ❌ ඒ නමට ගැළපෙන වීඩියෝවක් හමු වුණේ නැහැ.\n' +
                 '┣━━━━━━━━━━━━━━━━━━╯\n' +
                 FOOTER
             );
         }
 
-        return sendFormatMenu(
+        return sendQualityMenu(
             conn,
             from,
             mek,
-            video.url
+            {
+                url: video.url,
+                title: video.title || 'YouTube Video'
+            }
         );
 
     } catch (error) {
@@ -710,35 +518,19 @@ cmd({
     }
 });
 
-cmd({
-    pattern: 'ytformat_mp3',
-    desc: 'Download selected MP3 format',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(
-        conn, mek, from, reply, 'mp3'
-    );
-});
-
-cmd({
-    pattern: 'ytformat_mp4',
-    desc: 'Download selected playable MP4',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(
-        conn, mek, from, reply, 'mp4'
-    );
-});
-
-cmd({
-    pattern: 'ytformat_doc',
-    desc: 'Download selected MP4 document',
-    category: 'download',
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-    return downloadSelected(
-        conn, mek, from, reply, 'doc'
-    );
-});
+for (const quality of QUALITIES) {
+    cmd({
+        pattern: `ytquality_${quality}`,
+        desc: `Download YouTube MP4 in ${quality}p`,
+        category: 'download',
+        filename: __filename
+    }, async (conn, mek, m, { from, reply }) => {
+        return downloadVideo(
+            conn,
+            mek,
+            from,
+            reply,
+            quality
+        );
+    });
+}
