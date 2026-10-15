@@ -1,130 +1,252 @@
-const { cmd, commands } = require("../command");
-const yts = require("yt-search");
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const { cmd } = require('../command');
+const yts = require('yt-search');
+const { ytmp3 } = require('@vreden/youtube_scraper');
+const { sendListMenu } = require('../lib/buttons');
 
-cmd(
-  {
-    pattern: "song",
-    alias: ["play", "music", "ytmp3"],
-    react: "🎶",
-    desc: "Download YouTube songs as MP3 audio/document.",
-    category: "download",
-    filename: __filename,
-  },
-  async (
-    danuwa,
-    mek,
-    m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
+const songCache = new Map();
+const activeDownloads = new Set();
+
+const FOOTER = '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa';
+
+function cleanName(name = 'THENUVA-SONG') {
+    return String(name)
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 100) || 'THENUVA-SONG';
+}
+
+function validVideoId(id) {
+    return /^[\w-]{11}$/.test(id);
+}
+
+function getVideo(id) {
+    const entry = songCache.get(id);
+
+    if (!entry || Date.now() - entry.time > 15 * 60 * 1000) {
+        songCache.delete(id);
+        return null;
     }
-  ) => {
+
+    return entry.video;
+}
+
+async function showSongResults(conn, mek, from, query) {
     try {
-      // 1. පරිශීලකයා නමක් හෝ ලින්ක් එකක් ලබා දී ඇත්දැයි බැලීම
-      if (!q) return reply("⚠️ *Please provide a song name or a YouTube link!*");
+        const result = await yts(query);
+        const videos = (result.videos || [])
+            .filter(v => v.videoId && validVideoId(v.videoId))
+            .slice(0, 5);
 
-      // JID එක සදහා ආරක්ෂිතව String එකක් ලබා ගැනීම
-      const targetJid = typeof from === 'string' ? from : (mek.key.remoteJid || String(from));
+        if (!videos.length) {
+            return conn.sendMessage(
+                from,
+                { text: '❌ සිංදු හොයාගන්න බැරි වුණා. වෙනත් නමක් දාලා බලන්න.' },
+                { quoted: mek }
+            );
+        }
 
-      // 2. සින්දුව සෙවීම ආරම්භ කළ බව පෙන්වීම
-      const loadingMsg = await danuwa.sendMessage(targetJid, { 
-        text: `🎵 *DENETH-MD Searching Your Song...*\n\`"${q}"\`` 
-      }, { quoted: mek });
+        for (const video of videos) {
+            songCache.set(video.videoId, {
+                video,
+                time: Date.now()
+            });
+        }
 
-      const search = await yts(q);
-      if (!search.videos || search.videos.length === 0) {
-        return await danuwa.sendMessage(targetJid, { text: "❌ *Song not found! Please check the name and try again.*", edit: loadingMsg.key });
-      }
-      
-      const data = search.videos[0];
-      const url = data.url;
+        await sendListMenu(conn, from, {
+            title: '🎧 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ',
+            buttonText: '🎵 CHOOSE SONG',
+            footer: FOOTER,
+            sections: [{
+                title: '🎶 CHOOSE YOUR SONG BELOW',
+                rows: videos.map((video, index) => ({
+                    id: `thenuva:songpick:${video.videoId}`,
+                    title: `${index + 1}. ${video.title}`.slice(0, 24),
+                    description:
+                        `${video.author?.name || video.author || 'Unknown'} • ${video.timestamp || 'Unknown length'}`
+                            .slice(0, 72)
+                }))
+            }]
+        }, mek);
 
-      // 3. සින්දුවේ විස්තර ලස්සනට Format කිරීම
-      let desc = `*🎶 DENETH-MD SONG DOWNLOADER 🎶*
+    } catch (error) {
+        console.error('[SONG SEARCH ERROR]', error);
 
-🎬 *Title:* ${data.title}
-⏱️ *Duration:* ${data.timestamp}
-📅 *Uploaded:* ${data.ago}
-👀 *Views:* ${data.views.toLocaleString()}
-🔗 *URL:* ${data.url}
-
-> *Downloading your audio... Please wait!* ⏳`;
-
-      // විස්තර පත්‍රිකාව Thumbnail එක සමඟ යැවීම සහ කලින් සෙවුම් මැසේජ් එක මකා දැමීම/වෙනස් කිරීම
-      await danuwa.sendMessage(targetJid, { text: `✅ *Song Found! Sending details...*` }, { edit: loadingMsg.key });
-      
-      await danuwa.sendMessage(
-        targetJid,
-        { image: { url: data.thumbnail }, caption: desc },
-        { quoted: mek }
-      );
-
-      // 4. කාලය පරීක්ෂා කිරීම (විනාඩි 30 සීමාව)
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
-
-      if (totalSeconds > 1800) {
-        return reply("⏳ *Sorry, audio files longer than 30 minutes are not supported.*");
-      }
-
-      // 5. යූටියුබ් වෙතින් සින්දුව ඩවුන්ලෝඩ් කර ගැනීම
-      const quality = "192";
-      const songData = await ytmp3(url, quality);
-
-      if (!songData || !songData.download || !songData.download.url) {
-        return reply("❌ *Failed to fetch download link. Please try again later.*");
-      }
-
-      // 6. වට්සැප් එකට Audio එකක් ලෙස යැවීම
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          audio: { url: songData.download.url },
-          mimetype: "audio/mp4",
-        },
-        { quoted: mek }
-      );
-
-      // 7. වට්සැප් එකට Document එකක් ලෙස යැවීම
-      await danuwa.sendMessage(
-        targetJid,
-        {
-          document: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`,
-          caption: "🎶 *Your song document is ready!* \n\n> *Generated by DENETH-MD* 🚀",
-        },
-        { quoted: mek }
-      );
-
-      return reply("✅ *Thank you for using DENETH-MD!*");
-    } catch (e) {
-      console.log(e);
-      reply(`❌ *Error:* ${e.message} 😞`);
+        await conn.sendMessage(
+            from,
+            { text: '❌ Song search එකේ දෝෂයක් ඇති වුණා. නැවත උත්සාහ කරන්න.' },
+            { quoted: mek }
+        );
     }
-  }
-);
+}
+
+async function showDownloadOptions(conn, mek, from, videoId) {
+    const video = getVideo(videoId);
+
+    if (!video) {
+        return conn.sendMessage(from, {
+            text: '⌛ මේ song selection එක කල් ඉකුත් වෙලා. `.song සිංදුවේ නම` දාලා නැවත තෝරන්න.'
+        }, { quoted: mek });
+    }
+
+    await sendListMenu(conn, from, {
+        title: '🎵 SONG DOWNLOAD',
+        buttonText: '📥 CHOOSE FORMAT',
+        footer: FOOTER,
+        sections: [{
+            title: '👇 CHOOSE YOUR OPTION BELOW',
+            rows: [
+                {
+                    id: `thenuva:songaudio:${videoId}`,
+                    title: '🎧 Download Audio',
+                    description: 'MP3 audio file එකක් ලෙස ලබාගන්න'
+                },
+                {
+                    id: `thenuva:songdoc:${videoId}`,
+                    title: '📁 Download Document',
+                    description: 'MP3 document file එකක් ලෙස ලබාගන්න'
+                }
+            ]
+        }]
+    }, mek);
+}
+
+async function downloadSelectedSong(conn, mek, from, videoId, type) {
+    const video = getVideo(videoId);
+
+    if (!video) {
+        return conn.sendMessage(from, {
+            text: '⌛ Song selection එක කල් ඉකුත් වෙලා. `.song සිංදුවේ නම` දාලා නැවත තෝරන්න.'
+        }, { quoted: mek });
+    }
+
+    const taskId = `${videoId}:${type}`;
+
+    if (activeDownloads.has(taskId)) {
+        return conn.sendMessage(from, {
+            text: '⏳ මේ file එක දැනටමත් සකස් කරනවා. ටිකක් ඉන්න.'
+        }, { quoted: mek });
+    }
+
+    activeDownloads.add(taskId);
+
+    try {
+        await conn.sendMessage(from, {
+            text: type === 'audio'
+                ? '🎧 *MP3 AUDIO එක සකස් කරනවා...* ⏳'
+                : '📁 *MP3 DOCUMENT එක සකස් කරනවා...* ⏳'
+        }, { quoted: mek });
+
+        const songData = await ytmp3(video.url, '192');
+        const downloadUrl = songData?.download?.url;
+
+        if (!downloadUrl) {
+            throw new Error('MP3 download URL not found in API response');
+        }
+
+        const fileName = `${cleanName(video.title)}.mp3`;
+
+        if (type === 'audio') {
+            await conn.sendMessage(from, {
+                audio: { url: downloadUrl },
+                mimetype: 'audio/mpeg',
+                fileName,
+                ptt: false
+            }, { quoted: mek });
+        } else {
+            await conn.sendMessage(from, {
+                document: { url: downloadUrl },
+                mimetype: 'audio/mpeg',
+                fileName,
+                caption:
+                    `📁 *${cleanName(video.title)}*\n\n` +
+                    '⚡ Downloaded by THENUVA X MD\n' +
+                    FOOTER
+            }, { quoted: mek });
+        }
+
+    } catch (error) {
+        console.error(`[SONG ${type.toUpperCase()} ERROR]`, error);
+
+        await conn.sendMessage(from, {
+            text:
+                `❌ ${type === 'audio' ? 'Audio' : 'Document'} file එක ලබාගන්න බැරි වුණා.\n` +
+                'ටික වේලාවකින් නැවත උත්සාහ කරන්න.'
+        }, { quoted: mek });
+
+    } finally {
+        activeDownloads.delete(taskId);
+    }
+}
+
+cmd({
+    pattern: 'song',
+    alias: ['play', 'music', 'ytmp3'],
+    react: '🎧',
+    desc: 'Search songs and download as audio or document',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, args, reply }) => {
+    const query = q || (args || []).join(' ');
+
+    if (!query) {
+        return reply(
+            '🎧 *THENUVA X MD SONG DOWNLOADER*\n\n' +
+            '🎵 භාවිතය: `.song song name`\n\n' +
+            'උදාහරණය: `.song Sanda Mithuri`'
+        );
+    }
+
+    await showSongResults(conn, mek, from, query);
+});
+
+cmd({
+    pattern: 'songpick',
+    desc: 'Choose a song from search results',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, args }) => {
+    const videoId = q || (args || [])[0];
+
+    if (!videoId || !validVideoId(videoId)) {
+        return conn.sendMessage(from, {
+            text: '❌ Invalid song selection.'
+        }, { quoted: mek });
+    }
+
+    await showDownloadOptions(conn, mek, from, videoId);
+});
+
+cmd({
+    pattern: 'songaudio',
+    desc: 'Download selected song as MP3 audio',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, args }) => {
+    const videoId = q || (args || [])[0];
+
+    if (!videoId || !validVideoId(videoId)) {
+        return conn.sendMessage(from, {
+            text: '❌ Invalid song selection.'
+        }, { quoted: mek });
+    }
+
+    await downloadSelectedSong(conn, mek, from, videoId, 'audio');
+});
+
+cmd({
+    pattern: 'songdoc',
+    desc: 'Download selected song as an MP3 document',
+    category: 'download',
+    filename: __filename
+}, async (conn, mek, m, { from, q, args }) => {
+    const videoId = q || (args || [])[0];
+
+    if (!videoId || !validVideoId(videoId)) {
+        return conn.sendMessage(from, {
+            text: '❌ Invalid song selection.'
+        }, { quoted: mek });
+    }
+
+    await downloadSelectedSong(conn, mek, from, videoId, 'document');
+});
