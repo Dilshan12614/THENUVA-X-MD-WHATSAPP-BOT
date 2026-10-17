@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { smd, prefix, Config, sleep } = require('../lib/functions');  // Import sleep from functions.js
 const { cmd, commands } = require('../command');
 const config = require('../config');
@@ -25,7 +26,7 @@ async (conn, mek, m, { from, reply, pushname }) => {
             }
         };
 
-        await conn.sendMessage(from, { 
+        await conn.sendMessage(from, {
             image: { url: 'https://i.ibb.co/nN7pHgH4/3f6f01847f5e.jpg' }, 
             caption: `👋 HELLOW...*${pushname || 'User'}* ❤️ Welcome to CYBER X THENULA`,
             contextInfo: botContext
@@ -81,11 +82,13 @@ async (conn, mek, m, { from, reply, pushname }) => {
         await conn.sendMessage(from, { text: "✨ *Successfully Sent Data and Connection Has Been Established!*" }, { quoted: mek });
         await sleep(1000);  // Sleep for 1 second
         
-        return await conn.sendMessage(from, { 
+        await conn.sendMessage(from, {
             image: { url: 'https://i.ibb.co/nN7pHgH4/3f6f01847f5e.jpg' }, 
             caption: '🎭 𝘓𝘖𝘎𝘚 = 𝘡𝘌𝘙𝙾 • 𝘞𝘌 𝘞𝘌𝘙𝘌 𝘕𝘌𝘝𝘌𝘙 𝘏𝘌𝘙𝘌... 🤫💨',
             contextInfo: botContext
         }, { quoted: mek });
+
+        await sendPluginButtons(conn, from, 'hack', mek);
 
     } catch (e) {
         console.error("Error sending message:", e);

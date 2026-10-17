@@ -1,57 +1,210 @@
-const config = require('../config')
-const { cmd, commands } = require('../command')
-const os = require("os")
-const { runtime } = require('../lib/functions')
+const { cmd } = require('../command');
+const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
+const os = require('os');
+const { runtime } = require('../lib/functions');
+const yts = require('yt-search');
+const { ytmp3 } = require('@vreden/youtube_scraper');
 
-cmd({
-    pattern: "alive",
-    react: "🟢",
-    desc: "Check bot online status",
-    category: "main",
-    filename: __filename
-},
-async(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
-try {
+const ALIVE_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-let aliveMessage = `🟢 *ALIVE NOW* 🟢
+// RU CHAYA style Sinhala DJ / Remix music searches
+const REMIX_SEARCHES = [
+    'RU CHAYA Sinhala DJ remix',
+    'RU CHAYA remix songs',
+    'RU CHAYA remix songs',
+    'RU CHAYA remix songs',
+    'RU CHAYA remix songs',
+    'Sinhala trending remix songs',
+    'Sinhala bass boosted remix'
+];
 
-👋 HELLOW...*${pushname || 'User'}* ❤️ I am ALIVE NOW CYBER X THENULA
+function durationToSeconds(timestamp) {
+    if (!timestamp || typeof timestamp !== 'string') {
+        return Infinity;
+    }
 
-✅ *CYBER THENULA X MD IS ONLINE* ✅
+    const parts = timestamp.split(':').map(Number);
 
-╭┈───────────────•* 
-│  ◦ 🕒 *Runtime* :  ${runtime(process.uptime())}
-│  ◦ ⚡ *Mode* :  *[${config.MODE}]*
-│  ◦ ⚙️ *Prefix* : *[${config.PREFIX}]*
-│  ◦ 🤖 *Name Bot* : *THENUWA XMD*
-│  ◦ 👤 *Creator* : *Thenula/Dilshan*
-│  ◦ 📌 *Version* : *ᴠ.2.0.0*
-╰┈───────────────•*
+    if (
+        parts.length < 2 ||
+        parts.length > 3 ||
+        parts.some(part => !Number.isFinite(part))
+    ) {
+        return Infinity;
+    }
 
-> © ⚡*POWERED by CYBER THENUWA*`;
-
-// Image එක සහ Newsletter Forwarding එක සමඟ සෙන්ඩ් කිරීම
-await conn.sendMessage(
-    from,
-    {
-        image: { url: `https://i.ibb.co/qPDNmSY/5cdec1f68264.jpg` },
-        caption: aliveMessage,
-        contextInfo: {
-            mentionedJid: [m.sender],
-            forwardingScore: 999,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363403804248705@newsletter',
-                newsletterName: 'THENUWA XMD',
-                serverMessageId: 143
-            }
-        }
-    },
-    { quoted: mek }
-);
-
-} catch (e) {
-    console.log(e);
-    reply(`${e}`);
+    return parts.reduce((total, part) => total * 60 + part, 0);
 }
-});
+
+// Send a random Sinhala remix audio
+async function sendRandomRemix(conn, from, mek) {
+    try {
+        const query =
+            REMIX_SEARCHES[
+                Math.floor(Math.random() * REMIX_SEARCHES.length)
+            ];
+
+        console.log(`[ALIVE MUSIC] Searching: ${query}`);
+
+        const search = await yts(query);
+
+        if (!search?.videos?.length) {
+            console.log('[ALIVE MUSIC] No songs found.');
+            return;
+        }
+
+        const candidates = search.videos
+            .slice(0, 10)
+            .filter(video => {
+                const seconds = durationToSeconds(video.timestamp);
+
+                return (
+                    video.url &&
+                    seconds > 0 &&
+                    seconds <= 1800
+                );
+            });
+
+        if (!candidates.length) {
+            console.log('[ALIVE MUSIC] No suitable remix found.');
+            return;
+        }
+
+        const video =
+            candidates[Math.floor(Math.random() * candidates.length)];
+
+        console.log(`[ALIVE MUSIC] Selected: ${video.title}`);
+
+        const songData = await ytmp3(video.url, '192');
+        const audioUrl = songData?.download?.url;
+
+        if (!audioUrl) {
+            console.log('[ALIVE MUSIC] MP3 URL unavailable.');
+            return;
+        }
+
+        // Send audio only — no thumbnail or separate document
+        await conn.sendMessage(
+            from,
+            {
+                audio: { url: audioUrl },
+                mimetype: 'audio/mpeg',
+                fileName: 'THENUVA-X-MD-RANDOM-REMIX.mp3',
+                ptt: false
+            },
+            { quoted: mek }
+        );
+
+        console.log(`[ALIVE MUSIC] Audio sent: ${video.title}`);
+
+    } catch (error) {
+        console.error(
+            '[ALIVE MUSIC ERROR]',
+            error.message || error
+        );
+    }
+}
+
+cmd(
+    {
+        pattern: 'alive',
+        alias: ['online', 'status'],
+        react: '🟢',
+        desc: 'Check bot status and play a random remix',
+        category: 'main',
+        filename: __filename
+    },
+
+    async (conn, mek, m, { from, pushName }) => {
+        try {
+            // USER INFORMATION
+            const userName =
+                pushName ||
+                m?.pushName ||
+                m?.pushname ||
+                m?.senderName ||
+                'User';
+
+            const prefix = config.PREFIX || '.';
+            const uptime = runtime(process.uptime());
+
+            // MEMORY USAGE
+            const usedMemory = (
+                process.memoryUsage().rss / 1024 / 1024
+            ).toFixed(2);
+
+            // ALIVE STATUS TEXT
+            const aliveText = `
+👋 HELLOW... *${userName}* ❤️
+*ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ ɪs ᴀʟɪᴠᴇ ɴᴏᴡ* 🎉
+
+╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
+│
+│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
+│ 👤 *ᴜsᴇʀ*    : ${userName}
+│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
+│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
+│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
+│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
+│
+╰──────────────●●►
+
+🔘 Select an option.
+            `.trim();
+
+            // SEND ALIVE MENU
+            await sendListMenu(
+                conn,
+                from,
+                {
+                    title: aliveText,
+                    buttonText: '🏻OPEN MENU',
+                    hideListButton: false,
+                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
+                    image: ALIVE_IMAGE,
+
+                    sections: [
+                        {
+                            title: '🤖 THENUVA X MD',
+                            rows: [
+                                {
+                                    id: `${prefix}ping`,
+                                    title: '🏓 Ping',
+                                    description: 'Check bot response speed'
+                                },
+                                {
+                                    id: `${prefix}menu`,
+                                    title: '📋 Main Menu',
+                                    description: 'Open complete bot menu'
+                                },
+                                {
+                                    id: `${prefix}about`,
+                                    title: 'ℹ️ About',
+                                    description: 'View bot information'
+                                }
+                            ]
+                        }
+                    ]
+                },
+                mek
+            );
+
+            // EVERY .alive CALL ATTEMPTS TO SEND A RANDOM REMIX
+            await sendRandomRemix(conn, from, mek);
+
+        } catch (error) {
+            console.error('[ALIVE ERROR]', error);
+
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `❌ *ALIVE ERROR*\n\n` +
+                        `⚠️ ${error.message || 'Unknown error'}`
+                },
+                { quoted: mek }
+            );
+        }
+    }
+);

@@ -11,46 +11,154 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: thenuva-x-md-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
-
+      # CHECKOUT REPOSITORY
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # NODE.JS
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
 
+      # SYSTEM DEPENDENCIES
+      - name: Install FFmpeg and ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick curl ca-certificates
+
+          echo "FFmpeg:"
+          ffmpeg -version | head -n 1
+
+          echo "FFprobe:"
+          ffprobe -version | head -n 1
+
+          echo "ImageMagick:"
+          magick -version | head -n 1 || convert -version | head -n 1
+
+      # NODE DEPENDENCIES
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Install FFmpeg & ImageMagick
+      # ENVIRONMENT CHECK
+      - name: Verify environment
         run: |
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo apt-get clean
-          sudo apt-get update -o Acquire::Retries=5
-          sudo apt-get install -y --fix-missing ffmpeg imagemagick
+          node --version
+          npm --version
 
+          if [ ! -f index.js ]; then
+            echo "ERROR: index.js not found"
+            exit 1
+          fi
+
+          if [ ! -d plugins ]; then
+            echo "ERROR: plugins directory not found"
+            exit 1
+          fi
+
+          echo "THENUVA X MD environment ready"
+
+      # CHECK SASA APK API CONNECTION
+      - name: Check SASA APK API connection
+        continue-on-error: true
+        run: |
+          echo "Checking SASA APK API HTTPS connection..."
+
+          curl -sS \
+            --connect-timeout 15 \
+            --max-time 30 \
+            -o /dev/null \
+            -w "HTTP status: %{http_code}\n" \
+            "https://sasa-dev-api.xyz/api/search/apk?mode=search_dl" \
+            || echo "SASA APK API connection check failed"
+
+      # CHECK SASA YOUTUBE MP3 API CONNECTION
+      - name: Check SASA YouTube MP3 API connection
+        continue-on-error: true
+        run: |
+          echo "Checking SASA YouTube MP3 API HTTPS connection..."
+
+          curl -sS \
+            --connect-timeout 15 \
+            --max-time 30 \
+            -o /dev/null \
+            -w "HTTP status: %{http_code}\n" \
+            "https://sasa-dev-api.xyz/api/yt/mp3-dl" \
+            || echo "SASA MP3 API connection check failed"
+
+      # SESSION CHECK
       - name: Check SESSION_ID
         env:
           SESSION_ID: ${{ secrets.SESSION_ID }}
         run: |
           if [ -z "$SESSION_ID" ]; then
-            echo "❌ SESSION_ID is missing"
+            echo "ERROR: SESSION_ID secret is missing"
             exit 1
           fi
-          echo "✅ SESSION_ID is set"
 
-      - name: Start application
+          echo "SESSION_ID is configured"
+
+      # SASA YOUTUBE MP4 API KEY CHECK
+      - name: Check SASA YouTube MP4 API key
         env:
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
+        run: |
+          if [ -z "$SASA_API_KEY" ]; then
+            echo "ERROR: SASA_API_KEY secret is missing"
+            echo "Add SASA_API_KEY in GitHub Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          echo "SASA_API_KEY is configured"
+
+      # START BOT
+      - name: Start THENUVA X MD
+        env:
+          # WHATSAPP SESSION
           SESSION_ID: ${{ secrets.SESSION_ID }}
-        run: node index.js
+
+          # GITHUB CONFIGURATION
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          GITHUB_WORKFLOW_FILE: main.yml
+          GITHUB_BRANCH: main
+
+          # DAVID CYRIL API
+          DAVIDCYRIL_API_KEY: ${{ secrets.DAVIDCYRIL_API_KEY }}
+
+          # SASA DEV APK API
+          SASA_DEV_API_KEY: ${{ secrets.SASA_DEV_API_KEY }}
+
+          # SASA DEV TTS API
+          SASA_TTS_API_KEY: ${{ secrets.SASA_TTS_API_KEY }}
+
+          # SASA DEV YOUTUBE MP3 API
+          SASA_YTMP3_API_KEY: ${{ secrets.SASA_YTMP3_API_KEY }}
+
+          # SASA DEV YOUTUBE MP4 API
+          SASA_YTMP4_API_KEY: ${{ secrets.SASA_YTMP4_API_KEY }}
+
+          # SASA VIDEO DOWNLOADER API
+          SASA_API_KEY: ${{ secrets.SASA_API_KEY }}
+
+          # APIFY YOUTUBE VIDEO DOWNLOADER
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+
+        run: |
+          echo "Starting THENUVA X MD..."
+          node index.js

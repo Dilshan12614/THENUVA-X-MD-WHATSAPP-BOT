@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd } = require('../command');
 
 cmd({
@@ -37,7 +38,7 @@ async (conn, mek, m, {
             return reply("❌ JID එක හොයාගන්න බැරි වුණා.");
         }
 
-        return conn.sendMessage(
+        await conn.sendMessage(
             from,
             {
                 image: { url: `https://i.ibb.co/qPDNmSY/5cdec1f68264.jpg` }, // ඔයාගේ Image URL එක මෙතනට දාන්න
@@ -77,6 +78,8 @@ async (conn, mek, m, {
                 quoted: mek
             }
         );
+
+        await sendPluginButtons(conn, from, 'jid', mek);
 
     } catch (error) {
         console.error("JID Plugin Error:", error);
