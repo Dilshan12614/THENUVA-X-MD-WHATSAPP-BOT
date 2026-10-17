@@ -1,133 +1,77 @@
 const { cmd } = require('../command');
 const { runtime } = require('../lib/functions');
 const config = require('../config');
+const { sendListMenu } = require('../lib/buttons');
 
 cmd({
     pattern: "uptime",
     alias: ["runtime", "up"],
-    desc: "Show bot uptime with stylish formats",
+    desc: "Check bot uptime",
     category: "main",
     react: "⏱️",
     filename: __filename
 },
-async (conn, mek, m, { from, reply }) => {
+async (conn, mek, m, { from, reply, pushname }) => {
     try {
         const uptime = runtime(process.uptime());
-        const startTime = new Date(Date.now() - process.uptime() * 1000);
-        
-        // Style 1: Classic Box
-        const style1 = `╭───『 UPTIME 』───⳹
-│
-│ ⏱️ ${uptime}
-│
-│ 🚀 Started: ${startTime.toLocaleString()}
-│
-╰────────────────⳹
-${config.DESCRIPTION}`;
+        const startTime = new Date(
+            Date.now() - process.uptime() * 1000
+        );
 
-        // Style 2: Minimalist
-        const style2 = `•——[ UPTIME ]——•
-  │
-  ├─ ⏳ ${uptime}
-  ├─ 🕒 Since: ${startTime.toLocaleTimeString()}
-  │
-  •——[ ${config.BOT_NAME} ]——•`;
+        const botName = config.BOT_NAME || "THENUVA X MD";
+        const ownerName = config.OWNER_NAME || "Dilshan Ashinsa";
 
-        // Style 3: Fancy Borders
-        const style3 = `▄▀▄▀▄ BOT UPTIME ▄▀▄▀▄
+        const caption = `
+╭━━〔 *ᴜᴘᴛɪᴍᴇ ᴘᴀɴᴇʟ* 〕━━╮
+┃
+┃ 👋 ʜᴇʟʟᴏ, ${pushname || 'User'}
+┃
+┃ ⏱️ *ʀᴜɴᴛɪᴍᴇ*
+┃ └─ ${uptime}
+┃
+┃ 🕒 *sᴛᴀʀᴛᴇᴅ ᴀᴛ*
+┃ └─ ${startTime.toLocaleString()}
+┃
+┃ 🤖 *ʙᴏᴛ*
+┃ └─ ${botName}
+┃
+┃ 🟢 *sᴛᴀᴛᴜs: ᴏɴʟɪɴᴇ*
+┃
+╰━━━━━━━━━━━━━━━━━━╯
 
-  ♢ Running: ${uptime}
-  ♢ Since: ${startTime.toLocaleDateString()}
-  
-  ${config.DESCRIPTION}`;
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${ownerName}`;
 
-        // Style 4: Code Style
-        const style4 = `┌──────────────────────┐
-│  ⚡ UPTIME STATUS ⚡  │
-├──────────────────────┤
-│ • Time: ${uptime}
-│ • Started: ${startTime.toLocaleString()}
-│ • Version: 4.0.0
-└──────────────────────┘`;
-
-        // Style 5: Modern Blocks
-        const style5 = `▰▰▰▰▰ UPTIME ▰▰▰▰▰
-
-  ⏳ ${uptime}
-  🕰️ ${startTime.toLocaleString()}
-  
-  ${config.DESCRIPTION}`;
-
-        // Style 6: Retro Terminal
-        const style6 = `╔══════════════════════╗
-║   ${config.BOT_NAME} UPTIME    ║
-╠══════════════════════╣
-║ > RUNTIME: ${uptime}
-║ > SINCE: ${startTime.toLocaleString()}
-╚══════════════════════╝`;
-
-        // Style 7: Elegant
-        const style7 = `┌───────────────┐
-│  ⏱️  UPTIME  │
-└───────────────┘
-│
-│ ${uptime}
-│
-│ Since ${startTime.toLocaleDateString()}
-│
-┌───────────────┐
-│  ${config.BOT_NAME}  │
-└───────────────┘`;
-
-        // Style 8: Social Media Style
-        const style8 = `⏱️ *Uptime Report* ⏱️
-
-🟢 Online for: ${uptime}
-📅 Since: ${startTime.toLocaleString()}
-
-${config.DESCRIPTION}`;
-
-        // Style 9: Fancy List
-        const style9 = `╔♫═⏱️═♫══════════╗
-   ${config.BOT_NAME} UPTIME
-╚♫═⏱️═♫══════════╝
-
-•・゜゜・* ✧  *・゜゜・•
- ✧ ${uptime}
- ✧ Since ${startTime.toLocaleDateString()}
-•・゜゜・* ✧  *・゜゜・•`;
-
-        // Style 10: Professional
-        const style10 = `┏━━━━━━━━━━━━━━━━━━┓
-┃  UPTIME ANALYSIS  ┃
-┗━━━━━━━━━━━━━━━━━━┛
-
-◈ Duration: ${uptime}
-◈ Start Time: ${startTime.toLocaleString()}
-◈ Stability: 100%
-◈ Version:  4.0.0
-
-${config.DESCRIPTION}`;
-
-        const styles = [style1, style2, style3, style4, style5, style6, style7, style8, style9, style10];
-        const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
-
-        await conn.sendMessage(from, { 
-            text: selectedStyle,
-            contextInfo: {
-                mentionedJid: [m.sender],
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363207624903731@newsletter',
-                    newsletterName: config.OWNER_NAME || '𝐓𝐎𝐇𝐈𝐃 𝐓𝐄𝐂𝐇 🤖',
-                    serverMessageId: 143
+        await sendListMenu(
+            conn,
+            from,
+            caption,
+            [
+                {
+                    title: "UPTIME OPTIONS",
+                    rows: [
+                        {
+                            title: "🔄 Refresh Uptime",
+                            rowId: ".uptime",
+                            description: "Check the latest bot uptime"
+                        },
+                        {
+                            title: "🏓 Ping Bot",
+                            rowId: ".ping",
+                            description: "Check bot response speed"
+                        },
+                        {
+                            title: "🏠 Main Menu",
+                            rowId: ".menu",
+                            description: "Open THENUVA X MD menu"
+                        }
+                    ]
                 }
-            }
-        }, { quoted: mek });
+            ],
+            mek
+        );
 
     } catch (e) {
-        console.error("Uptime Error:", e);
-        reply(`❌ Error: ${e.message}`);
+        console.error("[UPTIME ERROR]", e);
+        reply(`❌ Uptime Error: ${e.message}`);
     }
 });
