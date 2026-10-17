@@ -14,6 +14,7 @@ cmd({
 async (conn, mek, m, { from, reply, pushname }) => {
     try {
         const uptime = runtime(process.uptime());
+
         const startTime = new Date(
             Date.now() - process.uptime() * 1000
         );
@@ -41,11 +42,12 @@ async (conn, mek, m, { from, reply, pushname }) => {
 
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${ownerName}`;
 
-        await sendListMenu(
-            conn,
-            from,
-            caption,
-            [
+        await sendListMenu(conn, from, {
+            title: "⏱️ THENUVA X MD",
+            text: caption,
+            footer: "ᴘᴏᴡᴇʀᴇᴅ ʙʏ " + ownerName,
+            buttonText: "ᴏᴘᴇɴ ᴜᴘᴛɪᴍᴇ ᴍᴇɴᴜ",
+            sections: [
                 {
                     title: "UPTIME OPTIONS",
                     rows: [
@@ -62,16 +64,15 @@ async (conn, mek, m, { from, reply, pushname }) => {
                         {
                             title: "🏠 Main Menu",
                             rowId: ".menu",
-                            description: "Open THENUVA X MD menu"
+                            description: "Open the main menu"
                         }
                     ]
                 }
-            ],
-            mek
-        );
+            ]
+        }, mek);
 
     } catch (e) {
         console.error("[UPTIME ERROR]", e);
-        reply(`❌ Uptime Error: ${e.message}`);
+        await reply(`❌ Uptime Error: ${e.message}`);
     }
 });
