@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd } = require('../command'); // Ensure the path is correct
 const fetch = require('node-fetch');
 
@@ -12,6 +13,7 @@ cmd({
 },
 async (conn, mek, m, { from, reply, q, sender }) => {
     if (!q || !q.trim()) {
+        await sendPluginButtons(conn, from, 'calc', mek);
         return await reply("Please provide a mathematical expression to calculate!");
     }
     
@@ -38,6 +40,8 @@ async (conn, mek, m, { from, reply, q, sender }) => {
         
         await conn.sendMessage(from, { text: `Result: ${data.result}`, contextInfo: newsletterContext }, { quoted: mek });
         
+        await sendPluginButtons(conn, from, 'calc', mek);
+
     } catch (error) {
         console.error(error);
         reply('An error occurred while processing your request. Please try again later.');

@@ -41,9 +41,10 @@ const {
   const os = require('os')
   const Crypto = require('crypto')
   const path = require('path')
+  const { getCommandBody } = require('./lib/button-actions')
   const prefix = config.PREFIX
   
-  const ownerNumber = ['94783747285']
+  const ownerNumber = ['94772194789']
   
   const tempDir = path.join(os.tmpdir(), 'cache-temp')
   if (!fs.existsSync(tempDir)) {
@@ -94,6 +95,64 @@ const port = process.env.PORT || 8000;
           auth: state,
           version
           })
+
+// ===============================
+// THENUVA X MD - CHAT TRACKING
+// ===============================
+const chatDb = require('sqlite3').verbose();
+const chatDatabase = new chatDb.Database('./chats.db');
+
+chatDatabase.serialize(() => {
+    chatDatabase.run(`
+        CREATE TABLE IF NOT EXISTS broadcast_chats (
+            jid TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+    `);
+});
+
+conn.ev.on('messages.upsert', (event) => {
+    if (!event || !Array.isArray(event.messages)) return;
+
+    for (const message of event.messages) {
+        const jid = message?.key?.remoteJid;
+
+        if (!jid || message.key.fromMe) continue;
+        if (jid === 'status@broadcast') continue;
+        if (jid.endsWith('@broadcast')) continue;
+        if (jid.endsWith('@newsletter')) continue;
+
+        let type;
+
+        if (jid.endsWith('@g.us')) {
+            type = 'group';
+        } else if (
+            jid.endsWith('@s.whatsapp.net') ||
+            jid.endsWith('@lid')
+        ) {
+            type = 'private';
+        } else {
+            continue;
+        }
+
+        chatDatabase.run(
+            `INSERT INTO broadcast_chats (jid, type, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(jid) DO UPDATE SET
+                 type = excluded.type,
+                 updated_at = excluded.updated_at`,
+            [jid, type, Date.now()],
+            (error) => {
+                if (error) {
+                    console.error('[CHAT TRACKING]', error.message);
+                }
+            }
+        );
+    }
+});
+
+console.log('✅ Broadcast chat tracking enabled');
       
   conn.ev.on('connection.update', (update) => {
   const { connection, lastDisconnect } = update
@@ -172,7 +231,7 @@ const port = process.env.PORT || 8000;
   const content = JSON.stringify(mek.message)
   const from = mek.key.remoteJid
   const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
-  const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
+  const body = getCommandBody(mek.message, prefix)
   const isCmd = body.startsWith(prefix)
   var budy = typeof mek.text == 'string' ? mek.text : false;
   const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
@@ -297,7 +356,7 @@ if (!isReact && senderNumber === botNumber) {
   // take commands 
                  
   const events = require('./command')
-  const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
+  const cmdName = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : false;
   if (isCmd) {
   const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
   if (cmd) {
@@ -672,6 +731,8 @@ if (!isReact && senderNumber === botNumber) {
 
         throw error;
     }
+
+// Send buttons
 conn.sendButtonText = async (
     jid,
     buttons = [],
@@ -680,38 +741,25 @@ conn.sendButtonText = async (
     quoted = null,
     options = {}
 ) => {
-    try {
-        const message = {
-            text,
-            footer,
-            buttons,
-            headerType: 1,
-            ...options
-        };
+    const message = {
+        text,
+        footer,
+        buttons,
+        headerType: 1,
+        ...options
+    };
 
-        const sendOptions = {};
+    const sendOptions = {};
+    if (quoted) sendOptions.quoted = quoted;
 
-        if (quoted) {
-            sendOptions.quoted = quoted;
-        }
-
-        return await conn.sendMessage(
-            jid,
-            message,
-            sendOptions
-        );
-
-    } catch (error) {
-        console.error(
-            '❌ sendButtonText Error:',
-            error
-        );
-
-        throw error;
-    }
+    return await conn.sendMessage(
+        jid,
+        message,
+        sendOptions
+    );
 };
 
-//=====================================================
+// Send image with buttons
 conn.send5ButImg = async (
     jid,
     text = '',
@@ -721,17 +769,22 @@ conn.send5ButImg = async (
     thumb,
     options = {}
 ) => {
-    let message = await prepareWAMessageMedia(
-        { image: img, jpegThumbnail: thumb },
-        { upload: conn.waUploadToServer }
+    const media = await prepareWAMessageMedia(
+        {
+            image: img,
+            jpegThumbnail: thumb
+        },
+        {
+            upload: conn.waUploadToServer
+        }
     );
 
-    var template = generateWAMessageFromContent(
+    const template = generateWAMessageFromContent(
         jid,
         proto.Message.fromObject({
             templateMessage: {
                 hydratedTemplate: {
-                    imageMessage: message.imageMessage,
+                    imageMessage: media.imageMessage,
                     hydratedContentText: text,
                     hydratedFooterText: footer,
                     hydratedButtons: but
@@ -741,12 +794,17 @@ conn.send5ButImg = async (
         options
     );
 
-    conn.relayMessage(
+    return await conn.relayMessage(
         jid,
         template.message,
-        { messageId: template.key.id }
+        {
+            messageId: template.key.id
+        }
     );
-}
+};
+
+//=====================================================
+
           //========================================================================================================================================
       conn.sendMessage(jid, buttonMessage, { quoted, ...options })
     }
@@ -871,13 +929,17 @@ conn.send5ButImg = async (
             });
             return status;
         };
-    conn.serializeM = mek => sms(conn, mek, store);
-  
-  
-  app.get("/", (req, res) => {
-  res.send("DARK SHADOW MD STARTED ✅");
-  });
-  app.listen(port, () => console.log(`Server listening on port http://localhost:${port}`));
-  setTimeout(() => {
-  connectToWA()
-  }, 4000);
+     conn.serializeM = mek => sms(conn, mek, store);
+}
+
+app.get("/", (req, res) => {
+    res.send("THENUVA X MD STARTED ✅");
+});
+
+app.listen(port, () => {
+    console.log(`Server listening on port http://localhost:${port}`);
+});
+
+setTimeout(() => {
+    connectToWA();
+}, 4000);

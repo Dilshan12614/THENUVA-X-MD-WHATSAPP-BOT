@@ -1,3 +1,4 @@
+const { sendPluginButtons } = require('../lib/buttons');
 const { cmd, commands } = require("../command");
 const getFbVideoInfo = require("@xaviabot/fb-downloader");
 
@@ -17,6 +18,7 @@ cmd(
 
       // 1. ලින්ක් එක ලබා දී ඇත්දැයි සහ එය නිවැරදිදැයි පරීක්ෂා කිරීම
       if (!q) {
+        await sendPluginButtons(danuwa, from, 'fb', mek);
         return reply("⚠️ *කරුණාකර වලංගු Facebook වීඩියෝ ලින්ක් එකක් ඇතුළත් කරන්න!* \n_Example: .fb https://facebook.com..._");
       }
 
@@ -104,6 +106,8 @@ cmd(
         },
         { quoted: mek }
       );
+
+      await sendPluginButtons(danuwa, targetJid, 'fb', mek);
 
     } catch (error) {
       console.error("FB Downloader Error:", error);
