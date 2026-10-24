@@ -1,23 +1,32 @@
 const { cmd } = require('../command');
 const config = require('../config');
-const { sendListMenu } = require('../lib/buttons');
 const os = require('os');
 const { runtime } = require('../lib/functions');
 const yts = require('yt-search');
 const { ytmp3 } = require('@vreden/youtube_scraper');
 
+// ========================================
+// THENUVA X MD ALIVE CONFIG
+// ========================================
+
+const BOT_NAME = 'THENUVA X MD';
+const OWNER_NAME = 'Dilshan Ashinsa';
+const VERSION = 'v2.0.0';
+
 const ALIVE_IMAGE = 'https://i.ibb.co/LXTMV60v/0bade47afdf9.jpg';
 
-// RU CHAYA style Sinhala DJ / Remix music searches
+// Sinhala DJ / Remix searches
 const REMIX_SEARCHES = [
     'RU CHAYA Sinhala DJ remix',
     'RU CHAYA remix songs',
-    'RU CHAYA remix songs',
-    'RU CHAYA remix songs',
-    'RU CHAYA remix songs',
     'Sinhala trending remix songs',
-    'Sinhala bass boosted remix'
+    'Sinhala bass boosted remix',
+    'Sinhala DJ remix 2026'
 ];
+
+// ========================================
+// DURATION HELPER
+// ========================================
 
 function durationToSeconds(timestamp) {
     if (!timestamp || typeof timestamp !== 'string') {
@@ -34,10 +43,16 @@ function durationToSeconds(timestamp) {
         return Infinity;
     }
 
-    return parts.reduce((total, part) => total * 60 + part, 0);
+    return parts.reduce(
+        (total, part) => total * 60 + part,
+        0
+    );
 }
 
-// Send a random Sinhala remix audio
+// ========================================
+// SEND RANDOM REMIX AUDIO
+// ========================================
+
 async function sendRandomRemix(conn, from, mek) {
     try {
         const query =
@@ -72,7 +87,9 @@ async function sendRandomRemix(conn, from, mek) {
         }
 
         const video =
-            candidates[Math.floor(Math.random() * candidates.length)];
+            candidates[
+                Math.floor(Math.random() * candidates.length)
+            ];
 
         console.log(`[ALIVE MUSIC] Selected: ${video.title}`);
 
@@ -84,7 +101,6 @@ async function sendRandomRemix(conn, from, mek) {
             return;
         }
 
-        // Send audio only — no thumbnail or separate document
         await conn.sendMessage(
             from,
             {
@@ -101,10 +117,14 @@ async function sendRandomRemix(conn, from, mek) {
     } catch (error) {
         console.error(
             '[ALIVE MUSIC ERROR]',
-            error.message || error
+            error.stack || error.message
         );
     }
 }
+
+// ========================================
+// ALIVE COMMAND
+// ========================================
 
 cmd(
     {
@@ -116,95 +136,99 @@ cmd(
         filename: __filename
     },
 
-    async (conn, mek, m, { from, pushName }) => {
+    async (conn, mek, m, { from, pushname, reply }) => {
         try {
-            // USER INFORMATION
             const userName =
-                pushName ||
+                pushname ||
                 m?.pushName ||
                 m?.pushname ||
-                m?.senderName ||
                 'User';
 
             const prefix = config.PREFIX || '.';
+
             const uptime = runtime(process.uptime());
 
-            // MEMORY USAGE
             const usedMemory = (
                 process.memoryUsage().rss / 1024 / 1024
             ).toFixed(2);
 
-            // ALIVE STATUS TEXT
-            const aliveText = `
-👋 HELLOW... *${userName}* ❤️
-*ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ ɪs ᴀʟɪᴠᴇ ɴᴏᴡ* 🎉
+            const totalMemory = (
+                os.totalmem() / 1024 / 1024 / 1024
+            ).toFixed(2);
 
-╭──〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►
-│
-│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}
-│ 👤 *ᴜsᴇʀ*    : ${userName}
-│ 📁 *ʀᴀᴍ*     : ${usedMemory}MB
-│ ⚙️ *ʜᴏsᴛ*    : ${os.hostname()}
-│ 👨‍💻 *ᴏᴡɴᴇʀ*   : Dilshan Ashinsa
-│ 🧬 *ᴠᴇʀsɪᴏɴ* : v2.0.0
-│
-╰──────────────●●►
+            const aliveText = [
+                '╭━━〔 🤖 ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ 〕━━╮',
+                '',
+                `👋 Hello, *${userName}!* ❤️`,
+                '',
+                '╭─〔 *sᴛᴀᴛᴜs ᴘᴀɴᴇʟ* 〕──●●►',
+                '│',
+                '│ 🟢 *sᴛᴀᴛᴜs*  : ONLINE',
+                `│ ⏳ *ᴜᴘᴛɪᴍᴇ*  : ${uptime}`,
+                `│ 💾 *ʀᴀᴍ*     : ${usedMemory} MB`,
+                `│ 🖥️ *ᴛᴏᴛᴀʟ ʀᴀᴍ* : ${totalMemory} GB`,
+                `│ ⚙️ *ʜᴏsᴛ*     : ${os.hostname()}`,
+                `│ ⌨️ *ᴘʀᴇғɪx*   : ${prefix}`,
+                `│ 🧬 *ᴠᴇʀsɪᴏɴ*  : ${VERSION}`,
+                `│ 👑 *ᴏᴡɴᴇʀ*    : ${OWNER_NAME}`,
+                '│',
+                '╰─────────────────●●►',
+                '',
+                `✨ *${BOT_NAME} is running successfully!*`,
+                '',
+                '🎵 _Preparing a random Sinhala remix..._',
+                '',
+                '> ᴛʜᴇɴᴜᴠᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa'
+            ].join('\n');
 
-🔘 Select an option.
-            `.trim();
-
-            // SEND ALIVE MENU
-            await sendListMenu(
-                conn,
-                from,
-                {
-                    title: aliveText,
-                    buttonText: '🏻OPEN MENU',
-                    hideListButton: false,
-                    footer: 'ᴛʜᴇɴᴜᴡᴀ x ᴍᴅ • ᴘᴏᴡᴇʀᴇᴅ ʙʏ Dilshan Ashinsa',
-                    image: ALIVE_IMAGE,
-
-                    sections: [
+            // Send a normal message, with an image if available
+            if (ALIVE_IMAGE && /^https?:\/\//i.test(ALIVE_IMAGE)) {
+                try {
+                    await conn.sendMessage(
+                        from,
                         {
-                            title: '🤖 THENUVA X MD',
-                            rows: [
-                                {
-                                    id: `${prefix}ping`,
-                                    title: '🏓 Ping',
-                                    description: 'Check bot response speed'
-                                },
-                                {
-                                    id: `${prefix}menu`,
-                                    title: '📋 Main Menu',
-                                    description: 'Open complete bot menu'
-                                },
-                                {
-                                    id: `${prefix}about`,
-                                    title: 'ℹ️ About',
-                                    description: 'View bot information'
-                                }
-                            ]
-                        }
-                    ]
-                },
-                mek
-            );
+                            image: { url: ALIVE_IMAGE },
+                            caption: aliveText
+                        },
+                        { quoted: mek }
+                    );
+                } catch (imageError) {
+                    console.error(
+                        '[ALIVE IMAGE ERROR]',
+                        imageError.message
+                    );
 
-            // EVERY .alive CALL ATTEMPTS TO SEND A RANDOM REMIX
+                    await reply(aliveText);
+                }
+            } else {
+                await reply(aliveText);
+            }
+
+            // Send a random remix after the status message
             await sendRandomRemix(conn, from, mek);
 
         } catch (error) {
-            console.error('[ALIVE ERROR]', error);
-
-            await conn.sendMessage(
-                from,
-                {
-                    text:
-                        `❌ *ALIVE ERROR*\n\n` +
-                        `⚠️ ${error.message || 'Unknown error'}`
-                },
-                { quoted: mek }
+            console.error(
+                '[ALIVE ERROR]',
+                error.stack || error.message
             );
+
+            try {
+                await conn.sendMessage(
+                    from,
+                    {
+                        text:
+                            '❌ *ALIVE ERROR*\n\n' +
+                            `${error.message || 'Unknown error'}`
+                    },
+                    { quoted: mek }
+                );
+            } catch (sendError) {
+                console.error(
+                    '[ALIVE ERROR REPLY FAILED]',
+                    sendError.message
+                );
+            }
         }
     }
 );
